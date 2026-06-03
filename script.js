@@ -6,17 +6,19 @@ const callButton = document.querySelector("[data-call-modal]");
 const modal = document.querySelector("[data-modal]");
 const modalDialog = modal?.querySelector(".call-modal");
 const modalClose = document.querySelector("[data-modal-close]");
+const demoCallForm = document.querySelector("[data-demo-call-form]");
+const demoPhoneInput = document.querySelector("[data-demo-phone]");
+const demoCallSubmit = document.querySelector("[data-demo-call-submit]");
+const demoCallStatus = document.querySelector("[data-demo-call-status]");
 const voiceSelect = document.querySelector("#voice-select");
 const voiceStatus = document.querySelector("[data-voice-status]");
 const locationInput = document.querySelector("#location-name");
 const greetingTextarea = document.querySelector("#ai-greeting");
 const greetingHighlight = document.querySelector("[data-greeting-highlight]");
 
-const parseConfig = {
-  serverUrl: "https://parseapi.back4app.com",
-  appId: "Lhqr2zMgKrsgYmta7bt0ZnCWDh0zUpMqTxhzqNpK",
-  restApiKey: "4mVwc3vXOS5nryNPrgVHIuEyzA86j0FSw0FytNhv"
-};
+const demoApiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostname)
+  ? "http://127.0.0.1:8787"
+  : "https://obscure-taiga-94224-b609c8dc8cd4.herokuapp.com";
 
 let syncedLocationName = locationInput?.value.trim() || "your restaurant";
 
@@ -32,6 +34,7 @@ function closeModal() {
   if (!modal) return;
   modal.hidden = true;
   document.body.classList.remove("modal-open");
+  setDemoCallStatus("");
   callButton?.focus();
 }
 
@@ -39,13 +42,19 @@ function openModal() {
   if (!modal || !modalDialog) return;
   modal.hidden = false;
   document.body.classList.add("modal-open");
-  modalDialog.focus();
+  window.setTimeout(() => demoPhoneInput?.focus() || modalDialog.focus(), 0);
 }
 
 function setVoiceStatus(message, state = "neutral") {
   if (!voiceStatus) return;
   voiceStatus.textContent = message;
   voiceStatus.dataset.state = state;
+}
+
+function setDemoCallStatus(message, state = "neutral") {
+  if (!demoCallStatus) return;
+  demoCallStatus.textContent = message;
+  demoCallStatus.dataset.state = state;
 }
 
 function escapeHTML(value) {
@@ -119,27 +128,14 @@ function buildVoiceOption(record) {
 }
 
 async function fetchTavraVoices() {
-  const params = new URLSearchParams({
-    where: JSON.stringify({ isOnline: true }),
-    order: "sortOrder,friendlyName",
-    limit: "200",
-    keys: "objectId,friendlyName,description,voiceId,isOnline,sortOrder"
-  });
-
-  const response = await fetch(`${parseConfig.serverUrl}/classes/ElevenLabsVoices?${params}`, {
-    method: "GET",
-    headers: {
-      "X-Parse-Application-Id": parseConfig.appId,
-      "X-Parse-REST-API-Key": parseConfig.restApiKey
-    }
-  });
+  const response = await fetch(`${demoApiBaseUrl}/demo/voices`, { method: "GET" });
 
   if (!response.ok) {
     throw new Error(`Voice catalog request failed with ${response.status}`);
   }
 
   const payload = await response.json();
-  const results = Array.isArray(payload.results) ? payload.results : [];
+  const results = Array.isArray(payload.voices) ? payload.voices : [];
 
   return results
     .filter((record) => typeof record.friendlyName === "string" && record.friendlyName.trim())
@@ -177,6 +173,68 @@ async function populateVoiceSelect() {
 populateVoiceSelect();
 renderGreetingHighlight();
 
+function selectedVoicePayload() {
+  if (!voiceSelect || !voiceSelect.value) {
+    return {
+      voiceId: null,
+      voiceLabel: null
+    };
+  }
+
+  const selected = voiceSelect.selectedOptions[0];
+  return {
+    voiceId: voiceSelect.value,
+    voiceLabel: selected?.textContent?.trim() || null
+  };
+}
+
+async function submitDemoCall(event) {
+  event.preventDefault();
+
+  if (!demoPhoneInput || !locationInput || !greetingTextarea) return;
+
+  const phoneNumber = demoPhoneInput.value.trim();
+  const businessName = locationInput.value.trim();
+  const greeting = greetingTextarea.value.trim();
+  const voice = selectedVoicePayload();
+
+  if (!phoneNumber || !businessName || !greeting) {
+    setDemoCallStatus("Add a phone number first.", "error");
+    return;
+  }
+
+  demoCallSubmit?.setAttribute("disabled", "true");
+  setDemoCallStatus("Placing the demo call...", "loading");
+
+  try {
+    const response = await fetch(`${demoApiBaseUrl}/demo/voice/calls`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        phoneNumber,
+        businessName,
+        greeting,
+        voiceId: voice.voiceId,
+        voiceLabel: voice.voiceLabel
+      })
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || `Demo call request failed with ${response.status}`);
+    }
+
+    setDemoCallStatus("Call requested. Your phone should ring shortly.", "success");
+  } catch (error) {
+    console.error(error);
+    setDemoCallStatus("The demo call could not be placed. Try again shortly.", "error");
+  } finally {
+    demoCallSubmit?.removeAttribute("disabled");
+  }
+}
+
 locationInput?.addEventListener("input", syncGreetingToLocation);
 greetingTextarea?.addEventListener("input", renderGreetingHighlight);
 greetingTextarea?.addEventListener("scroll", () => {
@@ -206,6 +264,7 @@ document.querySelectorAll("a[href^='#']").forEach((link) => {
 
 callButton?.addEventListener("click", openModal);
 modalClose?.addEventListener("click", closeModal);
+demoCallForm?.addEventListener("submit", submitDemoCall);
 
 modal?.addEventListener("click", (event) => {
   if (event.target === modal) {

@@ -198,7 +198,7 @@
 
           <aside class="demo-aside" aria-label="Future demo note">
             <div class="starburst">
-              <span>Soon</span>
+              <span>Live</span>
               enter your number and Tavra calls you like a guest calling the restaurant.
             </div>
             <a class="button button-orange" href="#contact">Book a Demo</a>
@@ -401,13 +401,20 @@
       <section class="call-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-copy" tabindex="-1">
         <button class="modal-close" type="button" aria-label="Close test call modal" data-modal-close>×</button>
         <p class="eyebrow">Demo calling</p>
-        <h2 id="modal-title">Test call coming soon</h2>
-        <p id="modal-copy">Soon you'll enter your phone number here and Tavra will call you as if you had just called the restaurant.</p>
-        <label class="field disabled-field">
-          <span>Phone number</span>
-          <input type="tel" placeholder="Disabled for now" disabled>
-        </label>
-        <p class="modal-fineprint">Demo calling will connect to Tavra's backend and approved voice/provider configuration in a later build.</p>
+        <h2 id="modal-title">Test your Tavra AI</h2>
+        <p id="modal-copy">Enter your phone number and Tavra will call you as if you had just called the restaurant.</p>
+        <form class="call-form" data-demo-call-form>
+          <label class="field">
+            <span>Phone number</span>
+            <input type="tel" name="phoneNumber" inputmode="tel" autocomplete="tel" placeholder="(555) 555-1234" required data-demo-phone>
+          </label>
+          <button class="button button-call modal-call-button" type="submit" data-demo-call-submit>
+            <span aria-hidden="true">☎</span>
+            Call me
+          </button>
+        </form>
+        <p class="modal-status" data-demo-call-status role="status" aria-live="polite"></p>
+        <p class="modal-fineprint">Demo calling uses Tavra's backend, Twilio, and the selected Tavra voice configuration. No phone credentials are stored in this page.</p>
       </section>
     </div>
   </body>

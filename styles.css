@@ -1338,14 +1338,31 @@ textarea {
   font-weight: 700;
 }
 
-.disabled-field {
+.call-form {
+  display: grid;
+  gap: 18px;
   margin: 22px 0 14px;
 }
 
-.disabled-field input {
-  background: #e0ded4;
-  color: #77736a;
-  cursor: not-allowed;
+.modal-call-button {
+  width: fit-content;
+}
+
+.modal-status {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.modal-status[data-state="error"] {
+  color: #9f2a12;
+}
+
+.modal-status[data-state="success"] {
+  color: #205d35;
 }
 
 .modal-fineprint {
