@@ -7,10 +7,13 @@ const modal = document.querySelector("[data-modal]");
 const modalDialog = modal?.querySelector(".call-modal");
 const modalClose = document.querySelector("[data-modal-close]");
 const voiceSelect = document.querySelector("#voice-select");
+const voiceStatus = document.querySelector("[data-voice-status]");
 
-// Future: replace this hardcoded list with Tavra voices loaded from Parse/Back4App
-// once the public demo is connected to approved Tavra voice and call infrastructure.
-const placeholderVoices = ["Bella", "Marcus", "Sofia", "Nate"];
+const parseConfig = {
+  serverUrl: "https://parseapi.back4app.com",
+  appId: "Lhqr2zMgKrsgYmta7bt0ZnCWDh0zUpMqTxhzqNpK",
+  restApiKey: "4mVwc3vXOS5nryNPrgVHIuEyzA86j0FSw0FytNhv"
+};
 
 function setMobileNav(open) {
   if (!navToggle || !nav || !headerActions) return;
@@ -34,24 +37,91 @@ function openModal() {
   modalDialog.focus();
 }
 
-function seedPlaceholderVoices() {
-  if (!voiceSelect) return;
-  const current = Array.from(voiceSelect.options).map((option) => option.value);
-  const needsSeed = placeholderVoices.some((voice) => !current.includes(voice));
-
-  if (!needsSeed) return;
-
-  voiceSelect.replaceChildren(
-    ...placeholderVoices.map((voice) => {
-      const option = document.createElement("option");
-      option.value = voice;
-      option.textContent = voice;
-      return option;
-    })
-  );
+function setVoiceStatus(message, state = "neutral") {
+  if (!voiceStatus) return;
+  voiceStatus.textContent = message;
+  voiceStatus.dataset.state = state;
 }
 
-seedPlaceholderVoices();
+function voiceLabel(record) {
+  const description = typeof record.description === "string" ? record.description.trim() : "";
+  const friendlyName = typeof record.friendlyName === "string" ? record.friendlyName.trim() : "";
+  return description ? `${friendlyName} - ${description}` : friendlyName;
+}
+
+function buildVoiceOption(record) {
+  const option = document.createElement("option");
+  const voiceId = typeof record.voiceId === "string" ? record.voiceId.trim() : "";
+  const friendlyName = typeof record.friendlyName === "string" ? record.friendlyName.trim() : voiceId;
+
+  option.value = voiceId;
+  option.textContent = voiceLabel({ ...record, friendlyName }) || voiceId;
+  option.dataset.voiceId = voiceId;
+
+  if (record.objectId) {
+    option.dataset.objectId = record.objectId;
+  }
+
+  return option;
+}
+
+async function fetchTavraVoices() {
+  const params = new URLSearchParams({
+    where: JSON.stringify({ isOnline: true }),
+    order: "sortOrder,friendlyName",
+    limit: "200",
+    keys: "objectId,friendlyName,description,voiceId,isOnline,sortOrder"
+  });
+
+  const response = await fetch(`${parseConfig.serverUrl}/classes/ElevenLabsVoices?${params}`, {
+    method: "GET",
+    headers: {
+      "X-Parse-Application-Id": parseConfig.appId,
+      "X-Parse-REST-API-Key": parseConfig.restApiKey
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Parse voice catalog request failed with ${response.status}`);
+  }
+
+  const payload = await response.json();
+  const results = Array.isArray(payload.results) ? payload.results : [];
+
+  return results
+    .filter((record) => typeof record.friendlyName === "string" && record.friendlyName.trim())
+    .filter((record) => typeof record.voiceId === "string" && record.voiceId.trim());
+}
+
+async function populateVoiceSelect() {
+  if (!voiceSelect) return;
+
+  voiceSelect.disabled = true;
+  setVoiceStatus("Loading Tavra voice catalog...", "loading");
+
+  try {
+    const voices = await fetchTavraVoices();
+
+    if (voices.length === 0) {
+      throw new Error("No online Tavra voices were returned.");
+    }
+
+    voiceSelect.replaceChildren(...voices.map(buildVoiceOption));
+    voiceSelect.disabled = false;
+    setVoiceStatus(`${voices.length} live Tavra voices loaded from Parse.`, "ready");
+  } catch (error) {
+    console.error(error);
+    const option = document.createElement("option");
+    option.textContent = "Voice catalog unavailable";
+    option.value = "";
+
+    voiceSelect.replaceChildren(option);
+    voiceSelect.disabled = true;
+    setVoiceStatus("Voice catalog unavailable. Try again shortly.", "error");
+  }
+}
+
+populateVoiceSelect();
 
 if (navToggle) {
   navToggle.addEventListener("click", () => {

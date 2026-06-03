@@ -130,13 +130,11 @@
               <div class="builder-controls">
                 <label class="field">
                   <span>Voice</span>
-                  <!-- Future: load Tavra voice options from Parse/Back4App. Current values are static placeholders until Tavra voice infrastructure is connected. -->
+                  <!-- Loads online Tavra voice options from the ElevenLabsVoices Parse class. This uses Parse app/REST credentials only; no master key or ElevenLabs API key belongs in the static site. -->
                   <select id="voice-select" name="voice">
-                    <option>Bella</option>
-                    <option>Marcus</option>
-                    <option>Sofia</option>
-                    <option>Nate</option>
+                    <option>Loading Tavra voices...</option>
                   </select>
+                  <small class="field-note" data-voice-status>Connecting to Tavra voice catalog.</small>
                 </label>
 
                 <label class="field">
