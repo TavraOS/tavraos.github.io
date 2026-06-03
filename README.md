@@ -35,7 +35,7 @@ Current page structure:
 
 The demo builder is still a static scaffold for calling. It does not place calls, collect phone numbers, call ElevenLabs, call Twilio, run analytics, or make external provider requests.
 
-The voice dropdown reads online voice options from the `ElevenLabsVoices` Parse class in Back4App using the Tavra Parse app id and REST API key. Do not add a Parse master key, ElevenLabs API key, Twilio credential, or other secret to the static site.
+The voice dropdown reads online options from the Tavra voice catalog. Do not add master keys, ElevenLabs API keys, Twilio credentials, or other secrets to the static site.
 
 Logo assets copied into `assets/`:
 

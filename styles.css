@@ -600,6 +600,50 @@ textarea {
   resize: vertical;
 }
 
+.greeting-editor {
+  position: relative;
+  display: grid;
+}
+
+.greeting-editor textarea,
+.greeting-highlight {
+  grid-area: 1 / 1;
+  min-height: 120px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.greeting-editor textarea {
+  position: relative;
+  z-index: 2;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--ink);
+}
+
+.greeting-editor textarea::selection {
+  background: rgba(255, 111, 45, 0.34);
+  color: transparent;
+}
+
+.greeting-highlight {
+  z-index: 1;
+  overflow: hidden;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  color: var(--ink);
+  font-family: var(--body);
+  font-weight: 600;
+  padding: 12px;
+  pointer-events: none;
+}
+
+.greeting-highlight mark {
+  border-radius: 6px;
+  background: var(--yellow);
+  box-shadow: 0 0 0 2px var(--line);
+}
+
 .pill-group {
   display: flex;
   flex-wrap: wrap;

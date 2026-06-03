@@ -130,21 +130,23 @@
               <div class="builder-controls">
                 <label class="field">
                   <span>Voice</span>
-                  <!-- Loads online Tavra voice options from the ElevenLabsVoices Parse class. This uses Parse app/REST credentials only; no master key or ElevenLabs API key belongs in the static site. -->
                   <select id="voice-select" name="voice">
-                    <option>Loading Tavra voices...</option>
+                    <option>Loading voice options...</option>
                   </select>
-                  <small class="field-note" data-voice-status>Connecting to Tavra voice catalog.</small>
+                  <small class="field-note" data-voice-status>Loading voice options.</small>
                 </label>
 
                 <label class="field">
                   <span>Location name</span>
-                  <input type="text" name="location" value="Torch & Table" aria-label="Location name">
+                  <input id="location-name" type="text" name="location" value="Torch & Table" aria-label="Location name" autocomplete="organization">
                 </label>
 
                 <label class="field">
                   <span>AI phone greeting</span>
-                  <textarea name="greeting" rows="4">Thanks for calling Torch & Table. I can help with reservations, to-go order questions, hours, or route you to the team.</textarea>
+                  <span class="greeting-editor">
+                    <span class="greeting-highlight" aria-hidden="true" data-greeting-highlight></span>
+                    <textarea id="ai-greeting" name="greeting" rows="4">Thank you for calling Torch & Table. Would you like to place a to-go order, make a reservation, or something else?</textarea>
+                  </span>
                 </label>
 
                 <fieldset class="pill-group">
@@ -186,7 +188,6 @@
                   <p class="note-title">Staff-facing note</p>
                   <p>Guest wants tonight at 7:30. Patio preferred. Allergy note captured. Confirmation depends on restaurant settings.</p>
                 </div>
-                <!-- Future: this button will connect to Tavra's approved call/voice provider path after Parse/Back4App and phone infrastructure are wired. -->
                 <button class="button button-call" type="button" data-call-modal>
                   <span aria-hidden="true">☎</span>
                   Call

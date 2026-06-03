@@ -8,12 +8,17 @@ const modalDialog = modal?.querySelector(".call-modal");
 const modalClose = document.querySelector("[data-modal-close]");
 const voiceSelect = document.querySelector("#voice-select");
 const voiceStatus = document.querySelector("[data-voice-status]");
+const locationInput = document.querySelector("#location-name");
+const greetingTextarea = document.querySelector("#ai-greeting");
+const greetingHighlight = document.querySelector("[data-greeting-highlight]");
 
 const parseConfig = {
   serverUrl: "https://parseapi.back4app.com",
   appId: "Lhqr2zMgKrsgYmta7bt0ZnCWDh0zUpMqTxhzqNpK",
   restApiKey: "4mVwc3vXOS5nryNPrgVHIuEyzA86j0FSw0FytNhv"
 };
+
+let syncedLocationName = locationInput?.value.trim() || "your restaurant";
 
 function setMobileNav(open) {
   if (!navToggle || !nav || !headerActions) return;
@@ -41,6 +46,54 @@ function setVoiceStatus(message, state = "neutral") {
   if (!voiceStatus) return;
   voiceStatus.textContent = message;
   voiceStatus.dataset.state = state;
+}
+
+function escapeHTML(value) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function greetingTemplate(locationName) {
+  return `Thank you for calling ${locationName}. Would you like to place a to-go order, make a reservation, or something else?`;
+}
+
+function renderGreetingHighlight() {
+  if (!greetingTextarea || !greetingHighlight) return;
+
+  const greeting = greetingTextarea.value;
+  const locationName = locationInput?.value.trim() || "";
+
+  if (!locationName) {
+    greetingHighlight.innerHTML = escapeHTML(greeting);
+    return;
+  }
+
+  const pattern = new RegExp(escapeRegExp(locationName), "gi");
+  greetingHighlight.innerHTML = escapeHTML(greeting).replace(pattern, (match) => `<mark>${match}</mark>`);
+}
+
+function syncGreetingToLocation() {
+  if (!locationInput || !greetingTextarea) return;
+
+  const nextLocationName = locationInput.value.trim() || "your restaurant";
+  const previousPattern = syncedLocationName ? new RegExp(escapeRegExp(syncedLocationName), "g") : null;
+
+  if (previousPattern && previousPattern.test(greetingTextarea.value)) {
+    greetingTextarea.value = greetingTextarea.value.replace(previousPattern, nextLocationName);
+  } else {
+    greetingTextarea.value = greetingTemplate(nextLocationName);
+  }
+
+  syncedLocationName = nextLocationName;
+  renderGreetingHighlight();
 }
 
 function voiceLabel(record) {
@@ -82,7 +135,7 @@ async function fetchTavraVoices() {
   });
 
   if (!response.ok) {
-    throw new Error(`Parse voice catalog request failed with ${response.status}`);
+    throw new Error(`Voice catalog request failed with ${response.status}`);
   }
 
   const payload = await response.json();
@@ -97,7 +150,7 @@ async function populateVoiceSelect() {
   if (!voiceSelect) return;
 
   voiceSelect.disabled = true;
-  setVoiceStatus("Loading Tavra voice catalog...", "loading");
+  setVoiceStatus("Loading voice options.", "loading");
 
   try {
     const voices = await fetchTavraVoices();
@@ -108,20 +161,29 @@ async function populateVoiceSelect() {
 
     voiceSelect.replaceChildren(...voices.map(buildVoiceOption));
     voiceSelect.disabled = false;
-    setVoiceStatus(`${voices.length} live Tavra voices loaded from Parse.`, "ready");
+    setVoiceStatus("Voice options ready.", "ready");
   } catch (error) {
     console.error(error);
     const option = document.createElement("option");
-    option.textContent = "Voice catalog unavailable";
+    option.textContent = "Voice options unavailable";
     option.value = "";
 
     voiceSelect.replaceChildren(option);
     voiceSelect.disabled = true;
-    setVoiceStatus("Voice catalog unavailable. Try again shortly.", "error");
+    setVoiceStatus("Voice options unavailable. Try again shortly.", "error");
   }
 }
 
 populateVoiceSelect();
+renderGreetingHighlight();
+
+locationInput?.addEventListener("input", syncGreetingToLocation);
+greetingTextarea?.addEventListener("input", renderGreetingHighlight);
+greetingTextarea?.addEventListener("scroll", () => {
+  if (!greetingHighlight || !greetingTextarea) return;
+  greetingHighlight.scrollTop = greetingTextarea.scrollTop;
+  greetingHighlight.scrollLeft = greetingTextarea.scrollLeft;
+});
 
 if (navToggle) {
   navToggle.addEventListener("click", () => {
