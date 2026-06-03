@@ -5,25 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Tavra is an AI phone operations system for restaurants. It answers calls, captures reservations, handles order intent, routes calls, and keeps service moving."
+      content="Tavra is a 24/7 AI phone operations system for restaurants. It answers calls, captures reservations, handles order intent, routes calls, and keeps service moving."
     >
-    <meta name="theme-color" content="#102c2a">
-    <meta property="og:title" content="Tavra | AI phone operations for restaurants">
+    <meta name="theme-color" content="#171716">
+    <meta property="og:title" content="Tavra | 24/7 AI phone operations for restaurants">
     <meta
       property="og:description"
-      content="Tavra answers calls, captures reservations, handles order intent, and keeps service moving when your team is slammed."
+      content="Dinner rush brings unlimited calls, but your team has a limit. Tavra turns calls into reservations, orders, and clear next steps."
     >
     <meta property="og:type" content="website">
-    <meta property="og:image" content="assets/tavra-ops-hero.png">
     <title>Tavra | AI phone operations for restaurants</title>
-    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">
+    <link rel="icon" href="assets/Tavra05_glyph_black2.png" type="image/png">
     <link rel="stylesheet" href="styles.css">
     <script src="script.js" defer></script>
   </head>
   <body>
     <header class="site-header" data-header>
-      <a class="brand" href="#top" aria-label="Tavra home">
-        <span class="brand-mark" aria-hidden="true">T</span>
+      <a class="wordmark" href="#top" aria-label="Tavra home">
+        <span class="logo-tile">
+          <img src="assets/Tavra05_glyph_black2.png" alt="" width="44" height="44">
+        </span>
         <span>Tavra</span>
       </a>
 
@@ -35,166 +39,377 @@
 
       <nav class="site-nav" aria-label="Primary navigation" data-nav>
         <a href="#product">Product</a>
+        <a href="#demo">Demo</a>
         <a href="#reservations">Reservations</a>
-        <a href="#orders">Orders</a>
         <a href="#integrations">Integrations</a>
+        <a href="#pricing">Pricing</a>
         <a href="#contact">Contact</a>
       </nav>
+
+      <div class="header-actions">
+        <a class="nav-login" href="#demo" data-placeholder="true">Log In</a>
+        <a class="button button-small button-green" href="#contact">Sign Up</a>
+        <a class="button button-small button-orange" href="#contact">Book a Demo</a>
+      </div>
     </header>
 
     <main id="top">
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="hero-copy">
-          <p class="eyebrow">Restaurant phone operations</p>
-          <h1 id="hero-title">AI phone operations for restaurants</h1>
-          <p class="hero-lede">
-            Tavra answers calls, captures reservations, handles order intent, and keeps service moving when your team is slammed.
-          </p>
-          <div class="hero-actions" aria-label="Primary actions">
-            <a class="button button-primary" href="#contact">Book a Demo</a>
-            <a class="button button-secondary" href="#product">See How It Works</a>
+      <section class="hero snap-section" aria-labelledby="hero-title">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">Restaurant phone operations</p>
+            <h1 id="hero-title" aria-label="24/7 AI phone operations for restaurants">
+              <span>24/7 AI</span>
+              <span>phone</span>
+              <span>operations</span>
+              <span>for</span>
+              <span>restaurants</span>
+            </h1>
+            <p class="hero-lede">
+              Dinner rush brings unlimited calls, but your team has a limit. Meet Tavra, your
+              <mark>restaurant phone AI</mark> that answers calls, captures <mark>reservations</mark>,
+              handles <mark>order intent</mark>, and never gets buried in the weeds.
+            </p>
+            <div class="hero-actions">
+              <a class="button button-xl button-orange" href="#contact">Get Started</a>
+              <a class="try-link" href="#demo" data-scroll-target="demo">Try the AI <span aria-hidden="true">-&gt;</span></a>
+            </div>
+            <p class="rush-line"><span aria-hidden="true">☎</span> Designed for rush hour, after hours, and every call your team can't grab.</p>
           </div>
-          <dl class="hero-stats" aria-label="Tavra capabilities">
-            <div>
-              <dt>Calls</dt>
-              <dd>answered during rush</dd>
-            </div>
-            <div>
-              <dt>Demand</dt>
-              <dd>captured cleanly</dd>
-            </div>
-            <div>
-              <dt>Staff</dt>
-              <dd>notified when needed</dd>
-            </div>
-          </dl>
-        </div>
 
-        <figure class="hero-visual">
-          <img src="assets/tavra-ops-hero.png" alt="Tavra operations dashboard showing calls, reservations, order intent, routing, and staff notifications.">
-        </figure>
+          <div class="hero-art" aria-label="Tavra headset host mascot illustration">
+            <div class="signal-burst" aria-hidden="true"></div>
+            <svg class="host-sprite" viewBox="0 0 560 560" role="img" aria-labelledby="host-title host-desc">
+              <title id="host-title">Tavra Host mascot</title>
+              <desc id="host-desc">A playful headset-face character surrounded by phone signal rays, holding a reservation book.</desc>
+              <g class="ray-lines">
+                <path d="M282 52v58"/>
+                <path d="M407 88l-34 52"/>
+                <path d="M489 190l-60 22"/>
+                <path d="M72 190l60 22"/>
+                <path d="M154 88l34 52"/>
+              </g>
+              <path class="headset-arc" d="M143 295c0-103 55-176 139-176 83 0 138 73 138 176"/>
+              <rect class="ear left" x="107" y="262" width="74" height="110" rx="28"/>
+              <rect class="ear right" x="379" y="262" width="74" height="110" rx="28"/>
+              <circle class="face" cx="280" cy="300" r="128"/>
+              <circle class="eye" cx="238" cy="286" r="13"/>
+              <circle class="eye" cx="322" cy="286" r="13"/>
+              <path class="smile" d="M230 334c28 31 72 31 100 0"/>
+              <path class="mic" d="M392 340c45 8 65 30 65 57 0 18-11 33-27 40"/>
+              <circle class="mic-dot" cx="426" cy="436" r="16"/>
+              <path class="arm left-arm" d="M168 387c-47 16-75 45-82 87"/>
+              <path class="arm right-arm" d="M391 386c37 10 61 31 75 64"/>
+              <rect class="book" x="73" y="426" width="126" height="82" rx="12"/>
+              <path class="book-line" d="M98 455h76M98 479h58"/>
+              <path class="stand" d="M232 430h96l24 76H208z"/>
+            </svg>
+            <p class="art-caption">Calls become reservations, orders, and clear next steps.</p>
+          </div>
+        </div>
       </section>
 
-      <section class="section intro-band" id="product" aria-labelledby="product-title">
+      <section class="demo-section snap-section" id="demo" aria-labelledby="demo-title">
+        <div class="demo-heading">
+          <p class="eyebrow dark">Interactive scaffold</p>
+          <h2 id="demo-title">Build your Tavra AI</h2>
+          <p>Configure a pretend restaurant, then test the call flow when the live demo is connected.</p>
+        </div>
+
+        <div class="demo-layout">
+          <form class="demo-console" aria-label="Tavra AI demo builder">
+            <div class="console-top">
+              <div class="console-logo">
+                <img src="assets/Tavra05_glyph_white.png" alt="" width="34" height="34">
+                <span>Tavra Console</span>
+              </div>
+              <span class="console-light">offline demo</span>
+            </div>
+
+            <div class="builder-grid">
+              <div class="builder-controls">
+                <label class="field">
+                  <span>Voice</span>
+                  <!-- Future: load Tavra voice options from Parse/Back4App. Current values are static placeholders until Tavra voice infrastructure is connected. -->
+                  <select id="voice-select" name="voice">
+                    <option>Bella</option>
+                    <option>Marcus</option>
+                    <option>Sofia</option>
+                    <option>Nate</option>
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Location name</span>
+                  <input type="text" name="location" value="Torch & Table" aria-label="Location name">
+                </label>
+
+                <label class="field">
+                  <span>AI phone greeting</span>
+                  <textarea name="greeting" rows="4">Thanks for calling Torch & Table. I can help with reservations, to-go order questions, hours, or route you to the team.</textarea>
+                </label>
+
+                <fieldset class="pill-group">
+                  <legend>Workflow tabs</legend>
+                  <label><input type="radio" name="mode" checked> <span>Reservations</span></label>
+                  <label><input type="radio" name="mode"> <span>Orders</span></label>
+                  <label><input type="radio" name="mode"> <span>Added info</span></label>
+                </fieldset>
+
+                <div class="quick-buttons" aria-label="Add configuration items">
+                  <button type="button">+ Menu Item</button>
+                  <button type="button">+ FAQs</button>
+                  <button type="button">+ Amenities</button>
+                  <button type="button">+ Hours</button>
+                  <button type="button">+ Reservation Rules</button>
+                </div>
+
+                <div class="toggle-row" aria-label="Demo toggles">
+                  <label><input type="checkbox" checked> <span>Delivery</span></label>
+                  <label><input type="checkbox"> <span>SMS Updates</span></label>
+                  <label><input type="checkbox" checked> <span>Native Book</span></label>
+                </div>
+              </div>
+
+              <div class="preview-panel" aria-label="Demo preview">
+                <div class="preview-phone">
+                  <div class="phone-speaker"></div>
+                  <p class="phone-label">Incoming caller</p>
+                  <div class="waveform" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span><span></span>
+                  </div>
+                  <ul>
+                    <li><strong>Intent</strong><span>Reservation request</span></li>
+                    <li><strong>Party</strong><span>4 guests</span></li>
+                    <li><strong>Route</strong><span>Native Tavra Book</span></li>
+                  </ul>
+                </div>
+                <div class="preview-notes">
+                  <p class="note-title">Staff-facing note</p>
+                  <p>Guest wants tonight at 7:30. Patio preferred. Allergy note captured. Confirmation depends on restaurant settings.</p>
+                </div>
+                <!-- Future: this button will connect to Tavra's approved call/voice provider path after Parse/Back4App and phone infrastructure are wired. -->
+                <button class="button button-call" type="button" data-call-modal>
+                  <span aria-hidden="true">☎</span>
+                  Call
+                </button>
+              </div>
+            </div>
+          </form>
+
+          <aside class="demo-aside" aria-label="Future demo note">
+            <div class="starburst">
+              <span>Soon</span>
+              enter your number and Tavra calls you like a guest calling the restaurant.
+            </div>
+            <a class="button button-orange" href="#contact">Book a Demo</a>
+          </aside>
+        </div>
+
+        <div class="integration-bubbles" aria-label="Planned integration principles">
+          <span>Native Tavra Book</span>
+          <span>Approved adapters</span>
+          <span>Staff SMS</span>
+          <span>Call routing</span>
+          <span>Menu basics</span>
+        </div>
+      </section>
+
+      <section class="text-section snap-section" id="product" aria-labelledby="product-title">
+        <div class="two-column">
+          <div>
+            <p class="eyebrow">Voice + text</p>
+            <h2 id="product-title">Calls become workflows, not mystery voicemails.</h2>
+          </div>
+          <div class="big-copy">
+            <p>
+              Tavra listens for what the caller is trying to do, gathers the missing details, and gives the restaurant a clean next step. A reservation request, order question, hours check, staff transfer, or owner note should not all sound like the same ringing phone.
+            </p>
+            <a class="text-arrow" href="#features">See the workflow map -&gt;</a>
+          </div>
+        </div>
+        <div class="message-stack" aria-label="Example phone workflows">
+          <article><span>Guest</span> “Can we get a table for six around 8?”</article>
+          <article><span>Tavra</span> Captures party, time, name, callback, notes.</article>
+          <article><span>Staff</span> Gets a clear reservation workflow instead of another interruption.</article>
+        </div>
+      </section>
+
+      <section class="proof-band snap-section" id="reservations" aria-labelledby="proof-title">
         <div class="section-heading">
-          <p class="eyebrow">Product</p>
-          <h2 id="product-title">A calmer front door for phone demand.</h2>
-          <p>
-            Tavra helps restaurants capture phone-based demand and keep staff focused during service. The system listens for intent, asks the right follow-ups, and routes the conversation when a human should step in.
-          </p>
+          <p class="eyebrow">Built for restaurants</p>
+          <h2 id="proof-title">Built for the calls restaurants actually miss</h2>
+          <p>These are product capabilities, not invented customer statistics.</p>
+        </div>
+        <div class="metric-grid">
+          <article><strong>24/7</strong><span>coverage</span></article>
+          <article><strong>Multi</strong><span>callers at once</span></article>
+          <article><strong>Details</strong><span>captured for reservations</span></article>
+          <article><strong>Fewer</strong><span>staff interruptions</span></article>
+        </div>
+      </section>
+
+      <section class="feature-section snap-section" id="features" aria-labelledby="features-title">
+        <div class="section-heading wide">
+          <p class="eyebrow">Phone brain</p>
+          <h2 id="features-title">Next-generation phone operations without the chaos</h2>
         </div>
         <div class="feature-grid">
-          <article class="feature-card">
-            <span class="feature-icon" aria-hidden="true">01</span>
-            <h3>Answers the line</h3>
-            <p>Greets callers, understands common restaurant requests, and keeps the conversation moving without staff picking up every ring.</p>
+          <article>
+            <span class="icon">▤</span>
+            <h3>Reservation Capture</h3>
+            <p>Tavra gathers party size, date, time, guest name, callback number, notes, allergies, and special requests.</p>
           </article>
-          <article class="feature-card">
-            <span class="feature-icon" aria-hidden="true">02</span>
-            <h3>Collects the details</h3>
-            <p>Captures party size, dates, times, names, order intent, notes, and caller context in a structured way.</p>
+          <article>
+            <span class="icon">▣</span>
+            <h3>Native Reservation Book</h3>
+            <p>Run from Tavra's own reservation book when a restaurant is not on a third-party system.</p>
           </article>
-          <article class="feature-card">
-            <span class="feature-icon" aria-hidden="true">03</span>
-            <h3>Routes with judgment</h3>
-            <p>Escalates edge cases, special requests, and high-value moments so your team can focus where human attention matters.</p>
+          <article>
+            <span class="icon">☰</span>
+            <h3>Order Intent</h3>
+            <p>Capture to-go demand and guide callers into the right workflow.</p>
+          </article>
+          <article>
+            <span class="icon">↗</span>
+            <h3>Smart Routing</h3>
+            <p>Transfer urgent calls, staff-only questions, or edge cases when the AI should not handle them.</p>
+          </article>
+          <article>
+            <span class="icon">◉</span>
+            <h3>Staff Notifications</h3>
+            <p>Keep owners and managers informed without forcing them to listen to every voicemail.</p>
+          </article>
+          <article id="integrations">
+            <span class="icon">◇</span>
+            <h3>Integration-Ready</h3>
+            <p>Built around provider-safe adapters so Tavra can connect to approved restaurant systems over time.</p>
           </article>
         </div>
       </section>
 
-      <section class="section split-section" id="reservations" aria-labelledby="reservations-title">
-        <div class="section-heading compact">
-          <p class="eyebrow">Reservations</p>
-          <h2 id="reservations-title">Native Tavra reservations, without the phone pileup.</h2>
-          <p>
-            Where configured, Tavra books into the Native Tavra Reservation Book. It confirms the essentials, records notes, and gives owners and staff visibility into what came through the phone.
-          </p>
-        </div>
-        <div class="workflow-panel" aria-label="Reservation workflow">
-          <div class="workflow-row">
-            <span>Call intent</span>
-            <strong>Reservation request</strong>
+      <section class="workflow-section snap-section" aria-labelledby="workflow-title">
+        <div class="two-column">
+          <div>
+            <p class="eyebrow">Hundreds of workflows</p>
+            <h2 id="workflow-title">One phone brain for the messy restaurant edge cases.</h2>
           </div>
-          <div class="workflow-row">
-            <span>Party</span>
-            <strong>4 guests</strong>
-          </div>
-          <div class="workflow-row">
-            <span>Time</span>
-            <strong>Tonight, 7:30 PM</strong>
-          </div>
-          <div class="workflow-row confirmed">
-            <span>Status</span>
-            <strong>Confirmed in Tavra</strong>
-          </div>
+          <ul class="workflow-list">
+            <li><span>01</span> Planned reservation paths, including Tavra's Native Reservation Book.</li>
+            <li><span>02</span> Order-intent capture without pretending payment or POS connections are live.</li>
+            <li><span>03</span> Hours, holidays, amenities, parking, allergies, and private-event questions.</li>
+            <li><span>04</span> Owner and staff notifications when the call should not disappear.</li>
+            <li><span>05</span> Designed to connect through approved partner integrations when those paths are active.</li>
+          </ul>
         </div>
       </section>
 
-      <section class="section orders-section" id="orders" aria-labelledby="orders-title">
-        <div class="section-heading">
-          <p class="eyebrow">Orders</p>
-          <h2 id="orders-title">Catch to-go order intent before it slips away.</h2>
-          <p>
-            Tavra can identify order demand, gather the useful context, and route callers according to your operating setup. Staff get a clearer read on what the phone is trying to tell them.
-          </p>
+      <section class="agents-section snap-section" aria-labelledby="agents-title">
+        <div class="section-heading wide">
+          <p class="eyebrow">Tavra agents</p>
+          <h2 id="agents-title">Multiple workflows, one phone brain</h2>
+          <p>Exploratory mascot and workflow cards for the restaurant phone jobs Tavra handles.</p>
         </div>
-        <div class="order-lanes">
-          <div class="lane">
-            <span class="lane-label">Intent</span>
-            <p>Caller wants takeout for pickup.</p>
-          </div>
-          <div class="lane">
-            <span class="lane-label">Capture</span>
-            <p>Order notes, timing, and caller details are organized.</p>
-          </div>
-          <div class="lane">
-            <span class="lane-label">Action</span>
-            <p>Route, notify, or hand off based on restaurant rules.</p>
-          </div>
+        <div class="agent-grid">
+          <article class="agent-card">
+            <div class="mini-mascot host" aria-hidden="true"></div>
+            <h3>The Host</h3>
+            <p>Handles reservation details and special requests.</p>
+          </article>
+          <article class="agent-card">
+            <div class="mini-mascot ticket" aria-hidden="true"></div>
+            <h3>The Order Taker</h3>
+            <p>Captures order intent and menu questions.</p>
+          </article>
+          <article class="agent-card">
+            <div class="mini-mascot signal" aria-hidden="true"></div>
+            <h3>The Router</h3>
+            <p>Transfers the calls that need a human.</p>
+          </article>
+          <article class="agent-card">
+            <div class="mini-mascot note" aria-hidden="true"></div>
+            <h3>The Notetaker</h3>
+            <p>Turns messy calls into clear staff-facing notes.</p>
+          </article>
         </div>
-      </section>
-
-      <section class="section split-section integrations" id="integrations" aria-labelledby="integrations-title">
-        <div class="section-heading compact">
-          <p class="eyebrow">Integrations</p>
-          <h2 id="integrations-title">Built to fit the restaurant stack.</h2>
-          <p>
-            Tavra is designed to connect with restaurant systems through approved partner integrations. External reservation and ordering integrations are planned, but this site does not claim any third-party integration is currently live.
-          </p>
-        </div>
-        <div class="integration-list" aria-label="Integration principles">
-          <div>
-            <h3>Complementary</h3>
-            <p>Supports the systems restaurants already rely on.</p>
-          </div>
-          <div>
-            <h3>Approved paths</h3>
-            <p>Partner-friendly by design, with approved connection paths as systems come online.</p>
-          </div>
-          <div>
-            <h3>Operational first</h3>
-            <p>Focused on phone demand, staff notifications, and clean handoffs.</p>
-          </div>
+        <div class="mockup-row" aria-label="Mascot concept cards">
+          <article><strong>Tavra Host</strong><span>A friendly headset creature holding a reservation book.</span></article>
+          <article><strong>Tavra Signal</strong><span>A round phone-signal character surrounded by call rays.</span></article>
+          <article><strong>Tavra Runner</strong><span>A restaurant operations sprite carrying an order ticket.</span></article>
         </div>
       </section>
 
-      <section class="section contact-section" id="contact" aria-labelledby="contact-title">
-        <div class="contact-panel">
+      <section class="pricing-section snap-section" id="pricing" aria-labelledby="pricing-title">
+        <div class="pricing-card">
+          <p class="eyebrow">Pricing</p>
+          <h2 id="pricing-title">Simple pricing coming soon</h2>
+          <p>Tavra is currently preparing restaurant pilots. Pricing will be shaped around call volume, locations, and workflow needs.</p>
+          <ul>
+            <li>Reservation workflows</li>
+            <li>Order-intent capture</li>
+            <li>Staff notifications</li>
+            <li>Approved integration paths over time</li>
+          </ul>
+          <a class="button button-orange" href="#contact">Book a Demo</a>
+        </div>
+      </section>
+
+      <section class="onboarding-section snap-section" aria-labelledby="onboarding-title">
+        <div class="section-heading wide">
+          <p class="eyebrow">Go-live</p>
+          <h2 id="onboarding-title">Go live without turning service upside down</h2>
+        </div>
+        <div class="step-grid">
+          <article><span>1</span><p>Add restaurant details</p></article>
+          <article><span>2</span><p>Configure voice, hours, reservations, and menu basics</p></article>
+          <article><span>3</span><p>Forward calls or assign a Tavra number</p></article>
+          <article><span>4</span><p>Let Tavra handle the calls your team can't grab</p></article>
+        </div>
+      </section>
+
+      <section class="contact-section snap-section" id="contact" aria-labelledby="contact-title">
+        <div class="contact-card">
           <div>
-            <p class="eyebrow">Contact</p>
-            <h2 id="contact-title">Bring the phone under control.</h2>
-            <p>
-              For restaurant operators, groups, and partners evaluating Tavra for phone operations.
-            </p>
+            <p class="eyebrow dark">Contact</p>
+            <h2 id="contact-title">Put the phone on the line.</h2>
+            <p>Restaurant operators, groups, and partners can reach Tavra about pilots and approved integration conversations.</p>
           </div>
-          <a class="button button-primary" href="mailto:hello@tavraos.com?subject=Tavra%20demo%20request">Book a Demo</a>
+          <a class="button button-green" href="mailto:hello@tavraos.com?subject=Tavra%20demo%20request">Book a Demo</a>
         </div>
       </section>
     </main>
 
     <footer class="site-footer">
-      <p>&copy; <span data-year></span> TavraOS. AI phone operations for restaurants.</p>
-      <a href="#top">Back to top</a>
+      <div class="footer-brand">
+        <img src="assets/Tavra05_glyph_white.png" alt="" width="42" height="42">
+        <div>
+          <strong>Tavra</strong>
+          <p>AI phone operations for restaurants</p>
+        </div>
+      </div>
+      <nav aria-label="Footer navigation">
+        <a href="#product">Product</a>
+        <a href="#demo">Demo</a>
+        <a href="#reservations">Reservations</a>
+        <a href="#integrations">Integrations</a>
+        <a href="#contact">Contact</a>
+        <a href="#contact" data-placeholder="true">Privacy</a>
+      </nav>
+      <p>&copy; 2026 Tavra</p>
     </footer>
+
+    <div class="modal-backdrop" data-modal hidden>
+      <section class="call-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-copy" tabindex="-1">
+        <button class="modal-close" type="button" aria-label="Close test call modal" data-modal-close>×</button>
+        <p class="eyebrow">Demo calling</p>
+        <h2 id="modal-title">Test call coming soon</h2>
+        <p id="modal-copy">Soon you'll enter your phone number here and Tavra will call you as if you had just called the restaurant.</p>
+        <label class="field disabled-field">
+          <span>Phone number</span>
+          <input type="tel" placeholder="Disabled for now" disabled>
+        </label>
+        <p class="modal-fineprint">Demo calling will connect to Tavra's backend and approved voice/provider configuration in a later build.</p>
+      </section>
+    </div>
   </body>
 </html>

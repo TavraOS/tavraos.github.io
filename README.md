@@ -20,6 +20,30 @@ Edit the static files directly:
 
 The site is plain HTML, CSS, and JavaScript. It should work directly from GitHub Pages static hosting and does not require a React, Vite, Next, Heroku, backend, Parse Cloud Code, or iOS build pipeline.
 
+Current page structure:
+
+- Hero
+- Demo builder scaffold
+- Voice + text workflow section
+- Restaurant capability/proof band
+- Phone operations feature grid
+- Workflow list
+- Tavra agent/persona cards
+- Pricing placeholder
+- Onboarding/go-live section
+- Footer
+
+The demo builder is a static scaffold only. It does not place calls, collect phone numbers, call Parse/Back4App, call ElevenLabs, call Twilio, run analytics, or make external provider requests.
+
+Logo assets copied into `assets/`:
+
+- `assets/Tavra05_glyph_black2.png`
+- `assets/Tavra05_glyph_white.png`
+
+Source originals are in the iOS app asset catalog:
+
+`/Users/weshager/Desktop/Codejects/AIAnsweringService/AIAnsweringService/Assets.xcassets/`
+
 To preview locally:
 
 ```bash
@@ -45,7 +69,7 @@ Then commit and push:
 
 ```bash
 git add index.html styles.css script.js assets WEBSITE_DEPLOYMENT_CONTRACT.md README.md
-git commit -m "Initial TavraOS website"
+git commit -m "Overhaul TavraOS website with retro demo scaffold"
 git push origin main
 ```
 
