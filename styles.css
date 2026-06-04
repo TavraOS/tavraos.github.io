@@ -1097,6 +1097,127 @@ textarea {
   margin-bottom: 0;
 }
 
+.demo-menu-card,
+.call-progress-card {
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 12px;
+}
+
+.demo-menu-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.demo-menu-card-top .note-title {
+  margin-bottom: 0;
+}
+
+.demo-menu-card button,
+.demo-menu-expand {
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--yellow);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 9px;
+  box-shadow: 2px 2px 0 var(--line);
+  cursor: pointer;
+}
+
+.demo-menu-list {
+  display: grid;
+  max-height: 245px;
+  overflow: auto;
+  gap: 7px;
+  padding-right: 2px;
+}
+
+.demo-menu-list article,
+.demo-menu-helper {
+  display: grid;
+  gap: 2px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--cream-2);
+  padding: 9px;
+}
+
+.demo-menu-list strong,
+.demo-menu-helper strong {
+  font-family: var(--mono);
+  font-size: 0.88rem;
+}
+
+.demo-menu-list span,
+.demo-menu-helper span,
+.demo-menu-empty {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.demo-menu-empty {
+  margin: 0;
+}
+
+.demo-menu-expand {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.call-progress-card[hidden] {
+  display: none;
+}
+
+.call-progress-card ol {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.call-progress-card li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+
+.call-progress-card li span {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--green);
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.call-progress-card p {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.preview-panel[data-active-workflow="addedInfo"] .phone-label {
+  color: var(--yellow);
+}
+
+.preview-panel[data-active-workflow="reservations"] .phone-label {
+  color: #9ccfff;
+}
+
 .button-call {
   width: 100%;
   min-height: 66px;

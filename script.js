@@ -28,6 +28,17 @@ const previewMeter = document.querySelector("[data-preview-meter]");
 const locationInput = document.querySelector("#location-name");
 const greetingTextarea = document.querySelector("#ai-greeting");
 const greetingHighlight = document.querySelector("[data-greeting-highlight]");
+const workflowToggles = Array.from(document.querySelectorAll("[data-workflow-toggle]"));
+const sessionToggles = Array.from(document.querySelectorAll("[data-session-toggle]"));
+const consolePreview = document.querySelector("[data-console-preview]");
+const previewStatus = document.querySelector("[data-preview-status]");
+const previewRows = document.querySelector("[data-preview-rows]");
+const previewNoteTitle = document.querySelector("[data-preview-note-title]");
+const previewNote = document.querySelector("[data-preview-note]");
+const demoMenuList = document.querySelector("[data-demo-menu-list]");
+const demoMenuRefresh = document.querySelector("[data-menu-refresh]");
+const demoMenuExpand = document.querySelector("[data-menu-expand]");
+const callProgress = document.querySelector("[data-call-progress]");
 
 const productionDemoApiHost = String.fromCharCode(
   111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
@@ -48,7 +59,48 @@ let previewAudio = null;
 let previewRevealTimer = null;
 let previewStopTimer = null;
 let previewRequest = null;
+let demoMenuRecords = [];
+let demoMenuLoadState = "idle";
+let demoMenuExpanded = false;
+let activeWorkflow = "orders";
+let activeDemoCall = null;
 const previewAudioUrls = new Map();
+
+const workflowPreviewContent = {
+  orders: {
+    status: "Ordering workflow",
+    rows: [
+      ["Workflow", "To-go order"],
+      ["Payment", "Configured checkout"],
+      ["Output", "Kitchen ticket"]
+    ],
+    title: "Demo menu",
+    note:
+      "Use the configured demo menu below when you place the call. Tavra will handle menu questions, modifiers, order readback, checkout simulation, and the submitted order record."
+  },
+  addedInfo: {
+    status: "Custom answers",
+    rows: [
+      ["Questions", "Hours, events, parking"],
+      ["Sources", "Configured demo info"],
+      ["Output", "Specific answers"]
+    ],
+    title: "Try asking",
+    note:
+      "Ask about hours, directions, wait times, private events, gift cards, jobs, live music, or other configured business questions."
+  },
+  reservations: {
+    status: "Reservation workflow",
+    rows: [
+      ["Workflow", "Native Tavra Book"],
+      ["Rules", "Demo account settings"],
+      ["Output", "Reservation record"]
+    ],
+    title: "Reservation mode",
+    note:
+      "Tavra uses the demo restaurant's reservation rules for this call. You can ask for a table, change time details, or test special requests."
+  }
+};
 
 function setMobileNav(open) {
   if (!navToggle || !nav || !headerActions) return;
@@ -69,6 +121,7 @@ function closeModal() {
 function openModal() {
   if (!modal || !modalDialog) return;
   ensureVoiceOptionsLoaded();
+  ensureDemoMenuLoaded();
   modal.hidden = false;
   document.body.classList.add("modal-open");
   window.setTimeout(() => demoPhoneInput?.focus() || modalDialog.focus(), 0);
@@ -123,6 +176,178 @@ function renderGreetingHighlight() {
     escapeHTML(greeting.slice(end))
   ].join("");
   greetingHighlight.innerHTML = html;
+}
+
+function enabledWorkflowKeys() {
+  return workflowToggles.filter((toggle) => toggle.checked).map((toggle) => toggle.dataset.workflow).filter(Boolean);
+}
+
+function workflowConfigPayload() {
+  return {
+    orders: workflowToggles.some((toggle) => toggle.dataset.workflow === "orders" && toggle.checked),
+    addedInfo: workflowToggles.some((toggle) => toggle.dataset.workflow === "addedInfo" && toggle.checked),
+    reservations: workflowToggles.some((toggle) => toggle.dataset.workflow === "reservations" && toggle.checked)
+  };
+}
+
+function demoTogglePayload() {
+  return sessionToggles.reduce((payload, toggle) => {
+    const key = toggle.dataset.sessionToggle;
+    if (key) {
+      payload[key] = toggle.checked;
+    }
+    return payload;
+  }, {});
+}
+
+function setPreviewRows(rows) {
+  if (!previewRows) return;
+
+  previewRows.replaceChildren(
+    ...rows.map(([label, value]) => {
+      const item = document.createElement("li");
+      const strong = document.createElement("strong");
+      const span = document.createElement("span");
+      strong.textContent = label;
+      span.textContent = value;
+      item.append(strong, span);
+      return item;
+    })
+  );
+}
+
+function renderWorkflowPreview() {
+  const enabledKeys = enabledWorkflowKeys();
+  if (!enabledKeys.includes(activeWorkflow)) {
+    activeWorkflow = enabledKeys[0] || "orders";
+  }
+
+  const content = workflowPreviewContent[activeWorkflow] || workflowPreviewContent.orders;
+  consolePreview?.setAttribute("data-active-workflow", activeWorkflow);
+  if (previewStatus) {
+    previewStatus.textContent = activeDemoCall ? "Call requested" : content.status;
+  }
+  setPreviewRows(
+    activeDemoCall
+      ? [
+          ["Status", "Phone ringing soon"],
+          ["Session", activeDemoCall.sessionId ? activeDemoCall.sessionId.slice(0, 8) : "Requested"],
+          ["Workflow", enabledKeys.length ? enabledKeys.map(workflowLabel).join(", ") : "None"]
+        ]
+      : content.rows
+  );
+  if (previewNoteTitle) previewNoteTitle.textContent = activeDemoCall ? "Live console" : content.title;
+  if (previewNote) {
+    previewNote.textContent = activeDemoCall
+      ? "The call has been placed. In the next UI pass this panel can stream transcript snippets, order state, reservation fields, and staff-facing notes as they happen."
+      : content.note;
+  }
+  if (callProgress) {
+    callProgress.hidden = !activeDemoCall;
+  }
+  renderDemoMenu();
+}
+
+function workflowLabel(key) {
+  if (key === "addedInfo") return "Added info";
+  return key ? `${key.charAt(0).toUpperCase()}${key.slice(1)}` : "";
+}
+
+function formatPrice(cents) {
+  return typeof cents === "number" && Number.isFinite(cents) ? `$${(cents / 100).toFixed(2)}` : "";
+}
+
+function menuRecordSubtitle(item) {
+  const parts = [item.category, formatPrice(item.priceCents)].filter(Boolean);
+  return parts.join(" · ") || "Configured menu item";
+}
+
+function renderDemoMenu() {
+  if (!demoMenuList) return;
+
+  if (activeWorkflow !== "orders") {
+    demoMenuList.innerHTML = "";
+    const helper = document.createElement("div");
+    helper.className = "demo-menu-helper";
+    if (activeWorkflow === "addedInfo") {
+      helper.innerHTML = `
+        <strong>Custom answer categories</strong>
+        <span>Hours · Directions · Wait times · Allergies · Large parties · Private events · Catering · Gift cards · Loyalty · Lost and found · Complaints · Jobs · Events</span>
+      `;
+    } else {
+      helper.innerHTML = `
+        <strong>Reservation test prompts</strong>
+        <span>Try: "I need a table for four tonight" or "Can I make a reservation for tomorrow at 7?"</span>
+      `;
+    }
+    demoMenuList.append(helper);
+    if (demoMenuExpand) demoMenuExpand.hidden = true;
+    return;
+  }
+
+  if (demoMenuLoadState === "idle") {
+    demoMenuList.innerHTML = `<p class="demo-menu-empty">Open the demo or tap Load menu to see configured items.</p>`;
+    if (demoMenuExpand) demoMenuExpand.hidden = true;
+    return;
+  }
+
+  if (demoMenuLoadState === "loading") {
+    demoMenuList.innerHTML = `<p class="demo-menu-empty">Loading configured demo menu...</p>`;
+    if (demoMenuExpand) demoMenuExpand.hidden = true;
+    return;
+  }
+
+  if (demoMenuLoadState === "error") {
+    demoMenuList.innerHTML = `<p class="demo-menu-empty">Menu preview unavailable. You can still place a demo call.</p>`;
+    if (demoMenuExpand) demoMenuExpand.hidden = true;
+    return;
+  }
+
+  const visibleItems = demoMenuRecords.slice(0, demoMenuExpanded ? 18 : 6);
+  demoMenuList.replaceChildren(
+    ...visibleItems.map((item) => {
+      const row = document.createElement("article");
+      const name = document.createElement("strong");
+      const meta = document.createElement("span");
+      name.textContent = item.name;
+      meta.textContent = menuRecordSubtitle(item);
+      row.append(name, meta);
+      return row;
+    })
+  );
+
+  if (demoMenuExpand) {
+    demoMenuExpand.hidden = demoMenuRecords.length <= 6;
+    demoMenuExpand.textContent = demoMenuExpanded ? "Show fewer items" : `View ${Math.min(18, demoMenuRecords.length)} menu items`;
+  }
+}
+
+async function ensureDemoMenuLoaded() {
+  if (demoMenuLoadState === "ready" || demoMenuLoadState === "loading") return;
+
+  demoMenuLoadState = "loading";
+  renderDemoMenu();
+
+  try {
+    const response = await fetch(`${demoApiBaseUrl}/demo/menu`, { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Demo menu request failed with ${response.status}`);
+    }
+    const payload = await response.json();
+    const items = Array.isArray(payload.items) ? payload.items : [];
+    demoMenuRecords = items
+      .filter((item) => item && typeof item.name === "string" && item.name.trim())
+      .map((item) => ({
+        name: item.name.trim(),
+        category: typeof item.category === "string" && item.category.trim() ? item.category.trim() : null,
+        priceCents: typeof item.priceCents === "number" ? item.priceCents : null
+      }));
+    demoMenuLoadState = demoMenuRecords.length > 0 ? "ready" : "error";
+  } catch {
+    demoMenuLoadState = "error";
+  }
+
+  renderDemoMenu();
 }
 
 function syncGreetingToLocation() {
@@ -581,6 +806,7 @@ setVoicePlaceholder("Voice options load on interaction");
 setSelectedVoiceSummary(null);
 renderVoiceMenu();
 renderGreetingHighlight();
+renderWorkflowPreview();
 
 function phoneDigits(value) {
   return value.replace(/\D/g, "");
@@ -653,7 +879,10 @@ async function submitDemoCall(event) {
   demoCallSubmit?.setAttribute("disabled", "true");
   setDemoCallStatus("Preparing the demo call...", "loading");
   await ensureVoiceOptionsLoaded();
+  await ensureDemoMenuLoaded();
   const voice = selectedVoicePayload();
+  const workflowConfig = workflowConfigPayload();
+  const demoToggles = demoTogglePayload();
 
   setDemoCallStatus("Placing the demo call...", "loading");
 
@@ -666,7 +895,9 @@ async function submitDemoCall(event) {
         businessName,
         greeting,
         voiceId: voice.voiceId,
-        voiceLabel: voice.voiceLabel
+        voiceLabel: voice.voiceLabel,
+        workflowConfig,
+        demoToggles
       })
     });
     const payload = await response.json().catch(() => ({}));
@@ -675,7 +906,14 @@ async function submitDemoCall(event) {
       throw new Error(payload.error || `Demo call request failed with ${response.status}`);
     }
 
+    activeDemoCall = {
+      sessionId: typeof payload.sessionId === "string" ? payload.sessionId : null,
+      callSid: typeof payload.callSid === "string" ? payload.callSid : null,
+      workflowConfig
+    };
+    renderWorkflowPreview();
     setDemoCallStatus("Call requested. Your phone should ring shortly.", "success");
+    closeModal();
   } catch {
     setDemoCallStatus("The demo call could not be placed. Try again shortly.", "error");
   } finally {
@@ -697,6 +935,7 @@ voiceTrigger?.addEventListener("click", async () => {
 voiceTrigger?.addEventListener("focus", ensureVoiceOptionsLoaded);
 document.querySelectorAll("a[href='#demo'], [data-scroll-target='demo']").forEach((link) => {
   link.addEventListener("click", ensureVoiceOptionsLoaded);
+  link.addEventListener("click", ensureDemoMenuLoaded);
 });
 voiceSearch?.addEventListener("input", renderVoiceMenu);
 voiceFilterButtons.forEach((button) => {
@@ -704,6 +943,34 @@ voiceFilterButtons.forEach((button) => {
     activeVoiceFilter = button.dataset.voiceFilter || "all";
     renderVoiceMenu();
   });
+});
+workflowToggles.forEach((toggle) => {
+  toggle.addEventListener("change", () => {
+    if (enabledWorkflowKeys().length === 0) {
+      toggle.checked = true;
+    }
+    activeWorkflow = toggle.dataset.workflow || activeWorkflow;
+    activeDemoCall = null;
+    renderWorkflowPreview();
+    if (activeWorkflow === "orders") {
+      ensureDemoMenuLoaded();
+    }
+  });
+  toggle.addEventListener("focus", () => {
+    activeWorkflow = toggle.dataset.workflow || activeWorkflow;
+    renderWorkflowPreview();
+  });
+});
+sessionToggles.forEach((toggle) => {
+  toggle.addEventListener("change", () => {
+    activeDemoCall = null;
+    renderWorkflowPreview();
+  });
+});
+demoMenuRefresh?.addEventListener("click", ensureDemoMenuLoaded);
+demoMenuExpand?.addEventListener("click", () => {
+  demoMenuExpanded = !demoMenuExpanded;
+  renderDemoMenu();
 });
 voicePreviewPopover?.addEventListener("mouseenter", clearVoicePreviewStopTimer);
 voicePreviewPopover?.addEventListener("mouseleave", scheduleVoicePreviewStop);

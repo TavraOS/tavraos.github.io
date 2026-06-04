@@ -37,7 +37,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">
     <link rel="icon" href="assets/Tavra05_glyph_black2.png" type="image/png">
     <link rel="stylesheet" href="styles.css">
-    <script src="script.js?v=interaction-gated-demo-v1" defer></script>
+    <script src="script.js?v=demo-console-workflows-v1" defer></script>
   </head>
   <body>
     <header class="site-header" data-header>
@@ -195,11 +195,20 @@
                   </span>
                 </label>
 
-                <fieldset class="pill-group">
+                <fieldset class="pill-group workflow-toggles" data-workflow-controls>
                   <legend>Workflow tabs</legend>
-                  <label><input type="radio" name="mode" checked> <span>Orders</span></label>
-                  <label><input type="radio" name="mode"> <span>Added info</span></label>
-                  <label><input type="radio" name="mode"> <span>Reservations</span></label>
+                  <label>
+                    <input type="checkbox" name="workflow-orders" value="orders" checked data-workflow-toggle data-workflow="orders">
+                    <span>Orders</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="workflow-added-info" value="addedInfo" checked data-workflow-toggle data-workflow="addedInfo">
+                    <span>Added info</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" name="workflow-reservations" value="reservations" checked data-workflow-toggle data-workflow="reservations">
+                    <span>Reservations</span>
+                  </label>
                 </fieldset>
 
                 <div class="quick-buttons" aria-label="Add configuration items">
@@ -211,28 +220,46 @@
                 </div>
 
                 <div class="toggle-row" aria-label="Demo toggles">
-                  <label><input type="checkbox" checked> <span>Delivery</span></label>
-                  <label><input type="checkbox"> <span>SMS Updates</span></label>
-                  <label><input type="checkbox" checked> <span>Native Book</span></label>
+                  <label><input type="checkbox" checked data-session-toggle="delivery"> <span>Delivery</span></label>
+                  <label><input type="checkbox" data-session-toggle="smsUpdates"> <span>SMS Updates</span></label>
+                  <label><input type="checkbox" checked data-session-toggle="nativeBook"> <span>Native Book</span></label>
                 </div>
               </div>
 
-              <div class="preview-panel" aria-label="Demo preview">
+              <div class="preview-panel" aria-label="Demo preview" data-console-preview data-active-workflow="orders">
                 <div class="preview-phone">
                   <div class="phone-speaker"></div>
-                  <p class="phone-label">Incoming caller</p>
+                  <p class="phone-label" data-preview-status>Ready for caller</p>
                   <div class="waveform" aria-hidden="true">
                     <span></span><span></span><span></span><span></span><span></span><span></span>
                   </div>
-                  <ul>
+                  <ul data-preview-rows>
                     <li><strong>Workflow</strong><span>To-go order</span></li>
                     <li><strong>Payment</strong><span>Configured checkout</span></li>
                     <li><strong>Output</strong><span>Kitchen ticket</span></li>
                   </ul>
                 </div>
                 <div class="preview-notes">
-                  <p class="note-title">Staff-facing note</p>
-                  <p>Order submitted with caller details, modifiers, payment status, and pickup timing according to restaurant setup.</p>
+                  <p class="note-title" data-preview-note-title>Demo menu</p>
+                  <p data-preview-note>Use the configured demo menu below when you place the call. Tavra will handle menu questions, modifiers, order readback, checkout simulation, and the submitted order record.</p>
+                </div>
+                <div class="demo-menu-card" data-demo-menu-card>
+                  <div class="demo-menu-card-top">
+                    <p class="note-title">Try ordering</p>
+                    <button type="button" data-menu-refresh>Load menu</button>
+                  </div>
+                  <div class="demo-menu-list" data-demo-menu-list>
+                    <p class="demo-menu-empty">Open the demo or tap Load menu to see configured items.</p>
+                  </div>
+                  <button class="demo-menu-expand" type="button" data-menu-expand hidden>View more items</button>
+                </div>
+                <div class="call-progress-card" data-call-progress hidden>
+                  <p class="note-title">Call in progress</p>
+                  <ol>
+                    <li><span>1</span><p>Phone call requested</p></li>
+                    <li><span>2</span><p>Tavra answers with this session's voice and greeting</p></li>
+                    <li><span>3</span><p>The right panel will become a live workflow surface in the next pass</p></li>
+                  </ol>
                 </div>
                 <button class="button button-call" type="button" data-call-modal>
                   <span aria-hidden="true">☎</span>
