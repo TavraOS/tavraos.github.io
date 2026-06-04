@@ -1111,17 +1111,37 @@ textarea {
 }
 
 .starburst {
+  position: relative;
   display: grid;
-  min-height: 250px;
+  width: min(100%, 370px);
+  min-height: 280px;
   place-items: center;
-  padding: 34px;
-  background: var(--orange);
+  padding: 0;
+  background: transparent;
   color: var(--ink);
-  clip-path: polygon(50% 0%, 58% 16%, 75% 8%, 78% 26%, 97% 25%, 87% 43%, 100% 56%, 80% 62%, 85% 82%, 64% 78%, 50% 100%, 37% 78%, 15% 82%, 21% 62%, 0% 56%, 14% 43%, 4% 25%, 22% 26%, 25% 8%, 42% 16%);
   font-family: var(--mono);
   font-weight: 700;
   line-height: 1.15;
   text-align: center;
+}
+
+.starburst::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--orange);
+  clip-path: polygon(50% 0%, 58% 16%, 75% 8%, 78% 26%, 97% 25%, 87% 43%, 100% 56%, 80% 62%, 85% 82%, 64% 78%, 50% 100%, 37% 78%, 15% 82%, 21% 62%, 0% 56%, 14% 43%, 4% 25%, 22% 26%, 25% 8%, 42% 16%);
+  content: "";
+}
+
+.starburst-copy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 10px;
+  width: 58%;
+  max-width: 230px;
+  place-items: center;
 }
 
 .starburst span {
@@ -1130,6 +1150,11 @@ textarea {
   color: var(--paper);
   font-size: 1.8rem;
   text-transform: uppercase;
+}
+
+.starburst p {
+  margin: 0;
+  font-size: clamp(0.9rem, 1.25vw, 1.08rem);
 }
 
 .integration-bubbles {
@@ -1700,7 +1725,20 @@ textarea {
   }
 
   .starburst {
-    min-height: 180px;
+    width: min(100%, 320px);
+    min-height: 235px;
+  }
+
+  .starburst-copy {
+    width: 60%;
+  }
+
+  .starburst span {
+    font-size: 1.55rem;
+  }
+
+  .starburst p {
+    font-size: 0.9rem;
   }
 
   .metric-grid,
