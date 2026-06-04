@@ -491,7 +491,7 @@ h3 {
 }
 
 .demo-layout {
-  grid-template-columns: minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 390px);
   gap: 30px;
   align-items: start;
 }
@@ -1113,8 +1113,8 @@ textarea {
 .starburst {
   position: relative;
   display: grid;
-  width: min(100%, 370px);
-  min-height: 280px;
+  width: min(100%, 390px);
+  min-height: 390px;
   place-items: center;
   padding: 0;
   background: transparent;
@@ -1138,10 +1138,11 @@ textarea {
   position: relative;
   z-index: 1;
   display: grid;
-  gap: 10px;
-  width: 58%;
-  max-width: 230px;
+  gap: 8px;
+  width: 50%;
+  max-width: 205px;
   place-items: center;
+  transform: translateY(-2px);
 }
 
 .starburst span {
@@ -1154,7 +1155,7 @@ textarea {
 
 .starburst p {
   margin: 0;
-  font-size: clamp(0.9rem, 1.25vw, 1.08rem);
+  font-size: clamp(0.82rem, 0.95vw, 0.94rem);
 }
 
 .integration-bubbles {
