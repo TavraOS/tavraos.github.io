@@ -772,6 +772,13 @@ function renderLiveWorkflowPanel() {
   } else {
     liveWorkflowPanel.innerHTML = renderWaitingLivePanel(state);
   }
+
+  window.requestAnimationFrame(() => {
+    const transcript = liveWorkflowPanel.querySelector(".live-transcript");
+    if (transcript) {
+      transcript.scrollTop = transcript.scrollHeight;
+    }
+  });
 }
 
 function renderWorkflowPreview() {
