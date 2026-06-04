@@ -18,7 +18,7 @@ Edit the static files directly:
 - `script.js`
 - `assets/`
 
-The site is plain HTML, CSS, and JavaScript. It should work directly from GitHub Pages static hosting and does not require a React, Vite, Next, Heroku, backend, Parse Cloud Code, or iOS build pipeline.
+The site is plain HTML, CSS, and JavaScript. It should work directly from GitHub Pages static hosting and does not require a React, Vite, Next, or iOS build pipeline.
 
 Current page structure:
 
@@ -33,9 +33,9 @@ Current page structure:
 - Onboarding/go-live section
 - Footer
 
-The demo builder is still a static scaffold for calling. It does not place calls, collect phone numbers, call ElevenLabs, call Twilio, run analytics, or make external provider requests.
+The demo builder can request a demo call through Tavra's public demo API. Do not put secrets, private credentials, analytics, or infrastructure-specific vendor language into the static site.
 
-The voice dropdown reads online options from the Tavra voice catalog. Do not add master keys, ElevenLabs API keys, Twilio credentials, or other secrets to the static site.
+The voice dropdown reads online options from the Tavra voice catalog. Do not add private keys, credentials, or other secrets to the static site.
 
 Logo assets copied into `assets/`:
 
