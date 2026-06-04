@@ -197,7 +197,13 @@ async function fetchTavraVoices() {
     .filter((record) => typeof record.voiceId === "string" && record.voiceId.trim())
     .map((record) => ({
       ...record,
-      gender: typeof record.gender === "string" ? record.gender.trim().toLowerCase() : null
+      gender: typeof record.gender === "string" ? record.gender.trim().toLowerCase() : null,
+      previewAudioUrl: typeof record.previewAudioUrl === "string" && record.previewAudioUrl.trim()
+        ? record.previewAudioUrl.trim()
+        : null,
+      previewScript: typeof record.previewScript === "string" && record.previewScript.trim()
+        ? record.previewScript.trim()
+        : null
     }));
 }
 
@@ -401,6 +407,10 @@ function previewText() {
   return text || greetingTemplate(locationInput?.value.trim() || "Torch & Table");
 }
 
+function previewTranscriptText(record) {
+  return record?.previewScript || previewText();
+}
+
 function setPreviewTranscript(text, ratio) {
   if (!previewTranscript || !previewMeter) return;
 
@@ -451,6 +461,58 @@ function scheduleVoicePreviewStop() {
   previewStopTimer = window.setTimeout(stopVoicePreview, 260);
 }
 
+async function fetchGeneratedPreviewUrl(record, text) {
+  previewRequest = new AbortController();
+  const response = await fetch(`${demoApiBaseUrl}/demo/voice/previews`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      voiceId: record.voiceId,
+      text
+    }),
+    signal: previewRequest.signal
+  });
+  previewRequest = null;
+
+  if (!response.ok) {
+    throw new Error(`Voice preview failed with ${response.status}`);
+  }
+
+  return URL.createObjectURL(await response.blob());
+}
+
+function playPreviewAudio(audioUrl) {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(audioUrl);
+    const cleanup = () => {
+      audio.removeEventListener("canplay", onCanPlay);
+      audio.removeEventListener("error", onError);
+    };
+    const onCanPlay = async () => {
+      cleanup();
+      previewAudio = audio;
+      previewAudio.addEventListener("ended", stopVoicePreview, { once: true });
+      try {
+        await previewAudio.play();
+        resolve(previewAudio);
+      } catch (error) {
+        reject(error);
+      }
+    };
+    const onError = () => {
+      cleanup();
+      reject(new Error("Stored voice preview failed to load."));
+    };
+
+    audio.addEventListener("canplay", onCanPlay, { once: true });
+    audio.addEventListener("error", onError, { once: true });
+    audio.preload = "auto";
+    audio.load();
+  });
+}
+
 async function startVoicePreview(record, button) {
   if (!record?.voiceId) return;
   clearVoicePreviewStopTimer();
@@ -460,42 +522,45 @@ async function startVoicePreview(record, button) {
   button.classList.add("is-playing");
   button.innerHTML = `<span aria-hidden="true">Ⅱ</span>`;
 
-  const text = previewText();
+  const fallbackText = previewText();
+  const text = previewTranscriptText(record);
   if (previewName) previewName.textContent = record.friendlyName;
   if (previewGender) previewGender.textContent = record.gender || "";
   if (voicePreviewPopover) voicePreviewPopover.hidden = false;
   setPreviewTranscript(text, 0.08);
 
   try {
-    const cacheKey = `${record.voiceId}|${text}`;
-    let audioUrl = previewAudioUrls.get(cacheKey);
+    const generatedCacheKey = `${record.voiceId}|${fallbackText}`;
+    const candidateUrls = [];
 
-    if (!audioUrl) {
-      previewRequest = new AbortController();
-      const response = await fetch(`${demoApiBaseUrl}/demo/voice/previews`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          voiceId: record.voiceId,
-          text
-        }),
-        signal: previewRequest.signal
-      });
-      previewRequest = null;
-
-      if (!response.ok) {
-        throw new Error(`Voice preview failed with ${response.status}`);
-      }
-
-      audioUrl = URL.createObjectURL(await response.blob());
-      previewAudioUrls.set(cacheKey, audioUrl);
+    if (record.previewAudioUrl) {
+      candidateUrls.push(record.previewAudioUrl);
     }
 
-    previewAudio = new Audio(audioUrl);
-    previewAudio.addEventListener("ended", stopVoicePreview, { once: true });
-    await previewAudio.play();
+    let generatedUrl = previewAudioUrls.get(generatedCacheKey);
+    if (generatedUrl) {
+      candidateUrls.push(generatedUrl);
+    }
+
+    let playbackStarted = false;
+    for (const audioUrl of candidateUrls) {
+      try {
+        await playPreviewAudio(audioUrl);
+        playbackStarted = true;
+        break;
+      } catch {
+        if (previewAudio) {
+          previewAudio.pause();
+          previewAudio = null;
+        }
+      }
+    }
+
+    if (!playbackStarted) {
+      generatedUrl = await fetchGeneratedPreviewUrl(record, fallbackText);
+      previewAudioUrls.set(generatedCacheKey, generatedUrl);
+      await playPreviewAudio(generatedUrl);
+    }
 
     previewRevealTimer = window.setInterval(() => {
       if (!previewAudio) return;
