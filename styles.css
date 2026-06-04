@@ -927,6 +927,12 @@ textarea {
   padding: 0 3px;
 }
 
+.field-hint {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .pill-group {
   display: flex;
   flex-wrap: wrap;
@@ -993,6 +999,143 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.config-modules {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.config-module {
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  box-shadow: 3px 3px 0 var(--line);
+  overflow: hidden;
+}
+
+.config-module summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+  background: var(--yellow);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-weight: 700;
+  padding: 10px 12px;
+}
+
+.config-module summary::-webkit-details-marker {
+  display: none;
+}
+
+.config-module summary::after {
+  content: "+";
+  font-size: 1rem;
+}
+
+.config-module[open] summary::after {
+  content: "-";
+}
+
+.config-module summary small {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--body);
+  font-size: 0.76rem;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+
+.config-grid label,
+.config-switch,
+.config-check {
+  display: grid;
+  gap: 5px;
+  font-weight: 800;
+}
+
+.config-grid input,
+.config-grid select,
+.config-row select {
+  width: 100%;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: var(--cream);
+  color: var(--ink);
+  font: 700 0.82rem var(--mono);
+  padding: 8px;
+}
+
+.config-switch {
+  grid-column: 1 / -1;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.config-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+  padding: 12px;
+}
+
+.config-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  align-items: center;
+  gap: 9px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: var(--cream-2);
+  padding: 9px;
+}
+
+.config-row.compact {
+  grid-template-columns: 1fr;
+}
+
+.config-check {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+}
+
+.config-check input,
+.config-switch input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+}
+
+.config-check span {
+  display: grid;
+  gap: 2px;
+}
+
+.config-check strong {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+}
+
+.config-check small,
+.config-empty {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.config-empty {
+  margin: 0;
 }
 
 .preview-panel {
@@ -1097,13 +1240,23 @@ textarea {
   margin-bottom: 0;
 }
 
+.preview-panel.is-active-call .preview-notes {
+  display: none;
+}
+
 .demo-menu-card,
-.call-progress-card {
+.call-progress-card,
+.live-workflow-panel {
   border: 3px solid var(--line);
   border-radius: 14px;
   background: var(--paper);
   color: var(--ink);
   padding: 12px;
+}
+
+.demo-menu-card[hidden],
+.live-workflow-panel[hidden] {
+  display: none;
 }
 
 .demo-menu-card-top {
@@ -1208,6 +1361,156 @@ textarea {
   margin: 0;
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.live-workflow-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.live-panel-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-panel-top .note-title {
+  margin-bottom: 0;
+}
+
+.live-panel-top span {
+  max-width: 22ch;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.live-order-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.live-order-grid > div,
+.live-waiting,
+.live-transcript {
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream-2);
+  padding: 10px;
+}
+
+.live-order-grid strong,
+.live-state-list strong,
+.live-menu-suggestions span {
+  font-family: var(--mono);
+}
+
+.live-menu-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.live-menu-suggestions span {
+  border: 2px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.76rem;
+  font-weight: 800;
+  padding: 6px 8px;
+}
+
+.live-menu-suggestions small {
+  color: var(--muted);
+  font-family: var(--body);
+}
+
+.live-state-list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.live-state-list li {
+  display: grid;
+  grid-template-columns: 95px minmax(0, 1fr);
+  gap: 10px;
+  border-bottom: 1px dashed rgba(25, 25, 22, 0.35);
+  padding-bottom: 7px;
+}
+
+.live-state-list li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.live-state-list span {
+  font-weight: 800;
+}
+
+.reservation-card {
+  border: 2px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream-2);
+  padding: 10px;
+}
+
+.live-waiting {
+  display: grid;
+  min-height: 172px;
+  place-items: center;
+  text-align: center;
+}
+
+.live-waiting p {
+  margin: 0;
+  max-width: 24ch;
+  font-weight: 800;
+}
+
+.live-pulse {
+  width: 44px;
+  height: 44px;
+  border: 4px solid var(--line);
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 0 rgba(52, 184, 114, 0.55);
+  animation: pulse-ring 1.3s ease-out infinite;
+}
+
+.live-transcript {
+  display: grid;
+  gap: 8px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.live-transcript p {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.live-transcript span {
+  color: var(--ink);
+  font-family: var(--mono);
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 184, 114, 0.55);
+  }
+  100% {
+    box-shadow: 0 0 0 18px rgba(52, 184, 114, 0);
+  }
 }
 
 .preview-panel[data-active-workflow="addedInfo"] .phone-label {
@@ -1999,9 +2302,19 @@ textarea {
 
   .console-top,
   .preview-phone li,
+  .config-row,
   .contact-card {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .config-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr;
   }
 
   .demo-aside,

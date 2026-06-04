@@ -35,10 +35,25 @@ const previewStatus = document.querySelector("[data-preview-status]");
 const previewRows = document.querySelector("[data-preview-rows]");
 const previewNoteTitle = document.querySelector("[data-preview-note-title]");
 const previewNote = document.querySelector("[data-preview-note]");
+const demoMenuCard = document.querySelector("[data-demo-menu-card]");
 const demoMenuList = document.querySelector("[data-demo-menu-list]");
 const demoMenuRefresh = document.querySelector("[data-menu-refresh]");
 const demoMenuExpand = document.querySelector("[data-menu-expand]");
+const liveWorkflowPanel = document.querySelector("[data-live-workflow-panel]");
 const callProgress = document.querySelector("[data-call-progress]");
+const configModules = document.querySelector("[data-config-modules]");
+const configReservationsEnabled = document.querySelector("[data-config-reservations-enabled]");
+const configReservationStatus = document.querySelector("[data-config-reservation-status]");
+const configMinParty = document.querySelector("[data-config-min-party]");
+const configMaxParty = document.querySelector("[data-config-max-party]");
+const configQuestionsList = document.querySelector("[data-config-questions-list]");
+const configHandoffList = document.querySelector("[data-config-handoff-list]");
+const configKitchenEnabled = document.querySelector("[data-config-kitchen-enabled]");
+const configKitchenTargets = document.querySelector("[data-config-kitchen-targets]");
+const configReservationsSummary = document.querySelector("[data-config-reservations-summary]");
+const configQuestionsSummary = document.querySelector("[data-config-questions-summary]");
+const configHandoffSummary = document.querySelector("[data-config-handoff-summary]");
+const configKitchenSummary = document.querySelector("[data-config-kitchen-summary]");
 
 const productionDemoApiHost = String.fromCharCode(
   111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
@@ -62,8 +77,13 @@ let previewRequest = null;
 let demoMenuRecords = [];
 let demoMenuLoadState = "idle";
 let demoMenuExpanded = false;
+let demoConfig = null;
+let demoConfigLoadState = "idle";
+let demoConfigLoadPromise = null;
 let activeWorkflow = "orders";
 let activeDemoCall = null;
+let activeDemoState = null;
+let demoStatePollTimer = null;
 const previewAudioUrls = new Map();
 
 const workflowPreviewContent = {
@@ -121,7 +141,7 @@ function closeModal() {
 function openModal() {
   if (!modal || !modalDialog) return;
   ensureVoiceOptionsLoaded();
-  ensureDemoMenuLoaded();
+  ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
   modal.hidden = false;
   document.body.classList.add("modal-open");
   window.setTimeout(() => demoPhoneInput?.focus() || modalDialog.focus(), 0);
@@ -146,8 +166,18 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function reservationsEnabledForGreeting() {
+  const workflowEnabled = workflowToggles.some((toggle) => toggle.dataset.workflow === "reservations" && toggle.checked);
+  const nativeBookEnabled = sessionToggles.some((toggle) => toggle.dataset.sessionToggle === "nativeBook" && toggle.checked);
+  const configEnabled = configReservationsEnabled ? configReservationsEnabled.checked : true;
+  return workflowEnabled && nativeBookEnabled && configEnabled;
+}
+
 function greetingTemplate(locationName) {
-  return `Thank you for calling ${locationName}. Would you like to place a to-go order, make a reservation, or something else?`;
+  const prompt = reservationsEnabledForGreeting()
+    ? "Would you like to place a to-go order, make a reservation, or something else?"
+    : "Would you like to place a to-go order, or something else?";
+  return `Thank you for calling ${locationName}. ${prompt}`;
 }
 
 function renderGreetingHighlight() {
@@ -200,6 +230,338 @@ function demoTogglePayload() {
   }, {});
 }
 
+function numberFromInput(input, fallback) {
+  const value = Number(input?.value);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function configSourceLabel(sourceType, sourceConfigured) {
+  const labels = {
+    manual: "Manual",
+    website_url: "Website URL",
+    ical_feed: "iCal feed",
+    google_calendar: "Calendar",
+    uploaded_file: "Uploaded file",
+    pos: "POS"
+  };
+  const label = labels[sourceType] || "Configured info";
+  return sourceConfigured ? `${label} source` : label;
+}
+
+function configHandlingLabel(mode) {
+  const labels = {
+    answer_only: "Answer only",
+    answer_then_route_if_needed: "Answer, then route",
+    collect_message: "Take a note",
+    route_immediately: "Route immediately"
+  };
+  return labels[mode] || "Configured handling";
+}
+
+function fallbackSessionConfig() {
+  return {
+    reservations: {
+      reservationsEnabled: true,
+      reservationMode: "native_tavra",
+      fallbackBehavior: "collect_request",
+      defaultReservationStatus: "requested",
+      minPartySize: 1,
+      maxPartySize: 12
+    },
+    otherQuestions: [],
+    handoffRoutes: [],
+    kitchenPrinting: {
+      enabled: true,
+      targets: []
+    }
+  };
+}
+
+function activeSessionConfig() {
+  return demoConfig?.sessionConfig || fallbackSessionConfig();
+}
+
+function renderQuestionConfig(categories) {
+  if (!configQuestionsList) return;
+
+  if (!categories.length) {
+    configQuestionsList.innerHTML = `<p class="config-empty">No custom answer categories are configured yet.</p>`;
+    return;
+  }
+
+  configQuestionsList.replaceChildren(
+    ...categories.map((category) => {
+      const row = document.createElement("article");
+      row.className = "config-row";
+      row.dataset.questionKey = category.categoryKey;
+      row.dataset.sourceType = category.sourceType || "manual";
+      row.dataset.routingTargetType = category.routingTargetType || "none";
+
+      const toggle = document.createElement("label");
+      toggle.className = "config-check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = category.enabled !== false;
+      input.dataset.questionEnabled = category.categoryKey;
+      const copy = document.createElement("span");
+      const title = document.createElement("strong");
+      const meta = document.createElement("small");
+      title.textContent = category.displayName || category.categoryKey;
+      meta.textContent = `${configSourceLabel(category.sourceType, category.sourceConfigured)} · ${configHandlingLabel(category.handlingMode)}`;
+      copy.append(title, meta);
+      toggle.append(input, copy);
+
+      const select = document.createElement("select");
+      select.dataset.questionMode = category.categoryKey;
+      [
+        ["answer_only", "Answer"],
+        ["answer_then_route_if_needed", "Answer + route"],
+        ["collect_message", "Take note"],
+        ["route_immediately", "Route"]
+      ].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        select.append(option);
+      });
+      select.value = category.handlingMode || "answer_only";
+
+      row.append(toggle, select);
+      return row;
+    })
+  );
+}
+
+function renderHandoffConfig(routes) {
+  if (!configHandoffList) return;
+
+  if (!routes.length) {
+    configHandoffList.innerHTML = `<p class="config-empty">No live handoff routes are configured yet.</p>`;
+    return;
+  }
+
+  configHandoffList.replaceChildren(
+    ...routes.map((route) => {
+      const row = document.createElement("article");
+      row.className = "config-row";
+      row.dataset.handoffId = route.id;
+
+      const toggle = document.createElement("label");
+      toggle.className = "config-check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = route.enabled !== false;
+      input.dataset.handoffEnabled = route.id;
+      const copy = document.createElement("span");
+      const title = document.createElement("strong");
+      const meta = document.createElement("small");
+      title.textContent = route.label || "Handoff route";
+      meta.textContent = route.description || "Configured transfer route";
+      copy.append(title, meta);
+      toggle.append(input, copy);
+
+      const policy = document.createElement("select");
+      policy.dataset.handoffPolicy = route.id;
+      [
+        ["all_matches", "All matches"],
+        ["urgent_only", "Urgent only"],
+        ["voicemail_only", "Message only"]
+      ].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        policy.append(option);
+      });
+      policy.value = route.liveTransferPolicy || "all_matches";
+
+      row.append(toggle, policy);
+      return row;
+    })
+  );
+}
+
+function renderKitchenConfig(kitchenPrinting) {
+  if (configKitchenEnabled) {
+    configKitchenEnabled.checked = kitchenPrinting.enabled !== false;
+  }
+
+  if (!configKitchenTargets) return;
+  const targets = Array.isArray(kitchenPrinting.targets) ? kitchenPrinting.targets : [];
+  if (!targets.length) {
+    configKitchenTargets.innerHTML = `<p class="config-empty">No kitchen targets are configured yet.</p>`;
+    return;
+  }
+
+  configKitchenTargets.replaceChildren(
+    ...targets.map((target) => {
+      const row = document.createElement("article");
+      row.className = "config-row compact";
+      row.dataset.kitchenTargetId = target.id;
+
+      const toggle = document.createElement("label");
+      toggle.className = "config-check";
+      const input = document.createElement("input");
+      input.type = "checkbox";
+      input.checked = target.enabled !== false;
+      input.dataset.kitchenTarget = target.id;
+      const copy = document.createElement("span");
+      const title = document.createElement("strong");
+      const meta = document.createElement("small");
+      title.textContent = target.label || "Kitchen target";
+      meta.textContent = target.description || "Submitted order output";
+      copy.append(title, meta);
+      toggle.append(input, copy);
+      row.append(toggle);
+      return row;
+    })
+  );
+}
+
+function applyDemoConfigPayload(payload) {
+  demoConfig = payload && typeof payload === "object" ? payload : null;
+  const sessionConfig = activeSessionConfig();
+
+  if (configReservationsEnabled) {
+    configReservationsEnabled.checked = sessionConfig.reservations.reservationsEnabled !== false;
+  }
+  if (configReservationStatus) {
+    configReservationStatus.value = sessionConfig.reservations.defaultReservationStatus || "requested";
+  }
+  if (configMinParty) {
+    configMinParty.value = sessionConfig.reservations.minPartySize ?? 1;
+  }
+  if (configMaxParty) {
+    configMaxParty.value = sessionConfig.reservations.maxPartySize ?? 12;
+  }
+
+  renderQuestionConfig(Array.isArray(sessionConfig.otherQuestions) ? sessionConfig.otherQuestions : []);
+  renderHandoffConfig(Array.isArray(sessionConfig.handoffRoutes) ? sessionConfig.handoffRoutes : []);
+  renderKitchenConfig(sessionConfig.kitchenPrinting || { enabled: true, targets: [] });
+
+  if (Array.isArray(payload?.menuItems)) {
+    demoMenuRecords = payload.menuItems
+      .filter((item) => item && typeof item.name === "string" && item.name.trim())
+      .map((item) => ({
+        name: item.name.trim(),
+        category: typeof item.category === "string" && item.category.trim() ? item.category.trim() : null,
+        priceCents: typeof item.priceCents === "number" ? item.priceCents : null,
+        description: typeof item.description === "string" && item.description.trim() ? item.description.trim() : null
+      }));
+    demoMenuLoadState = demoMenuRecords.length > 0 ? "ready" : "error";
+  }
+
+  syncGreetingToLocation();
+  renderConfigSummaries();
+  renderWorkflowPreview();
+}
+
+function renderConfigSummaries() {
+  const config = collectSessionConfigPayload();
+  const enabledQuestions = config.otherQuestions.filter((category) => category.enabled).length;
+  const enabledRoutes = config.handoffRoutes.filter((route) => route.enabled).length;
+  const enabledTargets = config.kitchenPrinting.targets.filter((target) => target.enabled).length;
+
+  if (configReservationsSummary) {
+    configReservationsSummary.textContent = config.reservations.reservationsEnabled
+      ? `${config.reservations.minPartySize}-${config.reservations.maxPartySize} guests`
+      : "Off this call";
+  }
+  if (configQuestionsSummary) {
+    configQuestionsSummary.textContent = enabledQuestions ? `${enabledQuestions} enabled` : "Off this call";
+  }
+  if (configHandoffSummary) {
+    configHandoffSummary.textContent = enabledRoutes ? `${enabledRoutes} routes` : "No transfers";
+  }
+  if (configKitchenSummary) {
+    configKitchenSummary.textContent = config.kitchenPrinting.enabled
+      ? `${enabledTargets || "Default"} target${enabledTargets === 1 ? "" : "s"}`
+      : "Off this call";
+  }
+}
+
+function collectSessionConfigPayload() {
+  const base = activeSessionConfig();
+
+  return {
+    reservations: {
+      ...base.reservations,
+      reservationsEnabled: configReservationsEnabled ? configReservationsEnabled.checked : base.reservations.reservationsEnabled,
+      defaultReservationStatus: configReservationStatus?.value || base.reservations.defaultReservationStatus || "requested",
+      minPartySize: numberFromInput(configMinParty, base.reservations.minPartySize ?? 1),
+      maxPartySize: numberFromInput(configMaxParty, base.reservations.maxPartySize ?? 12)
+    },
+    otherQuestions: Array.from(document.querySelectorAll("[data-question-key]")).map((row) => {
+      const categoryKey = row.dataset.questionKey;
+      const baseCategory = base.otherQuestions.find((category) => category.categoryKey === categoryKey) || {};
+      return {
+        ...baseCategory,
+        categoryKey,
+        enabled: row.querySelector("[data-question-enabled]")?.checked !== false,
+        handlingMode: row.querySelector("[data-question-mode]")?.value || baseCategory.handlingMode || "answer_only",
+        sourceType: row.dataset.sourceType || baseCategory.sourceType || "manual",
+        routingTargetType: row.dataset.routingTargetType || baseCategory.routingTargetType || "none"
+      };
+    }),
+    handoffRoutes: Array.from(document.querySelectorAll("[data-handoff-id]")).map((row) => {
+      const id = row.dataset.handoffId;
+      const baseRoute = base.handoffRoutes.find((route) => route.id === id) || {};
+      return {
+        ...baseRoute,
+        id,
+        enabled: row.querySelector("[data-handoff-enabled]")?.checked !== false,
+        liveTransferPolicy: row.querySelector("[data-handoff-policy]")?.value || baseRoute.liveTransferPolicy || "all_matches"
+      };
+    }),
+    kitchenPrinting: {
+      ...base.kitchenPrinting,
+      enabled: configKitchenEnabled ? configKitchenEnabled.checked : base.kitchenPrinting.enabled,
+      targets: Array.from(document.querySelectorAll("[data-kitchen-target-id]")).map((row) => {
+        const id = row.dataset.kitchenTargetId;
+        const baseTarget = base.kitchenPrinting.targets?.find((target) => target.id === id) || {};
+        return {
+          ...baseTarget,
+          id,
+          enabled: row.querySelector("[data-kitchen-target]")?.checked !== false
+        };
+      })
+    }
+  };
+}
+
+async function ensureDemoConfigLoaded() {
+  if (demoConfigLoadState === "ready") {
+    return demoConfig;
+  }
+
+  if (demoConfigLoadPromise) {
+    return demoConfigLoadPromise;
+  }
+
+  demoConfigLoadState = "loading";
+  demoConfigLoadPromise = fetch(`${demoApiBaseUrl}/demo/config`, { method: "GET" })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Demo config request failed with ${response.status}`);
+      }
+      const payload = await response.json();
+      demoConfigLoadState = "ready";
+      applyDemoConfigPayload(payload);
+      return payload;
+    })
+    .catch((error) => {
+      demoConfigLoadState = "error";
+      if (configQuestionsList) {
+        configQuestionsList.innerHTML = `<p class="config-empty">Demo configuration is unavailable. You can still use the default setup.</p>`;
+      }
+      throw error;
+    })
+    .finally(() => {
+      demoConfigLoadPromise = null;
+    });
+
+  return demoConfigLoadPromise;
+}
+
 function setPreviewRows(rows) {
   if (!previewRows) return;
 
@@ -216,6 +578,202 @@ function setPreviewRows(rows) {
   );
 }
 
+function terminalDemoStatus(status) {
+  return ["completed", "busy", "failed", "no-answer", "canceled"].includes(status);
+}
+
+function formatCents(cents) {
+  return typeof cents === "number" && Number.isFinite(cents) ? `$${(cents / 100).toFixed(2)}` : "Open";
+}
+
+function formatReservationDate(value) {
+  if (!value) return "Waiting";
+  const date = new Date(`${value}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(date);
+}
+
+function formatReservationTime(value) {
+  if (!value) return "Waiting";
+  const [hourRaw, minuteRaw] = value.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  const date = new Date();
+  date.setHours(hour, minute, 0, 0);
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function renderStateRows(rows) {
+  return rows
+    .map(
+      ([label, value]) => `
+        <li>
+          <strong>${escapeHTML(label)}</strong>
+          <span>${escapeHTML(value || "Waiting")}</span>
+        </li>
+      `
+    )
+    .join("");
+}
+
+function renderTranscriptTail(state) {
+  const tail = Array.isArray(state?.transcriptTail) ? state.transcriptTail.slice(-4) : [];
+  if (!tail.length) return "";
+  return `
+    <div class="live-transcript">
+      ${tail
+        .map(
+          (entry) => `
+            <p>
+              <span>${entry.role === "assistant" ? "Tavra" : "Caller"}</span>
+              ${escapeHTML(entry.text || "")}
+            </p>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderOrderLivePanel(state) {
+  const order = state?.order || {};
+  const items = Array.isArray(order.items) ? order.items : [];
+  const suggestions = Array.isArray(state?.menuSuggestions) && state.menuSuggestions.length ? state.menuSuggestions : demoMenuRecords.slice(0, 8);
+
+  return `
+    <div class="live-panel-top">
+      <p class="note-title">To-go order</p>
+      <span>${escapeHTML(state?.statusText || "Building the order.")}</span>
+    </div>
+    <div class="live-order-grid">
+      <div>
+        <strong>Menu suggestions</strong>
+        <div class="live-menu-suggestions">
+          ${suggestions
+            .slice(0, 6)
+            .map((item) => `<span>${escapeHTML(item.name)} <small>${escapeHTML(formatCents(item.priceCents))}</small></span>`)
+            .join("") || "<em>Menu loading</em>"}
+        </div>
+      </div>
+      <div>
+        <strong>Current order</strong>
+        <ul class="live-state-list">
+          ${
+            items.length
+              ? items.map((item) => `<li><strong>${item.quantity || 1}x</strong><span>${escapeHTML(item.displayName || item.name)}</span></li>`).join("")
+              : "<li><strong>Items</strong><span>Waiting for caller</span></li>"
+          }
+          <li><strong>Checkout</strong><span>${order.paymentPending ? "Ready" : order.submitted ? "Approved" : "Not yet"}</span></li>
+          <li><strong>Total</strong><span>${escapeHTML(formatCents(order.subtotalCents))}</span></li>
+        </ul>
+      </div>
+    </div>
+    ${renderTranscriptTail(state)}
+  `;
+}
+
+function renderReservationLivePanel(state) {
+  const reservation = state?.reservation || {};
+  return `
+    <div class="live-panel-top">
+      <p class="note-title">Reservation card</p>
+      <span>${escapeHTML(state?.statusText || "Collecting details.")}</span>
+    </div>
+    <ul class="live-state-list reservation-card">
+      ${renderStateRows([
+        ["Party", reservation.partySize ? `${reservation.partySize} guests` : "Waiting"],
+        ["Date", formatReservationDate(reservation.requestedDateIso)],
+        ["Time", formatReservationTime(reservation.requestedTime)],
+        ["Guest", reservation.guestName || "Waiting"],
+        ["Phone", reservation.callerPhoneNumber ? "Captured" : "Waiting"],
+        ["Notes", reservation.notes || "None yet"],
+        ["Status", reservation.submitted ? reservation.status || "Submitted" : "In progress"]
+      ])}
+    </ul>
+    ${renderTranscriptTail(state)}
+  `;
+}
+
+function renderOtherQuestionLivePanel(state) {
+  const question = state?.otherQuestion || {};
+  return `
+    <div class="live-panel-top">
+      <p class="note-title">Custom answer</p>
+      <span>${escapeHTML(state?.statusText || "Answering the caller.")}</span>
+    </div>
+    <ul class="live-state-list">
+      ${renderStateRows([
+        ["Category", question.displayName || "Detecting"],
+        ["Source", configSourceLabel(question.sourceType || "manual", true)],
+        ["Handled", question.handled ? "Answer given" : "In progress"]
+      ])}
+    </ul>
+    ${renderTranscriptTail(state)}
+  `;
+}
+
+function renderHandoffLivePanel(state) {
+  const handoff = state?.handoff || {};
+  return `
+    <div class="live-panel-top">
+      <p class="note-title">Live handoff</p>
+      <span>${escapeHTML(state?.statusText || "Routing the call.")}</span>
+    </div>
+    <ul class="live-state-list">
+      ${renderStateRows([
+        ["Route", handoff.routeLabel || "Configured route"],
+        ["Status", handoff.status || "Requested"],
+        ["Caller said", state?.lastCallerText || "Waiting"]
+      ])}
+    </ul>
+    ${renderTranscriptTail(state)}
+  `;
+}
+
+function renderWaitingLivePanel(state) {
+  return `
+    <div class="live-waiting">
+      <div class="live-pulse" aria-hidden="true"></div>
+      <p class="note-title">${terminalDemoStatus(activeDemoCall?.status) ? "Call ended" : "Listening"}</p>
+      <p>${escapeHTML(state?.statusText || "Waiting for the caller's first answer.")}</p>
+    </div>
+    ${renderTranscriptTail(state || {})}
+  `;
+}
+
+function renderLiveWorkflowPanel() {
+  if (!liveWorkflowPanel) return;
+
+  if (!activeDemoCall) {
+    liveWorkflowPanel.hidden = true;
+    liveWorkflowPanel.innerHTML = "";
+    return;
+  }
+
+  const state = activeDemoState || {
+    activeWorkflow: "waiting",
+    statusText: "Waiting for the caller's first answer.",
+    transcriptTail: []
+  };
+
+  const workflow = state.activeWorkflow || "waiting";
+  liveWorkflowPanel.hidden = false;
+  liveWorkflowPanel.dataset.workflow = workflow;
+
+  if (workflow === "order") {
+    liveWorkflowPanel.innerHTML = renderOrderLivePanel(state);
+  } else if (workflow === "reservation") {
+    liveWorkflowPanel.innerHTML = renderReservationLivePanel(state);
+  } else if (workflow === "other_question") {
+    liveWorkflowPanel.innerHTML = renderOtherQuestionLivePanel(state);
+  } else if (workflow === "handoff") {
+    liveWorkflowPanel.innerHTML = renderHandoffLivePanel(state);
+  } else {
+    liveWorkflowPanel.innerHTML = renderWaitingLivePanel(state);
+  }
+}
+
 function renderWorkflowPreview() {
   const enabledKeys = enabledWorkflowKeys();
   if (!enabledKeys.includes(activeWorkflow)) {
@@ -224,31 +782,40 @@ function renderWorkflowPreview() {
 
   const content = workflowPreviewContent[activeWorkflow] || workflowPreviewContent.orders;
   consolePreview?.setAttribute("data-active-workflow", activeWorkflow);
+  consolePreview?.classList.toggle("is-active-call", Boolean(activeDemoCall));
   if (previewStatus) {
-    previewStatus.textContent = activeDemoCall ? "Call requested" : content.status;
+    previewStatus.textContent = activeDemoCall ? activeDemoState?.statusText || "Call active" : content.status;
   }
   setPreviewRows(
     activeDemoCall
       ? [
-          ["Status", "Phone ringing soon"],
+          ["Status", activeDemoState?.activeWorkflow ? workflowLabel(activeDemoState.activeWorkflow) : "Listening"],
           ["Session", activeDemoCall.sessionId ? activeDemoCall.sessionId.slice(0, 8) : "Requested"],
-          ["Workflow", enabledKeys.length ? enabledKeys.map(workflowLabel).join(", ") : "None"]
+          ["Call", activeDemoCall.status || "Requested"]
         ]
       : content.rows
   );
   if (previewNoteTitle) previewNoteTitle.textContent = activeDemoCall ? "Live console" : content.title;
   if (previewNote) {
     previewNote.textContent = activeDemoCall
-      ? "The call has been placed. In the next UI pass this panel can stream transcript snippets, order state, reservation fields, and staff-facing notes as they happen."
+      ? "The call has been placed. The workflow panel updates as the caller moves through ordering, reservations, custom answers, or handoff."
       : content.note;
   }
-  if (callProgress) {
-    callProgress.hidden = !activeDemoCall;
+  if (demoMenuCard) {
+    demoMenuCard.hidden = Boolean(activeDemoCall);
   }
+  if (callProgress) {
+    callProgress.hidden = true;
+  }
+  renderLiveWorkflowPanel();
   renderDemoMenu();
 }
 
 function workflowLabel(key) {
+  if (key === "other_question") return "Custom answer";
+  if (key === "handoff") return "Handoff";
+  if (key === "waiting") return "Listening";
+  if (key === "idle") return "Ready";
   if (key === "addedInfo") return "Added info";
   return key ? `${key.charAt(0).toUpperCase()}${key.slice(1)}` : "";
 }
@@ -325,6 +892,15 @@ function renderDemoMenu() {
 async function ensureDemoMenuLoaded() {
   if (demoMenuLoadState === "ready" || demoMenuLoadState === "loading") return;
 
+  if (demoConfigLoadState !== "ready") {
+    try {
+      await ensureDemoConfigLoaded();
+      return;
+    } catch {
+      // Fall through to the narrower menu endpoint if the full config is unavailable.
+    }
+  }
+
   demoMenuLoadState = "loading";
   renderDemoMenu();
 
@@ -354,20 +930,7 @@ function syncGreetingToLocation() {
   if (!locationInput || !greetingTextarea) return;
 
   const nextLocationName = locationInput.value.trim() || "your restaurant";
-  const currentGreeting = greetingTextarea.value;
-  const previousGeneratedGreeting = greetingTemplate(syncedLocationName);
-
-  if (currentGreeting === lastSyncedGreeting || currentGreeting === previousGeneratedGreeting || syncedLocationName.length < 2) {
-    greetingTextarea.value = greetingTemplate(nextLocationName);
-  } else if (syncedLocationName) {
-    const previousNamePattern = new RegExp(escapeRegExp(syncedLocationName), "i");
-    greetingTextarea.value = previousNamePattern.test(currentGreeting)
-      ? currentGreeting.replace(previousNamePattern, nextLocationName)
-      : greetingTemplate(nextLocationName);
-  } else {
-    greetingTextarea.value = greetingTemplate(nextLocationName);
-  }
-
+  greetingTextarea.value = greetingTemplate(nextLocationName);
   syncedLocationName = nextLocationName;
   lastSyncedGreeting = greetingTextarea.value;
   renderGreetingHighlight();
@@ -805,7 +1368,9 @@ async function startVoicePreview(record, button) {
 setVoicePlaceholder("Voice options load on interaction");
 setSelectedVoiceSummary(null);
 renderVoiceMenu();
+syncGreetingToLocation();
 renderGreetingHighlight();
+renderConfigSummaries();
 renderWorkflowPreview();
 
 function phoneDigits(value) {
@@ -853,6 +1418,47 @@ function selectedVoicePayload() {
   };
 }
 
+function stopDemoStatePolling() {
+  if (!demoStatePollTimer) return;
+  window.clearTimeout(demoStatePollTimer);
+  demoStatePollTimer = null;
+}
+
+function scheduleDemoStatePoll(sessionId, delay = 1400) {
+  stopDemoStatePolling();
+  demoStatePollTimer = window.setTimeout(() => {
+    void pollDemoCallState(sessionId);
+  }, delay);
+}
+
+async function pollDemoCallState(sessionId) {
+  if (!sessionId || !activeDemoCall || activeDemoCall.sessionId !== sessionId) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${demoApiBaseUrl}/demo/calls/${encodeURIComponent(sessionId)}/state`, { method: "GET" });
+    if (!response.ok) {
+      throw new Error(`Demo state request failed with ${response.status}`);
+    }
+    const payload = await response.json();
+    if (!activeDemoCall || activeDemoCall.sessionId !== sessionId) {
+      return;
+    }
+    activeDemoCall.status = typeof payload.status === "string" ? payload.status : activeDemoCall.status;
+    activeDemoState = payload.uiState && typeof payload.uiState === "object" ? payload.uiState : activeDemoState;
+    renderWorkflowPreview();
+
+    if (!terminalDemoStatus(activeDemoCall.status)) {
+      scheduleDemoStatePoll(sessionId, activeDemoState?.activeWorkflow === "waiting" ? 1200 : 1800);
+    }
+  } catch {
+    if (activeDemoCall?.sessionId === sessionId && !terminalDemoStatus(activeDemoCall.status)) {
+      scheduleDemoStatePoll(sessionId, 3500);
+    }
+  }
+}
+
 async function submitDemoCall(event) {
   event.preventDefault();
 
@@ -864,25 +1470,29 @@ async function submitDemoCall(event) {
 
   const phoneNumber = phoneToE164(demoPhoneInput.value);
   const businessName = locationInput.value.trim();
-  const greeting = greetingTextarea.value.trim();
 
   if (!phoneNumber) {
     setDemoCallStatus("Enter a complete phone number.", "error");
     return;
   }
 
-  if (!businessName || !greeting) {
-    setDemoCallStatus("Add the restaurant name and greeting first.", "error");
+  if (!businessName) {
+    setDemoCallStatus("Add the restaurant name first.", "error");
     return;
   }
 
   demoCallSubmit?.setAttribute("disabled", "true");
   setDemoCallStatus("Preparing the demo call...", "loading");
   await ensureVoiceOptionsLoaded();
-  await ensureDemoMenuLoaded();
+  try {
+    await ensureDemoConfigLoaded();
+  } catch {
+    await ensureDemoMenuLoaded();
+  }
   const voice = selectedVoicePayload();
   const workflowConfig = workflowConfigPayload();
   const demoToggles = demoTogglePayload();
+  const sessionConfig = collectSessionConfigPayload();
 
   setDemoCallStatus("Placing the demo call...", "loading");
 
@@ -893,11 +1503,11 @@ async function submitDemoCall(event) {
       body: JSON.stringify({
         phoneNumber,
         businessName,
-        greeting,
         voiceId: voice.voiceId,
         voiceLabel: voice.voiceLabel,
         workflowConfig,
-        demoToggles
+        demoToggles,
+        sessionConfig
       })
     });
     const payload = await response.json().catch(() => ({}));
@@ -909,11 +1519,20 @@ async function submitDemoCall(event) {
     activeDemoCall = {
       sessionId: typeof payload.sessionId === "string" ? payload.sessionId : null,
       callSid: typeof payload.callSid === "string" ? payload.callSid : null,
+      status: typeof payload.status === "string" ? payload.status : "requested",
       workflowConfig
+    };
+    activeDemoState = {
+      activeWorkflow: "waiting",
+      statusText: "Waiting for the caller's first answer.",
+      transcriptTail: []
     };
     renderWorkflowPreview();
     setDemoCallStatus("Call requested. Your phone should ring shortly.", "success");
     closeModal();
+    if (activeDemoCall.sessionId) {
+      scheduleDemoStatePoll(activeDemoCall.sessionId, 900);
+    }
   } catch {
     setDemoCallStatus("The demo call could not be placed. Try again shortly.", "error");
   } finally {
@@ -935,7 +1554,7 @@ voiceTrigger?.addEventListener("click", async () => {
 voiceTrigger?.addEventListener("focus", ensureVoiceOptionsLoaded);
 document.querySelectorAll("a[href='#demo'], [data-scroll-target='demo']").forEach((link) => {
   link.addEventListener("click", ensureVoiceOptionsLoaded);
-  link.addEventListener("click", ensureDemoMenuLoaded);
+  link.addEventListener("click", () => ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded()));
 });
 voiceSearch?.addEventListener("input", renderVoiceMenu);
 voiceFilterButtons.forEach((button) => {
@@ -951,6 +1570,10 @@ workflowToggles.forEach((toggle) => {
     }
     activeWorkflow = toggle.dataset.workflow || activeWorkflow;
     activeDemoCall = null;
+    activeDemoState = null;
+    stopDemoStatePolling();
+    syncGreetingToLocation();
+    renderConfigSummaries();
     renderWorkflowPreview();
     if (activeWorkflow === "orders") {
       ensureDemoMenuLoaded();
@@ -964,8 +1587,20 @@ workflowToggles.forEach((toggle) => {
 sessionToggles.forEach((toggle) => {
   toggle.addEventListener("change", () => {
     activeDemoCall = null;
+    activeDemoState = null;
+    stopDemoStatePolling();
+    syncGreetingToLocation();
+    renderConfigSummaries();
     renderWorkflowPreview();
   });
+});
+configModules?.addEventListener("change", () => {
+  activeDemoCall = null;
+  activeDemoState = null;
+  stopDemoStatePolling();
+  syncGreetingToLocation();
+  renderConfigSummaries();
+  renderWorkflowPreview();
 });
 demoMenuRefresh?.addEventListener("click", ensureDemoMenuLoaded);
 demoMenuExpand?.addEventListener("click", () => {

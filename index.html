@@ -191,8 +191,9 @@
                   <span>AI phone greeting</span>
                   <span class="greeting-editor">
                     <span class="greeting-highlight" aria-hidden="true" data-greeting-highlight></span>
-                    <textarea id="ai-greeting" name="greeting" rows="4">Thank you for calling Torch & Table. Would you like to place a to-go order, make a reservation, or something else?</textarea>
+                    <textarea id="ai-greeting" name="greeting" rows="4" readonly aria-readonly="true">Thank you for calling Torch & Table. Would you like to place a to-go order, make a reservation, or something else?</textarea>
                   </span>
+                  <small class="field-hint">Generated from the location name and reservation setting.</small>
                 </label>
 
                 <fieldset class="pill-group workflow-toggles" data-workflow-controls>
@@ -224,6 +225,72 @@
                   <label><input type="checkbox" data-session-toggle="smsUpdates"> <span>SMS Updates</span></label>
                   <label><input type="checkbox" checked data-session-toggle="nativeBook"> <span>Native Book</span></label>
                 </div>
+
+                <div class="config-modules" data-config-modules>
+                  <details class="config-module" open>
+                    <summary>
+                      <span>Reservations</span>
+                      <small data-config-reservations-summary>Session rules</small>
+                    </summary>
+                    <div class="config-grid">
+                      <label class="config-switch">
+                        <input type="checkbox" data-config-reservations-enabled checked>
+                        <span>Reservation workflow</span>
+                      </label>
+                      <label>
+                        <span>Default status</span>
+                        <select data-config-reservation-status>
+                          <option value="requested">Requested</option>
+                          <option value="confirmed">Confirmed</option>
+                        </select>
+                      </label>
+                      <label>
+                        <span>Min party</span>
+                        <input type="number" min="1" max="99" data-config-min-party>
+                      </label>
+                      <label>
+                        <span>Max party</span>
+                        <input type="number" min="1" max="99" data-config-max-party>
+                      </label>
+                    </div>
+                  </details>
+
+                  <details class="config-module" open>
+                    <summary>
+                      <span>Other caller questions</span>
+                      <small data-config-questions-summary>Custom answers</small>
+                    </summary>
+                    <div class="config-list" data-config-questions-list>
+                      <p class="config-empty">Configuration loads when you interact with the demo.</p>
+                    </div>
+                  </details>
+
+                  <details class="config-module">
+                    <summary>
+                      <span>Live handoff routes</span>
+                      <small data-config-handoff-summary>Transfers</small>
+                    </summary>
+                    <div class="config-list" data-config-handoff-list>
+                      <p class="config-empty">Route settings load with the demo account.</p>
+                    </div>
+                  </details>
+
+                  <details class="config-module">
+                    <summary>
+                      <span>Kitchen printing</span>
+                      <small data-config-kitchen-summary>Order output</small>
+                    </summary>
+                    <div class="config-grid">
+                      <label class="config-switch">
+                        <input type="checkbox" data-config-kitchen-enabled checked>
+                        <span>Send submitted orders to the kitchen</span>
+                      </label>
+                    </div>
+                    <div class="config-list" data-config-kitchen-targets>
+                      <p class="config-empty">Kitchen targets load with the demo account.</p>
+                    </div>
+                  </details>
+                </div>
               </div>
 
               <div class="preview-panel" aria-label="Demo preview" data-console-preview data-active-workflow="orders">
@@ -253,12 +320,13 @@
                   </div>
                   <button class="demo-menu-expand" type="button" data-menu-expand hidden>View more items</button>
                 </div>
+                <div class="live-workflow-panel" data-live-workflow-panel hidden></div>
                 <div class="call-progress-card" data-call-progress hidden>
                   <p class="note-title">Call in progress</p>
                   <ol>
                     <li><span>1</span><p>Phone call requested</p></li>
                     <li><span>2</span><p>Tavra answers with this session's voice and greeting</p></li>
-                    <li><span>3</span><p>The right panel will become a live workflow surface in the next pass</p></li>
+                    <li><span>3</span><p>The console follows the workflow as the call moves.</p></li>
                   </ol>
                 </div>
                 <button class="button button-call" type="button" data-call-modal>
