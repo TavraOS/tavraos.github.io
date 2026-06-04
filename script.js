@@ -11,6 +11,19 @@ const demoPhoneInput = document.querySelector("[data-demo-phone]");
 const demoCallSubmit = document.querySelector("[data-demo-call-submit]");
 const demoCallStatus = document.querySelector("[data-demo-call-status]");
 const voiceSelect = document.querySelector("#voice-select");
+const voicePicker = document.querySelector("[data-voice-picker]");
+const voiceTrigger = document.querySelector("[data-voice-trigger]");
+const voiceMenu = document.querySelector("[data-voice-menu]");
+const voiceSearch = document.querySelector("[data-voice-search]");
+const voiceFilterButtons = Array.from(document.querySelectorAll("[data-voice-filter]"));
+const voiceList = document.querySelector("[data-voice-list]");
+const selectedVoiceName = document.querySelector("[data-selected-voice]");
+const selectedVoiceDetail = document.querySelector("[data-selected-voice-detail]");
+const voicePreviewPopover = document.querySelector("[data-voice-preview]");
+const previewName = document.querySelector("[data-preview-name]");
+const previewGender = document.querySelector("[data-preview-gender]");
+const previewTranscript = document.querySelector("[data-preview-transcript]");
+const previewMeter = document.querySelector("[data-preview-meter]");
 const locationInput = document.querySelector("#location-name");
 const greetingTextarea = document.querySelector("#ai-greeting");
 const greetingHighlight = document.querySelector("[data-greeting-highlight]");
@@ -24,6 +37,13 @@ const demoApiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostn
   : `https://${productionDemoApiHost}`;
 
 let syncedLocationName = locationInput?.value.trim() || "your restaurant";
+let voiceRecords = [];
+let activeVoiceFilter = "all";
+let activePreviewVoiceId = null;
+let previewAudio = null;
+let previewRevealTimer = null;
+let previewRequest = null;
+const previewAudioUrls = new Map();
 
 function setMobileNav(open) {
   if (!navToggle || !nav || !headerActions) return;
@@ -127,17 +147,29 @@ function voiceLabel(record) {
   return description ? `${friendlyName} - ${description}` : friendlyName;
 }
 
+function voiceDetail(record) {
+  const description = typeof record.description === "string" ? record.description.trim() : "";
+  const gender = typeof record.gender === "string" ? record.gender.trim().toLowerCase() : "";
+  const genderLabel = gender === "male" || gender === "female" ? gender : "";
+  return [description, genderLabel].filter(Boolean).join(" · ");
+}
+
 function buildVoiceOption(record) {
   const option = document.createElement("option");
   const voiceId = typeof record.voiceId === "string" ? record.voiceId.trim() : "";
   const friendlyName = typeof record.friendlyName === "string" ? record.friendlyName.trim() : voiceId;
 
   option.value = voiceId;
-  option.textContent = voiceLabel({ ...record, friendlyName }) || voiceId;
+  option.textContent = friendlyName || voiceId;
   option.dataset.voiceId = voiceId;
+  option.dataset.voiceLabel = voiceLabel({ ...record, friendlyName }) || voiceId;
 
   if (record.objectId) {
     option.dataset.objectId = record.objectId;
+  }
+
+  if (record.gender) {
+    option.dataset.gender = record.gender;
   }
 
   return option;
@@ -155,13 +187,18 @@ async function fetchTavraVoices() {
 
   return results
     .filter((record) => typeof record.friendlyName === "string" && record.friendlyName.trim())
-    .filter((record) => typeof record.voiceId === "string" && record.voiceId.trim());
+    .filter((record) => typeof record.voiceId === "string" && record.voiceId.trim())
+    .map((record) => ({
+      ...record,
+      gender: typeof record.gender === "string" ? record.gender.trim().toLowerCase() : null
+    }));
 }
 
 async function populateVoiceSelect() {
   if (!voiceSelect) return;
 
   voiceSelect.disabled = true;
+  setSelectedVoiceSummary(null);
 
   try {
     const voices = await fetchTavraVoices();
@@ -170,8 +207,13 @@ async function populateVoiceSelect() {
       throw new Error("No online Tavra voices were returned.");
     }
 
+    voiceRecords = voices;
     voiceSelect.replaceChildren(...voices.map(buildVoiceOption));
+    const fiona = voices.find((record) => record.friendlyName.trim().toLowerCase() === "fiona");
+    voiceSelect.value = fiona?.voiceId || voices[0]?.voiceId || "";
     voiceSelect.disabled = false;
+    renderVoiceMenu();
+    setSelectedVoiceSummary(selectedVoiceRecord());
   } catch (error) {
     console.error(error);
     const option = document.createElement("option");
@@ -180,6 +222,238 @@ async function populateVoiceSelect() {
 
     voiceSelect.replaceChildren(option);
     voiceSelect.disabled = true;
+    voiceRecords = [];
+    setSelectedVoiceSummary(null);
+    renderVoiceMenu();
+  }
+}
+
+function selectedVoiceRecord() {
+  if (!voiceSelect?.value) return null;
+  return voiceRecords.find((record) => record.voiceId === voiceSelect.value) || null;
+}
+
+function setSelectedVoiceSummary(record) {
+  if (!selectedVoiceName || !selectedVoiceDetail) return;
+
+  if (!record) {
+    selectedVoiceName.textContent = voiceSelect?.disabled ? "Voice options unavailable" : "Loading voices...";
+    selectedVoiceDetail.textContent = voiceSelect?.disabled ? "Try again shortly" : "Preparing voice menu";
+    return;
+  }
+
+  selectedVoiceName.textContent = record.friendlyName;
+  selectedVoiceDetail.textContent = voiceDetail(record) || "Restaurant-ready voice";
+}
+
+function setVoiceMenuOpen(open) {
+  if (!voiceMenu || !voiceTrigger) return;
+  voiceMenu.hidden = !open;
+  voiceTrigger.setAttribute("aria-expanded", String(open));
+
+  if (open) {
+    window.setTimeout(() => voiceSearch?.focus(), 0);
+  } else {
+    stopVoicePreview();
+  }
+}
+
+function filteredVoiceRecords() {
+  const query = voiceSearch?.value.trim().toLowerCase() || "";
+
+  return voiceRecords.filter((record) => {
+    const gender = typeof record.gender === "string" ? record.gender.toLowerCase() : "";
+    const matchesGender = activeVoiceFilter === "all" || gender === activeVoiceFilter;
+    const searchable = `${record.friendlyName} ${record.description || ""}`.toLowerCase();
+    const matchesQuery = !query || searchable.includes(query);
+    return matchesGender && matchesQuery;
+  });
+}
+
+function renderVoiceMenu() {
+  if (!voiceList) return;
+
+  voiceFilterButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.voiceFilter === activeVoiceFilter);
+  });
+
+  const records = filteredVoiceRecords();
+  voiceList.replaceChildren();
+
+  if (records.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "voice-empty";
+    empty.textContent = "No voices match that filter.";
+    voiceList.append(empty);
+    return;
+  }
+
+  records.forEach((record) => {
+    const row = document.createElement("div");
+    row.className = "voice-option";
+    row.setAttribute("role", "option");
+    row.setAttribute("tabindex", "0");
+    row.setAttribute("aria-selected", String(record.voiceId === voiceSelect?.value));
+    row.dataset.voiceId = record.voiceId;
+
+    const radio = document.createElement("span");
+    radio.className = "voice-radio";
+    radio.setAttribute("aria-hidden", "true");
+
+    const copy = document.createElement("span");
+    copy.className = "voice-copy";
+
+    const name = document.createElement("strong");
+    name.textContent = record.friendlyName;
+
+    const detail = document.createElement("small");
+    detail.textContent = voiceDetail(record) || "Restaurant-ready voice";
+
+    copy.append(name, detail);
+
+    const gender = document.createElement("span");
+    gender.className = "voice-gender";
+    gender.textContent = record.gender === "female" ? "♀" : record.gender === "male" ? "♂" : "•";
+    gender.title = record.gender || "Voice";
+
+    const preview = document.createElement("button");
+    preview.type = "button";
+    preview.className = "voice-preview-button";
+    preview.setAttribute("aria-label", `Preview ${record.friendlyName}`);
+    preview.dataset.previewVoice = record.voiceId;
+    preview.innerHTML = `<span aria-hidden="true">▶</span>`;
+    preview.addEventListener("mouseenter", () => startVoicePreview(record, preview));
+    preview.addEventListener("focus", () => startVoicePreview(record, preview));
+    preview.addEventListener("mouseleave", stopVoicePreview);
+    preview.addEventListener("blur", stopVoicePreview);
+    preview.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (activePreviewVoiceId === record.voiceId) {
+        stopVoicePreview();
+      } else {
+        startVoicePreview(record, preview);
+      }
+    });
+
+    row.addEventListener("click", () => {
+      if (!voiceSelect) return;
+      voiceSelect.value = record.voiceId;
+      setSelectedVoiceSummary(record);
+      renderVoiceMenu();
+      setVoiceMenuOpen(false);
+    });
+    row.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      row.click();
+    });
+
+    row.append(radio, copy, gender, preview);
+    voiceList.append(row);
+  });
+}
+
+function previewText() {
+  const text = greetingTextarea?.value.trim() || "";
+  return text || greetingTemplate(locationInput?.value.trim() || "Torch & Table");
+}
+
+function setPreviewTranscript(text, ratio) {
+  if (!previewTranscript || !previewMeter) return;
+
+  const clamped = Math.max(0, Math.min(1, ratio));
+  const visibleLength = Math.max(1, Math.ceil(text.length * clamped));
+  previewTranscript.textContent = text.slice(0, visibleLength);
+  previewMeter.style.width = `${Math.round(clamped * 100)}%`;
+}
+
+function stopVoicePreview() {
+  if (previewRequest) {
+    previewRequest.abort();
+    previewRequest = null;
+  }
+
+  if (previewAudio) {
+    previewAudio.pause();
+    previewAudio.currentTime = 0;
+    previewAudio = null;
+  }
+
+  if (previewRevealTimer) {
+    window.clearInterval(previewRevealTimer);
+    previewRevealTimer = null;
+  }
+
+  activePreviewVoiceId = null;
+  document.querySelectorAll(".voice-preview-button.is-playing").forEach((button) => {
+    button.classList.remove("is-playing");
+    button.innerHTML = `<span aria-hidden="true">▶</span>`;
+  });
+
+  if (voicePreviewPopover) {
+    voicePreviewPopover.hidden = true;
+  }
+}
+
+async function startVoicePreview(record, button) {
+  if (!record?.voiceId) return;
+  if (activePreviewVoiceId === record.voiceId) return;
+
+  stopVoicePreview();
+  activePreviewVoiceId = record.voiceId;
+  button.classList.add("is-playing");
+  button.innerHTML = `<span aria-hidden="true">Ⅱ</span>`;
+
+  const text = previewText();
+  if (previewName) previewName.textContent = record.friendlyName;
+  if (previewGender) previewGender.textContent = record.gender || "";
+  if (voicePreviewPopover) voicePreviewPopover.hidden = false;
+  setPreviewTranscript(text, 0.08);
+
+  try {
+    const cacheKey = `${record.voiceId}|${text}`;
+    let audioUrl = previewAudioUrls.get(cacheKey);
+
+    if (!audioUrl) {
+      previewRequest = new AbortController();
+      const response = await fetch(`${demoApiBaseUrl}/demo/voice/previews`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          voiceId: record.voiceId,
+          text
+        }),
+        signal: previewRequest.signal
+      });
+      previewRequest = null;
+
+      if (!response.ok) {
+        throw new Error(`Voice preview failed with ${response.status}`);
+      }
+
+      audioUrl = URL.createObjectURL(await response.blob());
+      previewAudioUrls.set(cacheKey, audioUrl);
+    }
+
+    previewAudio = new Audio(audioUrl);
+    previewAudio.addEventListener("ended", stopVoicePreview, { once: true });
+    await previewAudio.play();
+
+    previewRevealTimer = window.setInterval(() => {
+      if (!previewAudio) return;
+      const duration = Number.isFinite(previewAudio.duration) && previewAudio.duration > 0 ? previewAudio.duration : 4.5;
+      setPreviewTranscript(text, previewAudio.currentTime / duration);
+    }, 90);
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === "AbortError")) {
+      console.error(error);
+      if (previewTranscript) {
+        previewTranscript.textContent = "Preview unavailable. Try another voice.";
+      }
+    }
+    stopVoicePreview();
   }
 }
 
@@ -230,7 +504,7 @@ function selectedVoicePayload() {
   const selected = voiceSelect.selectedOptions[0];
   return {
     voiceId: voiceSelect.value,
-    voiceLabel: selected?.textContent?.trim() || null
+    voiceLabel: selected?.dataset.voiceLabel?.trim() || selected?.textContent?.trim() || null
   };
 }
 
@@ -292,6 +566,16 @@ demoPhoneInput?.addEventListener("input", () => {
 demoPhoneInput?.addEventListener("blur", () => {
   demoPhoneInput.value = formatUSPhone(demoPhoneInput.value);
 });
+voiceTrigger?.addEventListener("click", () => {
+  setVoiceMenuOpen(Boolean(voiceMenu?.hidden));
+});
+voiceSearch?.addEventListener("input", renderVoiceMenu);
+voiceFilterButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    activeVoiceFilter = button.dataset.voiceFilter || "all";
+    renderVoiceMenu();
+  });
+});
 locationInput?.addEventListener("input", syncGreetingToLocation);
 greetingTextarea?.addEventListener("input", renderGreetingHighlight);
 greetingTextarea?.addEventListener("scroll", () => {
@@ -333,9 +617,24 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && modal && !modal.hidden) {
     closeModal();
   }
+
+  if (event.key === "Escape" && voiceMenu && !voiceMenu.hidden) {
+    setVoiceMenuOpen(false);
+    voiceTrigger?.focus();
+  }
 });
 
 document.addEventListener("click", (event) => {
+  if (
+    voicePicker &&
+    voiceMenu &&
+    !voiceMenu.hidden &&
+    event.target instanceof Node &&
+    !voicePicker.contains(event.target)
+  ) {
+    setVoiceMenuOpen(false);
+  }
+
   if (!nav || !navToggle || !headerActions || !nav.classList.contains("open")) return;
   if (event.target instanceof Node && (nav.contains(event.target) || navToggle.contains(event.target) || headerActions.contains(event.target))) return;
   setMobileNav(false);

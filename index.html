@@ -128,12 +128,41 @@
 
             <div class="builder-grid">
               <div class="builder-controls">
-                <label class="field">
-                  <span>Voice</span>
-                  <select id="voice-select" name="voice">
+                <div class="field voice-field">
+                  <span id="voice-picker-label">Voice</span>
+                  <select id="voice-select" class="native-voice-select" name="voice" aria-hidden="true" tabindex="-1">
                     <option>Loading voice options...</option>
                   </select>
-                </label>
+                  <div class="voice-picker" data-voice-picker aria-labelledby="voice-picker-label">
+                    <button class="voice-trigger" type="button" aria-haspopup="listbox" aria-expanded="false" data-voice-trigger>
+                      <span>
+                        <strong data-selected-voice>Loading voices...</strong>
+                        <small data-selected-voice-detail>Preparing voice menu</small>
+                      </span>
+                      <span aria-hidden="true">⌄</span>
+                    </button>
+                    <div class="voice-menu" role="listbox" hidden data-voice-menu>
+                      <label class="voice-search">
+                        <span aria-hidden="true">⌕</span>
+                        <input type="search" placeholder="Search voice..." autocomplete="off" data-voice-search>
+                      </label>
+                      <div class="voice-filters" aria-label="Voice filters">
+                        <button type="button" class="active" data-voice-filter="all">All</button>
+                        <button type="button" data-voice-filter="male">♂ Male</button>
+                        <button type="button" data-voice-filter="female">♀ Female</button>
+                      </div>
+                      <div class="voice-list" data-voice-list></div>
+                      <div class="voice-preview-popover" hidden data-voice-preview>
+                        <div class="voice-preview-heading">
+                          <strong data-preview-name>Voice preview</strong>
+                          <span data-preview-gender></span>
+                        </div>
+                        <p data-preview-transcript></p>
+                        <div class="voice-preview-meter" aria-hidden="true"><span data-preview-meter></span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
                 <label class="field">
                   <span>Location name</span>
