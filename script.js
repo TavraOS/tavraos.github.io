@@ -217,8 +217,7 @@ async function populateVoiceSelect() {
     voiceSelect.disabled = false;
     renderVoiceMenu();
     setSelectedVoiceSummary(selectedVoiceRecord());
-  } catch (error) {
-    console.error(error);
+  } catch {
     const option = document.createElement("option");
     option.textContent = "Voice options unavailable";
     option.value = "";
@@ -464,7 +463,6 @@ async function startVoicePreview(record, button) {
     }, 90);
   } catch (error) {
     if (!(error instanceof DOMException && error.name === "AbortError")) {
-      console.error(error);
       if (previewTranscript) {
         previewTranscript.textContent = "Preview unavailable. Try another voice.";
       }
@@ -493,7 +491,6 @@ function nationalPhoneDigits(value) {
 
 function formatUSPhone(value) {
   const digits = nationalPhoneDigits(value).slice(0, 10);
-
   const area = digits.slice(0, 3);
   const prefix = digits.slice(3, 6);
   const line = digits.slice(6, 10);
@@ -511,13 +508,11 @@ function phoneToE164(value) {
 
 function selectedVoicePayload() {
   if (!voiceSelect || !voiceSelect.value) {
-    return {
-      voiceId: null,
-      voiceLabel: null
-    };
+    return { voiceId: null, voiceLabel: null };
   }
 
   const selected = voiceSelect.selectedOptions[0];
+
   return {
     voiceId: voiceSelect.value,
     voiceLabel: selected?.dataset.voiceLabel?.trim() || selected?.textContent?.trim() || null
@@ -550,9 +545,7 @@ async function submitDemoCall(event) {
   try {
     const response = await fetch(`${demoApiBaseUrl}/demo/voice/calls`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         phoneNumber,
         businessName,
@@ -561,15 +554,14 @@ async function submitDemoCall(event) {
         voiceLabel: voice.voiceLabel
       })
     });
-
     const payload = await response.json().catch(() => ({}));
+
     if (!response.ok) {
       throw new Error(payload.error || `Demo call request failed with ${response.status}`);
     }
 
     setDemoCallStatus("Call requested. Your phone should ring shortly.", "success");
-  } catch (error) {
-    console.error(error);
+  } catch {
     setDemoCallStatus("The demo call could not be placed. Try again shortly.", "error");
   } finally {
     demoCallSubmit?.removeAttribute("disabled");
@@ -582,6 +574,7 @@ demoPhoneInput?.addEventListener("input", () => {
 demoPhoneInput?.addEventListener("blur", () => {
   demoPhoneInput.value = formatUSPhone(demoPhoneInput.value);
 });
+
 voiceTrigger?.addEventListener("click", () => {
   setVoiceMenuOpen(Boolean(voiceMenu?.hidden));
 });
