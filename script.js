@@ -98,7 +98,7 @@ function renderGreetingHighlight() {
   const greeting = greetingTextarea.value;
   const locationName = locationInput?.value.trim() || "";
 
-  if (!locationName) {
+  if (locationName.length < 2) {
     greetingHighlight.textContent = greeting;
     return;
   }
