@@ -42,6 +42,7 @@ let activeVoiceFilter = "all";
 let activePreviewVoiceId = null;
 let previewAudio = null;
 let previewRevealTimer = null;
+let previewStopTimer = null;
 let previewRequest = null;
 const previewAudioUrls = new Map();
 
@@ -324,8 +325,8 @@ function renderVoiceMenu() {
     preview.innerHTML = `<span aria-hidden="true">▶</span>`;
     preview.addEventListener("mouseenter", () => startVoicePreview(record, preview));
     preview.addEventListener("focus", () => startVoicePreview(record, preview));
-    preview.addEventListener("mouseleave", stopVoicePreview);
-    preview.addEventListener("blur", stopVoicePreview);
+    preview.addEventListener("mouseleave", scheduleVoicePreviewStop);
+    preview.addEventListener("blur", scheduleVoicePreviewStop);
     preview.addEventListener("click", (event) => {
       event.stopPropagation();
       if (activePreviewVoiceId === record.voiceId) {
@@ -368,6 +369,8 @@ function setPreviewTranscript(text, ratio) {
 }
 
 function stopVoicePreview() {
+  clearVoicePreviewStopTimer();
+
   if (previewRequest) {
     previewRequest.abort();
     previewRequest = null;
@@ -395,10 +398,21 @@ function stopVoicePreview() {
   }
 }
 
+function clearVoicePreviewStopTimer() {
+  if (!previewStopTimer) return;
+  window.clearTimeout(previewStopTimer);
+  previewStopTimer = null;
+}
+
+function scheduleVoicePreviewStop() {
+  clearVoicePreviewStopTimer();
+  previewStopTimer = window.setTimeout(stopVoicePreview, 260);
+}
+
 async function startVoicePreview(record, button) {
   if (!record?.voiceId) return;
+  clearVoicePreviewStopTimer();
   if (activePreviewVoiceId === record.voiceId) return;
-
   stopVoicePreview();
   activePreviewVoiceId = record.voiceId;
   button.classList.add("is-playing");
@@ -576,6 +590,10 @@ voiceFilterButtons.forEach((button) => {
     renderVoiceMenu();
   });
 });
+voicePreviewPopover?.addEventListener("mouseenter", clearVoicePreviewStopTimer);
+voicePreviewPopover?.addEventListener("mouseleave", scheduleVoicePreviewStop);
+voicePreviewPopover?.addEventListener("focusin", clearVoicePreviewStopTimer);
+voicePreviewPopover?.addEventListener("focusout", scheduleVoicePreviewStop);
 locationInput?.addEventListener("input", syncGreetingToLocation);
 greetingTextarea?.addEventListener("input", renderGreetingHighlight);
 greetingTextarea?.addEventListener("scroll", () => {
