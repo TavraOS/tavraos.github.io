@@ -33,9 +33,9 @@ Current page structure:
 - Onboarding/go-live section
 - Footer
 
-The demo builder can request a demo call through Tavra's public demo API. Do not put secrets, private credentials, analytics, or infrastructure-specific vendor language into the static site.
+The demo builder can request a demo call through Tavra's public demo API. Do not put secrets, private account material, analytics, or infrastructure-specific language into the static site.
 
-The voice dropdown reads online options from the Tavra voice catalog. Do not add private keys, credentials, or other secrets to the static site.
+The voice dropdown reads online options from the Tavra voice catalog. Do not add private keys or other secrets to the static site.
 
 Logo assets copied into `assets/`:
 

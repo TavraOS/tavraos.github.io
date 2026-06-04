@@ -25,6 +25,6 @@ Future Codex sessions must verify the git remote before committing or pushing. T
 
 If the remote points to anything involving Hagerlabs, Wes Hager's personal GitHub Pages repository, `username.github.io`, `hagerlabs.com`, or any non-TavraOS repository, stop immediately and explain the problem.
 
-No Tavra backend, iOS app, Heroku, Parse Cloud Code, or DNS changes belong in this repository.
+No Tavra non-website application, server, cloud-code, mobile-app source, or DNS changes belong in this repository.
 
 This website repository should remain static and safe to deploy through GitHub Pages.

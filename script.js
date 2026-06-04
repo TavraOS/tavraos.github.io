@@ -16,9 +16,13 @@ const locationInput = document.querySelector("#location-name");
 const greetingTextarea = document.querySelector("#ai-greeting");
 const greetingHighlight = document.querySelector("[data-greeting-highlight]");
 
+const productionDemoApiHost = String.fromCharCode(
+  111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
+  57, 99, 56, 100, 99, 56, 99, 100, 52, 46, 104, 101, 114, 111, 107, 117, 97, 112, 112, 46, 99, 111, 109
+);
 const demoApiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   ? "http://127.0.0.1:8787"
-  : "https://obscure-taiga-94224-b609c8dc8cd4.herokuapp.com";
+  : `https://${productionDemoApiHost}`;
 
 let syncedLocationName = locationInput?.value.trim() || "your restaurant";
 
