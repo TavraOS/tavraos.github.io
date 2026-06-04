@@ -264,7 +264,7 @@ function fallbackSessionConfig() {
       reservationsEnabled: true,
       reservationMode: "native_tavra",
       fallbackBehavior: "collect_request",
-      defaultReservationStatus: "requested",
+      defaultReservationStatus: "ai_decides",
       minPartySize: 1,
       maxPartySize: 12
     },
@@ -279,6 +279,17 @@ function fallbackSessionConfig() {
 
 function activeSessionConfig() {
   return demoConfig?.sessionConfig || fallbackSessionConfig();
+}
+
+function defaultEnabledKitchenPrinting(kitchenPrinting) {
+  const base = kitchenPrinting || { enabled: true, targets: [] };
+  return {
+    ...base,
+    enabled: true,
+    targets: Array.isArray(base.targets)
+      ? base.targets.map((target) => ({ ...target, enabled: true }))
+      : []
+  };
 }
 
 function renderQuestionConfig(categories) {
@@ -436,7 +447,7 @@ function applyDemoConfigPayload(payload) {
 
   renderQuestionConfig(Array.isArray(sessionConfig.otherQuestions) ? sessionConfig.otherQuestions : []);
   renderHandoffConfig(Array.isArray(sessionConfig.handoffRoutes) ? sessionConfig.handoffRoutes : []);
-  renderKitchenConfig(sessionConfig.kitchenPrinting || { enabled: true, targets: [] });
+  renderKitchenConfig(defaultEnabledKitchenPrinting(sessionConfig.kitchenPrinting));
 
   if (Array.isArray(payload?.menuItems)) {
     demoMenuRecords = payload.menuItems
@@ -1703,4 +1714,14 @@ if ("IntersectionObserver" in window && observedSections.length > 0) {
   );
 
   observedSections.forEach((section) => observer.observe(section));
+}
+
+const loadDemoConfigOnIdle = () => {
+  ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
+};
+
+if ("requestIdleCallback" in window) {
+  window.requestIdleCallback(loadDemoConfigOnIdle, { timeout: 1200 });
+} else {
+  window.setTimeout(loadDemoConfigOnIdle, 350);
 }
