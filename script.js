@@ -8,6 +8,7 @@ const modalDialog = modal?.querySelector(".call-modal");
 const modalClose = document.querySelector("[data-modal-close]");
 const demoCallForm = document.querySelector("[data-demo-call-form]");
 const demoPhoneInput = document.querySelector("[data-demo-phone]");
+const demoHoneypot = document.querySelector("[data-demo-honeypot]");
 const demoCallSubmit = document.querySelector("[data-demo-call-submit]");
 const demoCallStatus = document.querySelector("[data-demo-call-status]");
 const voiceSelect = document.querySelector("#voice-select");
@@ -39,6 +40,8 @@ const demoApiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostn
 let syncedLocationName = locationInput?.value.trim() || "your restaurant";
 let lastSyncedGreeting = greetingTextarea?.value || greetingTemplate(syncedLocationName);
 let voiceRecords = [];
+let voiceLoadState = "idle";
+let voiceLoadPromise = null;
 let activeVoiceFilter = "all";
 let activePreviewVoiceId = null;
 let previewAudio = null;
@@ -65,6 +68,7 @@ function closeModal() {
 
 function openModal() {
   if (!modal || !modalDialog) return;
+  ensureVoiceOptionsLoaded();
   modal.hidden = false;
   document.body.classList.add("modal-open");
   window.setTimeout(() => demoPhoneInput?.focus() || modalDialog.focus(), 0);
@@ -200,8 +204,11 @@ async function fetchTavraVoices() {
 async function populateVoiceSelect() {
   if (!voiceSelect) return;
 
+  voiceLoadState = "loading";
   voiceSelect.disabled = true;
+  setVoicePlaceholder("Loading voice options...");
   setSelectedVoiceSummary(null);
+  renderVoiceMenu();
 
   try {
     const voices = await fetchTavraVoices();
@@ -215,6 +222,7 @@ async function populateVoiceSelect() {
     const fiona = voices.find((record) => record.friendlyName.trim().toLowerCase() === "fiona");
     voiceSelect.value = fiona?.voiceId || voices[0]?.voiceId || "";
     voiceSelect.disabled = false;
+    voiceLoadState = "ready";
     renderVoiceMenu();
     setSelectedVoiceSummary(selectedVoiceRecord());
   } catch {
@@ -224,10 +232,35 @@ async function populateVoiceSelect() {
 
     voiceSelect.replaceChildren(option);
     voiceSelect.disabled = true;
+    voiceLoadState = "error";
     voiceRecords = [];
     setSelectedVoiceSummary(null);
     renderVoiceMenu();
   }
+}
+
+function setVoicePlaceholder(text) {
+  if (!voiceSelect) return;
+  const option = document.createElement("option");
+  option.textContent = text;
+  option.value = "";
+  voiceSelect.replaceChildren(option);
+}
+
+function ensureVoiceOptionsLoaded() {
+  if (voiceLoadState === "ready") {
+    return Promise.resolve(voiceRecords);
+  }
+
+  if (voiceLoadPromise) {
+    return voiceLoadPromise;
+  }
+
+  voiceLoadPromise = populateVoiceSelect().finally(() => {
+    voiceLoadPromise = null;
+  });
+
+  return voiceLoadPromise;
 }
 
 function selectedVoiceRecord() {
@@ -239,8 +272,16 @@ function setSelectedVoiceSummary(record) {
   if (!selectedVoiceName || !selectedVoiceDetail) return;
 
   if (!record) {
-    selectedVoiceName.textContent = voiceSelect?.disabled ? "Voice options unavailable" : "Loading voices...";
-    selectedVoiceDetail.textContent = voiceSelect?.disabled ? "Try again shortly" : "Preparing voice menu";
+    if (voiceLoadState === "idle") {
+      selectedVoiceName.textContent = "Choose a voice";
+      selectedVoiceDetail.textContent = "Voice options load when you open the menu";
+    } else if (voiceLoadState === "loading") {
+      selectedVoiceName.textContent = "Loading voices...";
+      selectedVoiceDetail.textContent = "Preparing voice menu";
+    } else {
+      selectedVoiceName.textContent = "Voice options unavailable";
+      selectedVoiceDetail.textContent = "Try again shortly";
+    }
     return;
   }
 
@@ -285,7 +326,7 @@ function renderVoiceMenu() {
   if (records.length === 0) {
     const empty = document.createElement("p");
     empty.className = "voice-empty";
-    empty.textContent = "No voices match that filter.";
+    empty.textContent = voiceLoadState === "idle" ? "Open the menu to load voice options." : "No voices match that filter.";
     voiceList.append(empty);
     return;
   }
@@ -471,7 +512,9 @@ async function startVoicePreview(record, button) {
   }
 }
 
-populateVoiceSelect();
+setVoicePlaceholder("Voice options load on interaction");
+setSelectedVoiceSummary(null);
+renderVoiceMenu();
 renderGreetingHighlight();
 
 function phoneDigits(value) {
@@ -524,10 +567,13 @@ async function submitDemoCall(event) {
 
   if (!demoPhoneInput || !locationInput || !greetingTextarea) return;
 
+  if (demoHoneypot?.value.trim()) {
+    return;
+  }
+
   const phoneNumber = phoneToE164(demoPhoneInput.value);
   const businessName = locationInput.value.trim();
   const greeting = greetingTextarea.value.trim();
-  const voice = selectedVoicePayload();
 
   if (!phoneNumber) {
     setDemoCallStatus("Enter a complete phone number.", "error");
@@ -540,6 +586,10 @@ async function submitDemoCall(event) {
   }
 
   demoCallSubmit?.setAttribute("disabled", "true");
+  setDemoCallStatus("Preparing the demo call...", "loading");
+  await ensureVoiceOptionsLoaded();
+  const voice = selectedVoicePayload();
+
   setDemoCallStatus("Placing the demo call...", "loading");
 
   try {
@@ -575,8 +625,13 @@ demoPhoneInput?.addEventListener("blur", () => {
   demoPhoneInput.value = formatUSPhone(demoPhoneInput.value);
 });
 
-voiceTrigger?.addEventListener("click", () => {
+voiceTrigger?.addEventListener("click", async () => {
+  await ensureVoiceOptionsLoaded();
   setVoiceMenuOpen(Boolean(voiceMenu?.hidden));
+});
+voiceTrigger?.addEventListener("focus", ensureVoiceOptionsLoaded);
+document.querySelectorAll("a[href='#demo'], [data-scroll-target='demo']").forEach((link) => {
+  link.addEventListener("click", ensureVoiceOptionsLoaded);
 });
 voiceSearch?.addEventListener("input", renderVoiceMenu);
 voiceFilterButtons.forEach((button) => {

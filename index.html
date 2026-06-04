@@ -37,7 +37,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">
     <link rel="icon" href="assets/Tavra05_glyph_black2.png" type="image/png">
     <link rel="stylesheet" href="styles.css">
-    <script src="script.js?v=workflow-copy-live-demo-v1" defer></script>
+    <script src="script.js?v=interaction-gated-demo-v1" defer></script>
   </head>
   <body>
     <header class="site-header" data-header>
@@ -528,6 +528,10 @@
         <h2 id="modal-title">Test your Tavra AI</h2>
         <p id="modal-copy">Enter your phone number and Tavra will call you as if you had just called the restaurant.</p>
         <form class="call-form" data-demo-call-form>
+          <label class="hp-field" aria-hidden="true">
+            <span>Website</span>
+            <input type="text" name="website" autocomplete="off" tabindex="-1" data-demo-honeypot>
+          </label>
           <label class="field">
             <span>Phone number</span>
             <input type="tel" name="phoneNumber" inputmode="tel" autocomplete="tel" placeholder="+1 (555) 555-1234" required data-demo-phone>
