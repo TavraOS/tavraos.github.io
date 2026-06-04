@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Tavra is a 24/7 AI phone operations system for restaurants. It answers calls, handles revenue-generating workflows, and keeps restaurants in control."
+      content="Tavra is a 24/7 AI phone operations system for restaurants. It takes orders, collects payment when configured, sends kitchen tickets, handles reservations, answers questions, and routes exceptions."
     >
     <meta name="theme-color" content="#171716">
     <meta property="og:title" content="Tavra | 24/7 AI phone operations for restaurants">
     <meta
       property="og:description"
-      content="Tavra turns missed restaurant calls into handled reservation, order, routing, and staff-notification workflows."
+      content="Tavra turns restaurant calls into completed order, payment, reservation, custom-answer, routing, and staff-notification workflows."
     >
     <meta property="og:type" content="website">
     <title>Tavra | AI phone operations for restaurants</title>
@@ -40,10 +40,10 @@
       <nav class="site-nav" aria-label="Primary navigation" data-nav>
         <a href="#product">Product</a>
         <a href="#demo">Demo</a>
-        <a href="#reservations">Reservations</a>
+        <a href="#orders">Orders</a>
+        <a href="#answers">Answers</a>
         <a href="#integrations">Integrations</a>
         <a href="#pricing">Pricing</a>
-        <a href="#contact">Contact</a>
       </nav>
 
       <div class="header-actions">
@@ -66,10 +66,10 @@
               <span>restaurants</span>
             </h1>
             <p class="hero-lede">
-              Dinner rush brings more calls than your team can grab. Tavra <mark>answers</mark>,
-              understands what each guest needs, and <mark>handles the workflow</mark>:
-              <mark>reservations</mark>, <mark>order intent</mark>, questions, transfers, and owner notes,
-              based on how your restaurant wants to run.
+              Dinner rush brings more calls than your team can grab. Tavra <mark>answers the phone</mark>,
+              <mark>takes to-go orders</mark>, collects payment when configured, sends tickets into the
+              restaurant's normal order flow, handles reservations, answers custom business questions,
+              and routes the calls that need a human.
             </p>
             <div class="hero-actions">
               <a class="button button-xl button-orange" href="#contact">Get Started</a>
@@ -82,7 +82,7 @@
             <div class="signal-burst" aria-hidden="true"></div>
             <svg class="host-sprite" viewBox="0 0 560 560" role="img" aria-labelledby="host-title host-desc">
               <title id="host-title">Tavra Host mascot</title>
-              <desc id="host-desc">A playful headset-face character surrounded by phone signal rays, holding a reservation book.</desc>
+              <desc id="host-desc">A playful headset-face character surrounded by phone signal rays, holding an order ticket.</desc>
               <g class="ray-lines">
                 <path d="M282 52v58"/>
                 <path d="M407 88l-34 52"/>
@@ -105,7 +105,7 @@
               <path class="book-line" d="M98 455h76M98 479h58"/>
               <path class="stand" d="M232 430h96l24 76H208z"/>
             </svg>
-            <p class="art-caption">Calls become reservations, orders, and clear next steps.</p>
+            <p class="art-caption">Calls become orders, payments, reservations, answers, and routed exceptions.</p>
           </div>
         </div>
       </section>
@@ -114,7 +114,7 @@
         <div class="demo-heading">
           <p class="eyebrow dark">Live demo console</p>
           <h2 id="demo-title">Build your Tavra AI</h2>
-          <p>Mock up a restaurant phone agent with a voice, greeting, menu basics, reservation rules, and workflow controls.</p>
+          <p>Mock up a restaurant phone agent with a voice, greeting, order flow, custom answers, reservation rules, and workflow controls.</p>
         </div>
 
         <div class="demo-layout">
@@ -180,15 +180,15 @@
 
                 <fieldset class="pill-group">
                   <legend>Workflow tabs</legend>
-                  <label><input type="radio" name="mode" checked> <span>Reservations</span></label>
-                  <label><input type="radio" name="mode"> <span>Orders</span></label>
+                  <label><input type="radio" name="mode" checked> <span>Orders</span></label>
                   <label><input type="radio" name="mode"> <span>Added info</span></label>
+                  <label><input type="radio" name="mode"> <span>Reservations</span></label>
                 </fieldset>
 
                 <div class="quick-buttons" aria-label="Add configuration items">
                   <button type="button">+ Menu Item</button>
-                  <button type="button">+ FAQs</button>
-                  <button type="button">+ Amenities</button>
+                  <button type="button">+ Custom Answers</button>
+                  <button type="button">+ Events URL</button>
                   <button type="button">+ Hours</button>
                   <button type="button">+ Reservation Rules</button>
                 </div>
@@ -208,14 +208,14 @@
                     <span></span><span></span><span></span><span></span><span></span><span></span>
                   </div>
                   <ul>
-                    <li><strong>Intent</strong><span>Reservation request</span></li>
-                    <li><strong>Party</strong><span>4 guests</span></li>
-                    <li><strong>Route</strong><span>Native Tavra Book</span></li>
+                    <li><strong>Workflow</strong><span>To-go order</span></li>
+                    <li><strong>Payment</strong><span>Configured checkout</span></li>
+                    <li><strong>Output</strong><span>Kitchen ticket</span></li>
                   </ul>
                 </div>
                 <div class="preview-notes">
                   <p class="note-title">Staff-facing note</p>
-                  <p>Guest wants tonight at 7:30. Patio preferred. Allergy note captured. Confirmation depends on restaurant settings.</p>
+                  <p>Order submitted with caller details, modifiers, payment status, and pickup timing according to restaurant setup.</p>
                 </div>
                 <button class="button button-call" type="button" data-call-modal>
                   <span aria-hidden="true">☎</span>
@@ -235,35 +235,35 @@
         </div>
 
         <div class="integration-bubbles" aria-label="Planned integration principles">
-          <span>Native Tavra Book</span>
-          <span>Approved adapters</span>
-          <span>Staff SMS</span>
+          <span>POS orders</span>
+          <span>Payments</span>
+          <span>Kitchen tickets</span>
+          <span>Custom answers</span>
           <span>Call routing</span>
-          <span>Menu basics</span>
         </div>
       </section>
 
       <section class="text-section snap-section" id="product" aria-labelledby="product-title">
         <div class="two-column">
           <div>
-            <p class="eyebrow">Voice + text</p>
-            <h2 id="product-title">Calls should turn into revenue, not mystery voicemails</h2>
+            <p class="eyebrow">Phone operations</p>
+            <h2 id="product-title">Calls should become completed restaurant work</h2>
           </div>
           <div class="big-copy">
             <p>
-              Tavra does more than detect intent. It answers the guest, collects the right details, and moves the workflow forward. A reservation, to-go order, menu question, staff transfer, or owner note should not all collapse into the same missed call.
+              Tavra turns restaurant phone calls into completed workflows: orders placed, payments collected when configured, tickets sent to the kitchen, reservations handled, questions answered, and exceptions routed according to the restaurant's rules.
             </p>
             <p>
-              Each restaurant chooses the level of autonomy: complete supported workflows, collect requests for review, route edge cases, transfer urgent calls, or notify the team.
+              The restaurant controls what Tavra can do by workflow. Ordering can be fully handled when configured, custom answers can be backed by live business sources, reservations can follow the restaurant's book rules, and staff only gets pulled in when the call actually needs a human.
             </p>
             <a class="text-arrow" href="#features">See the workflow map -&gt;</a>
           </div>
         </div>
         <div class="message-stack" aria-label="Example phone workflows">
-          <article><span>Guest</span> “Can we get a table for six around 8?”</article>
-          <article><span>Tavra</span> Checks the restaurant's rules and captures the required details.</article>
-          <article><span>Tavra</span> Books, requests, routes, or notifies based on the location's settings.</article>
-          <article><span>Staff</span> Gets a handled workflow instead of another mystery voicemail.</article>
+          <article><span>Guest</span> “Can I place an order for pickup?”</article>
+          <article><span>Tavra</span> Builds the order, confirms modifiers, and collects payment when configured.</article>
+          <article><span>Tavra</span> Sends the order into the restaurant's normal prep flow.</article>
+          <article><span>Staff</span> Gets a submitted order instead of another missed call.</article>
         </div>
       </section>
 
@@ -271,13 +271,52 @@
         <div class="section-heading">
           <p class="eyebrow">Built for restaurants</p>
           <h2 id="proof-title">Built for the calls restaurants actually miss</h2>
-          <p>Handled, not missed: the everyday phone work that can turn into revenue or service recovery.</p>
+          <p>Handled, not missed: the phone work that becomes revenue, service recovery, and fewer interruptions.</p>
         </div>
         <div class="metric-grid">
-          <article><strong>After</strong><span>hours reservation requests</span></article>
-          <article><strong>Rush</strong><span>order calls</span></article>
-          <article><strong>Menu</strong><span>and hours questions</span></article>
-          <article><strong>Owner</strong><span>notes and staff transfers</span></article>
+          <article><strong>To-go</strong><span>orders during rush</span></article>
+          <article><strong>Payment</strong><span>collection when configured</span></article>
+          <article><strong>Custom</strong><span>business answers</span></article>
+          <article><strong>Human</strong><span>handoff when needed</span></article>
+        </div>
+      </section>
+
+      <section class="text-section snap-section" id="orders" aria-labelledby="orders-title">
+        <div class="two-column">
+          <div>
+            <p class="eyebrow">Orders</p>
+            <h2 id="orders-title">To-go orders, handled from phone call to kitchen ticket</h2>
+          </div>
+          <div class="big-copy">
+            <p>
+              When a restaurant's POS and payment setup are configured, Tavra can take the caller's order, answer menu questions, confirm modifiers, collect payment, and send the order into the restaurant's normal prep flow.
+            </p>
+            <p>
+              If a caller asks for a manager or staff member in the middle of ordering, Tavra transfers immediately. Otherwise, the order path is built to be fully handled, accurately submitted, and ready for the kitchen.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="text-section snap-section" id="answers" aria-labelledby="answers-title">
+        <div class="two-column">
+          <div>
+            <p class="eyebrow">Custom answers</p>
+            <h2 id="answers-title">Answers the questions your staff hears all day</h2>
+          </div>
+          <div class="big-copy">
+            <p>
+              Tavra can be configured with custom business knowledge for hours and open status, directions, parking, accessibility, wait times, walk-ins, allergies, large parties, private dining, catering, gift cards, loyalty, lost and found, complaints, hiring, live events, and entertainment.
+            </p>
+            <p>
+              Each category can be backed by the restaurant's preferred source: manual entries, website URLs, iCal feeds, Google Calendar, uploaded files, POS data, or other configured sources.
+            </p>
+          </div>
+        </div>
+        <div class="message-stack" aria-label="Custom answer examples">
+          <article><span>Events</span> Tavra can sync with a restaurant's events page and answer questions about upcoming shows.</article>
+          <article><span>Details</span> Cover charges, ticket links, age restrictions, start times, and related notes can be answered from the configured source.</article>
+          <article><span>Service</span> Staff can stay focused while callers still get specific, useful answers.</article>
         </div>
       </section>
 
@@ -305,34 +344,34 @@
         </div>
         <div class="feature-grid">
           <article>
+            <span class="icon">☰</span>
+            <h3>To-Go Ordering</h3>
+            <p>Tavra takes phone orders, confirms modifiers, answers menu questions, and keeps the caller moving through the configured order flow.</p>
+          </article>
+          <article>
+            <span class="icon">▣</span>
+            <h3>Payment + Kitchen Ticket</h3>
+            <p>When the restaurant's POS and payment setup are configured, Tavra can collect payment and send the submitted order into the restaurant's normal prep flow.</p>
+          </article>
+          <article>
+            <span class="icon">?</span>
+            <h3>Custom Business Answers</h3>
+            <p>Hours, parking, allergies, private events, catering, gift cards, hiring, live music, and other caller questions can be backed by configured business sources.</p>
+          </article>
+          <article>
             <span class="icon">▤</span>
             <h3>Reservation Workflows</h3>
             <p>Tavra collects party size, date, time, guest name, callback number, notes, allergies, and special requests, then books, requests, or escalates based on the restaurant's rules.</p>
           </article>
           <article>
-            <span class="icon">▣</span>
-            <h3>Native Reservation Book</h3>
-            <p>Restaurants can run from Tavra's own reservation book, with staff controls for requested, confirmed, cancelled, and completed reservations.</p>
-          </article>
-          <article>
-            <span class="icon">☰</span>
-            <h3>Order Revenue Capture</h3>
-            <p>When callers want food to go, Tavra captures order intent and moves the guest into the restaurant's configured workflow instead of losing the call.</p>
-          </article>
-          <article>
             <span class="icon">↗</span>
             <h3>Restaurant-Controlled Autonomy</h3>
-            <p>Choose what Tavra can complete, what needs approval, what gets transferred, and when the owner or staff should be notified.</p>
+            <p>Choose which workflows Tavra completes, which reservation paths need approval, which calls transfer, and when owners or staff should be notified.</p>
           </article>
           <article>
             <span class="icon">◉</span>
             <h3>Smart Routing</h3>
             <p>Manager calls, staff questions, edge cases, and urgent issues can be routed instead of forcing every caller through the same script.</p>
-          </article>
-          <article>
-            <span class="icon">◇</span>
-            <h3>Integration-Ready</h3>
-            <p>Tavra is built around provider-safe adapters so approved restaurant system integrations can be added over time without replacing Tavra's native workflow layer.</p>
           </article>
         </div>
       </section>
@@ -344,29 +383,12 @@
             <h2 id="workflow-title">You choose how much Tavra handles</h2>
           </div>
           <ul class="workflow-list">
-            <li><span>01</span> Auto-handle supported calls when the restaurant's rules allow it.</li>
-            <li><span>02</span> Collect reservation and order requests for staff review when approval matters.</li>
-            <li><span>03</span> Transfer the exceptions: managers, urgent issues, staff questions, and edge cases.</li>
-            <li><span>04</span> Notify owners and managers when the call should not disappear.</li>
-            <li><span>05</span> Operate differently for reservations, orders, FAQs, routing, and after-hours overflow.</li>
+            <li><span>01</span> Fully handle configured phone orders from caller greeting to submitted kitchen ticket.</li>
+            <li><span>02</span> Complete routine workflows automatically, or hold specific reservation paths for staff approval.</li>
+            <li><span>03</span> Answer business-specific questions from configured sources like URLs, iCal feeds, Google Calendar, uploaded files, manual entries, and POS data.</li>
+            <li><span>04</span> Transfer immediately when a caller asks for a manager or staff member.</li>
+            <li><span>05</span> Notify owners and managers when a workflow needs human attention.</li>
           </ul>
-        </div>
-      </section>
-
-      <section class="text-section snap-section" id="orders" aria-labelledby="orders-title">
-        <div class="two-column">
-          <div>
-            <p class="eyebrow">Orders</p>
-            <h2 id="orders-title">Capture order demand while staff stay in service</h2>
-          </div>
-          <div class="big-copy">
-            <p>
-              To-go callers should not disappear because the host stand is slammed. Tavra can identify order intent, collect the right context, answer menu questions where configured, and move the guest into the restaurant's chosen order workflow.
-            </p>
-            <p>
-              The restaurant chooses what Tavra completes, collects, routes, or escalates.
-            </p>
-          </div>
         </div>
       </section>
 
@@ -377,10 +399,10 @@
             <h2 id="integrations-title">Designed to connect, not pretend</h2>
           </div>
           <ul class="workflow-list">
-            <li><span>01</span> Tavra is designed for approved partner integrations over time.</li>
-            <li><span>02</span> Planned reservation paths include OpenTable, Resy/Tock, SevenRooms, Toast Reservation Bridge, and Reserve with Google.</li>
-            <li><span>03</span> Nothing is marked live until it is truly connected.</li>
-            <li><span>04</span> Until a provider is connected, Tavra keeps its own native record and avoids fake sync.</li>
+            <li><span>01</span> Configured merchant POS and payment paths let Tavra complete phone orders and send submitted tickets into the restaurant's normal prep flow.</li>
+            <li><span>02</span> Custom answer categories can be backed by manual entries, website URLs, iCal feeds, Google Calendar, uploaded files, POS data, and other configured sources.</li>
+            <li><span>03</span> Planned reservation paths include OpenTable, Resy/Tock, SevenRooms, Toast Reservation Bridge, and Reserve with Google.</li>
+            <li><span>04</span> Nothing is marked connected until it is truly connected. Until a provider is connected, Tavra keeps its own native record and avoids fake sync.</li>
           </ul>
         </div>
       </section>
@@ -393,24 +415,24 @@
         </div>
         <div class="agent-grid">
           <article class="agent-card">
+            <div class="mini-mascot ticket" aria-hidden="true"></div>
+            <h3>The Order Taker</h3>
+            <p>Takes the order, confirms modifiers, handles configured checkout, and submits the ticket.</p>
+          </article>
+          <article class="agent-card">
+            <div class="mini-mascot note" aria-hidden="true"></div>
+            <h3>The Info Desk</h3>
+            <p>Answers custom questions from the restaurant's configured business sources.</p>
+          </article>
+          <article class="agent-card">
             <div class="mini-mascot host" aria-hidden="true"></div>
             <h3>The Host</h3>
             <p>Completes or requests reservations based on the book and the restaurant's rules.</p>
           </article>
           <article class="agent-card">
-            <div class="mini-mascot ticket" aria-hidden="true"></div>
-            <h3>The Order Taker</h3>
-            <p>Captures order demand and moves callers into the configured workflow.</p>
-          </article>
-          <article class="agent-card">
             <div class="mini-mascot signal" aria-hidden="true"></div>
             <h3>The Router</h3>
             <p>Transfers or escalates the calls that should not stay with the agent.</p>
-          </article>
-          <article class="agent-card">
-            <div class="mini-mascot note" aria-hidden="true"></div>
-            <h3>The Notifier</h3>
-            <p>Sends owner and staff updates when a workflow needs human attention.</p>
           </article>
         </div>
         <div class="mockup-row" aria-label="Mascot concept cards">
@@ -426,10 +448,11 @@
           <h2 id="pricing-title">Pilot pricing shaped around your restaurant</h2>
           <p>Tavra is preparing restaurant pilots. Pricing will depend on call volume, locations, and the workflows you want the agent to handle.</p>
           <ul>
+            <li>To-go ordering and configured checkout</li>
+            <li>Kitchen ticket submission</li>
+            <li>Custom business answers</li>
             <li>Reservation workflows</li>
-            <li>Order-intent capture</li>
             <li>Staff notifications</li>
-            <li>Approved integration paths over time</li>
           </ul>
           <a class="button button-orange" href="#contact">Book a Demo</a>
         </div>
@@ -442,9 +465,9 @@
         </div>
         <div class="step-grid">
           <article><span>1</span><p>Add restaurant details</p></article>
-          <article><span>2</span><p>Configure voice, hours, reservations, and menu basics</p></article>
-          <article><span>3</span><p>Forward calls or assign a Tavra number</p></article>
-          <article><span>4</span><p>Let Tavra handle the calls your team can't grab</p></article>
+          <article><span>2</span><p>Configure voice, ordering, payment, custom answers, and reservation rules</p></article>
+          <article><span>3</span><p>Connect configured sources and route the calls that need a human</p></article>
+          <article><span>4</span><p>Let Tavra handle the phone work your team can't grab</p></article>
         </div>
       </section>
 
@@ -471,6 +494,8 @@
       <nav aria-label="Footer navigation">
         <a href="#product">Product</a>
         <a href="#demo">Demo</a>
+        <a href="#orders">Orders</a>
+        <a href="#answers">Answers</a>
         <a href="#reservations">Reservations</a>
         <a href="#integrations">Integrations</a>
         <a href="#contact">Contact</a>
