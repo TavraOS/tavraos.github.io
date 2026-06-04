@@ -37,6 +37,7 @@ const demoApiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostn
   : `https://${productionDemoApiHost}`;
 
 let syncedLocationName = locationInput?.value.trim() || "your restaurant";
+let lastSyncedGreeting = greetingTextarea?.value || greetingTemplate(syncedLocationName);
 let voiceRecords = [];
 let activeVoiceFilter = "all";
 let activePreviewVoiceId = null;
@@ -103,26 +104,20 @@ function renderGreetingHighlight() {
     return;
   }
 
-  const pattern = new RegExp(escapeRegExp(locationName), "gi");
-  const matches = Array.from(greeting.matchAll(pattern));
+  const match = greeting.match(new RegExp(escapeRegExp(locationName), "i"));
 
-  if (matches.length === 0) {
+  if (!match || typeof match.index !== "number") {
     greetingHighlight.textContent = greeting;
     return;
   }
 
-  let html = "";
-  let lastIndex = 0;
-
-  matches.forEach((match) => {
-    const start = match.index || 0;
-    const end = start + match[0].length;
-    html += escapeHTML(greeting.slice(lastIndex, start));
-    html += `<mark>${escapeHTML(match[0])}</mark>`;
-    lastIndex = end;
-  });
-
-  html += escapeHTML(greeting.slice(lastIndex));
+  const start = match.index;
+  const end = start + match[0].length;
+  const html = [
+    escapeHTML(greeting.slice(0, start)),
+    `<mark>${escapeHTML(match[0])}</mark>`,
+    escapeHTML(greeting.slice(end))
+  ].join("");
   greetingHighlight.innerHTML = html;
 }
 
@@ -130,15 +125,22 @@ function syncGreetingToLocation() {
   if (!locationInput || !greetingTextarea) return;
 
   const nextLocationName = locationInput.value.trim() || "your restaurant";
-  const previousPattern = syncedLocationName ? new RegExp(escapeRegExp(syncedLocationName), "g") : null;
+  const currentGreeting = greetingTextarea.value;
+  const previousGeneratedGreeting = greetingTemplate(syncedLocationName);
 
-  if (previousPattern && previousPattern.test(greetingTextarea.value)) {
-    greetingTextarea.value = greetingTextarea.value.replace(previousPattern, nextLocationName);
+  if (currentGreeting === lastSyncedGreeting || currentGreeting === previousGeneratedGreeting || syncedLocationName.length < 2) {
+    greetingTextarea.value = greetingTemplate(nextLocationName);
+  } else if (syncedLocationName) {
+    const previousNamePattern = new RegExp(escapeRegExp(syncedLocationName), "i");
+    greetingTextarea.value = previousNamePattern.test(currentGreeting)
+      ? currentGreeting.replace(previousNamePattern, nextLocationName)
+      : greetingTemplate(nextLocationName);
   } else {
     greetingTextarea.value = greetingTemplate(nextLocationName);
   }
 
   syncedLocationName = nextLocationName;
+  lastSyncedGreeting = greetingTextarea.value;
   renderGreetingHighlight();
 }
 
