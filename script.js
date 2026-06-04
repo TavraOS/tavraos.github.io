@@ -11,7 +11,6 @@ const demoPhoneInput = document.querySelector("[data-demo-phone]");
 const demoCallSubmit = document.querySelector("[data-demo-call-submit]");
 const demoCallStatus = document.querySelector("[data-demo-call-status]");
 const voiceSelect = document.querySelector("#voice-select");
-const voiceStatus = document.querySelector("[data-voice-status]");
 const locationInput = document.querySelector("#location-name");
 const greetingTextarea = document.querySelector("#ai-greeting");
 const greetingHighlight = document.querySelector("[data-greeting-highlight]");
@@ -49,12 +48,6 @@ function openModal() {
   window.setTimeout(() => demoPhoneInput?.focus() || modalDialog.focus(), 0);
 }
 
-function setVoiceStatus(message, state = "neutral") {
-  if (!voiceStatus) return;
-  voiceStatus.textContent = message;
-  voiceStatus.dataset.state = state;
-}
-
 function setDemoCallStatus(message, state = "neutral") {
   if (!demoCallStatus) return;
   demoCallStatus.textContent = message;
@@ -85,12 +78,31 @@ function renderGreetingHighlight() {
   const locationName = locationInput?.value.trim() || "";
 
   if (!locationName) {
-    greetingHighlight.innerHTML = escapeHTML(greeting);
+    greetingHighlight.textContent = greeting;
     return;
   }
 
   const pattern = new RegExp(escapeRegExp(locationName), "gi");
-  greetingHighlight.innerHTML = escapeHTML(greeting).replace(pattern, (match) => `<mark>${match}</mark>`);
+  const matches = Array.from(greeting.matchAll(pattern));
+
+  if (matches.length === 0) {
+    greetingHighlight.textContent = greeting;
+    return;
+  }
+
+  let html = "";
+  let lastIndex = 0;
+
+  matches.forEach((match) => {
+    const start = match.index || 0;
+    const end = start + match[0].length;
+    html += escapeHTML(greeting.slice(lastIndex, start));
+    html += `<mark>${escapeHTML(match[0])}</mark>`;
+    lastIndex = end;
+  });
+
+  html += escapeHTML(greeting.slice(lastIndex));
+  greetingHighlight.innerHTML = html;
 }
 
 function syncGreetingToLocation() {
@@ -150,7 +162,6 @@ async function populateVoiceSelect() {
   if (!voiceSelect) return;
 
   voiceSelect.disabled = true;
-  setVoiceStatus("Loading voice options.", "loading");
 
   try {
     const voices = await fetchTavraVoices();
@@ -161,7 +172,6 @@ async function populateVoiceSelect() {
 
     voiceSelect.replaceChildren(...voices.map(buildVoiceOption));
     voiceSelect.disabled = false;
-    setVoiceStatus("Voice options ready.", "ready");
   } catch (error) {
     console.error(error);
     const option = document.createElement("option");
@@ -170,12 +180,44 @@ async function populateVoiceSelect() {
 
     voiceSelect.replaceChildren(option);
     voiceSelect.disabled = true;
-    setVoiceStatus("Voice options unavailable. Try again shortly.", "error");
   }
 }
 
 populateVoiceSelect();
 renderGreetingHighlight();
+
+function phoneDigits(value) {
+  return value.replace(/\D/g, "");
+}
+
+function nationalPhoneDigits(value) {
+  let digits = phoneDigits(value);
+  const trimmedValue = value.trim();
+
+  if ((trimmedValue.startsWith("+1") || digits.length > 10) && digits.startsWith("1")) {
+    digits = digits.slice(1);
+  }
+
+  return digits;
+}
+
+function formatUSPhone(value) {
+  const digits = nationalPhoneDigits(value).slice(0, 10);
+
+  const area = digits.slice(0, 3);
+  const prefix = digits.slice(3, 6);
+  const line = digits.slice(6, 10);
+
+  if (!digits) return "";
+  if (digits.length <= 3) return `+1 (${area}`;
+  if (digits.length <= 6) return `+1 (${area}) ${prefix}`;
+  return `+1 (${area}) ${prefix}-${line}`;
+}
+
+function phoneToE164(value) {
+  const digits = nationalPhoneDigits(value);
+  return digits.length === 10 ? `+1${digits}` : null;
+}
 
 function selectedVoicePayload() {
   if (!voiceSelect || !voiceSelect.value) {
@@ -197,13 +239,18 @@ async function submitDemoCall(event) {
 
   if (!demoPhoneInput || !locationInput || !greetingTextarea) return;
 
-  const phoneNumber = demoPhoneInput.value.trim();
+  const phoneNumber = phoneToE164(demoPhoneInput.value);
   const businessName = locationInput.value.trim();
   const greeting = greetingTextarea.value.trim();
   const voice = selectedVoicePayload();
 
-  if (!phoneNumber || !businessName || !greeting) {
-    setDemoCallStatus("Add a phone number first.", "error");
+  if (!phoneNumber) {
+    setDemoCallStatus("Enter a complete phone number.", "error");
+    return;
+  }
+
+  if (!businessName || !greeting) {
+    setDemoCallStatus("Add the restaurant name and greeting first.", "error");
     return;
   }
 
@@ -239,6 +286,12 @@ async function submitDemoCall(event) {
   }
 }
 
+demoPhoneInput?.addEventListener("input", () => {
+  demoPhoneInput.value = formatUSPhone(demoPhoneInput.value);
+});
+demoPhoneInput?.addEventListener("blur", () => {
+  demoPhoneInput.value = formatUSPhone(demoPhoneInput.value);
+});
 locationInput?.addEventListener("input", syncGreetingToLocation);
 greetingTextarea?.addEventListener("input", renderGreetingHighlight);
 greetingTextarea?.addEventListener("scroll", () => {

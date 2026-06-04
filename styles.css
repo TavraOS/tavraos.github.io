@@ -642,6 +642,7 @@ textarea {
   border-radius: 6px;
   background: var(--yellow);
   box-shadow: 0 0 0 2px var(--line);
+  padding: 0 3px;
 }
 
 .pill-group {
