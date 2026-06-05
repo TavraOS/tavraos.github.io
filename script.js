@@ -70,10 +70,12 @@ let voiceLoadState = "idle";
 let voiceLoadPromise = null;
 let activeVoiceFilter = "all";
 let activePreviewVoiceId = null;
+let activePreviewSessionId = 0;
 let previewAudio = null;
 let previewRevealTimer = null;
 let previewStopTimer = null;
 let previewRequest = null;
+let lastVoicePreviewPointerType = "";
 let demoMenuRecords = [];
 let demoMenuLoadState = "idle";
 let demoMenuExpanded = false;
@@ -1177,13 +1179,26 @@ function renderVoiceMenu() {
     preview.setAttribute("aria-label", `Preview ${record.friendlyName}`);
     preview.dataset.previewVoice = record.voiceId;
     preview.innerHTML = `<span aria-hidden="true">▶</span>`;
-    preview.addEventListener("mouseenter", () => startVoicePreview(record, preview));
-    preview.addEventListener("focus", () => startVoicePreview(record, preview));
-    preview.addEventListener("mouseleave", scheduleVoicePreviewStop);
+    preview.addEventListener("pointerdown", (event) => {
+      lastVoicePreviewPointerType = event.pointerType || "";
+    });
+    preview.addEventListener("pointerenter", (event) => {
+      if (event.pointerType === "mouse") startVoicePreview(record, preview);
+    });
+    preview.addEventListener("focus", () => {
+      if (lastVoicePreviewPointerType !== "touch") startVoicePreview(record, preview);
+    });
+    preview.addEventListener("pointerleave", (event) => {
+      if (event.pointerType === "mouse") scheduleVoicePreviewStop();
+    });
     preview.addEventListener("blur", scheduleVoicePreviewStop);
     preview.addEventListener("click", (event) => {
       event.stopPropagation();
-      if (activePreviewVoiceId === record.voiceId) {
+      const isTouchTap = lastVoicePreviewPointerType === "touch"
+        || window.matchMedia("(hover: none)").matches;
+      const isCurrentVoice = activePreviewVoiceId === record.voiceId;
+
+      if (isCurrentVoice && !isTouchTap) {
         stopVoicePreview();
       } else {
         startVoicePreview(record, preview);
@@ -1226,8 +1241,17 @@ function setPreviewTranscript(text, ratio) {
   previewMeter.style.width = `${Math.round(clamped * 100)}%`;
 }
 
+function isAbortLikeError(error) {
+  return error?.name === "AbortError" || error instanceof DOMException && error.name === "AbortError";
+}
+
+function isActivePreviewSession(sessionId, voiceId) {
+  return sessionId === activePreviewSessionId && activePreviewVoiceId === voiceId;
+}
+
 function stopVoicePreview() {
   clearVoicePreviewStopTimer();
+  activePreviewSessionId += 1;
 
   if (previewRequest) {
     previewRequest.abort();
@@ -1267,8 +1291,9 @@ function scheduleVoicePreviewStop() {
   previewStopTimer = window.setTimeout(stopVoicePreview, 260);
 }
 
-async function fetchGeneratedPreviewUrl(record, text) {
-  previewRequest = new AbortController();
+async function fetchGeneratedPreviewUrl(record, text, sessionId) {
+  const request = new AbortController();
+  previewRequest = request;
   const response = await fetch(`${demoApiBaseUrl}/demo/voice/previews`, {
     method: "POST",
     headers: {
@@ -1278,9 +1303,15 @@ async function fetchGeneratedPreviewUrl(record, text) {
       voiceId: record.voiceId,
       text
     }),
-    signal: previewRequest.signal
+    signal: request.signal
   });
-  previewRequest = null;
+  if (previewRequest === request) {
+    previewRequest = null;
+  }
+
+  if (!isActivePreviewSession(sessionId, record.voiceId)) {
+    throw new DOMException("Stale voice preview request.", "AbortError");
+  }
 
   if (!response.ok) {
     throw new Error(`Voice preview failed with ${response.status}`);
@@ -1289,19 +1320,40 @@ async function fetchGeneratedPreviewUrl(record, text) {
   return URL.createObjectURL(await response.blob());
 }
 
-function playPreviewAudio(audioUrl) {
+function playPreviewAudio(audioUrl, sessionId, voiceId) {
   return new Promise((resolve, reject) => {
     const audio = new Audio(audioUrl);
     const cleanup = () => {
       audio.removeEventListener("canplay", onCanPlay);
       audio.removeEventListener("error", onError);
     };
+    const rejectStale = () => {
+      cleanup();
+      audio.pause();
+      reject(new DOMException("Stale voice preview playback.", "AbortError"));
+    };
     const onCanPlay = async () => {
       cleanup();
+      if (!isActivePreviewSession(sessionId, voiceId)) {
+        rejectStale();
+        return;
+      }
+
+      if (previewAudio && previewAudio !== audio) {
+        previewAudio.pause();
+        previewAudio.currentTime = 0;
+      }
+
       previewAudio = audio;
-      previewAudio.addEventListener("ended", stopVoicePreview, { once: true });
+      previewAudio.addEventListener("ended", () => {
+        if (isActivePreviewSession(sessionId, voiceId)) stopVoicePreview();
+      }, { once: true });
       try {
         await previewAudio.play();
+        if (!isActivePreviewSession(sessionId, voiceId)) {
+          rejectStale();
+          return;
+        }
         resolve(previewAudio);
       } catch (error) {
         reject(error);
@@ -1322,8 +1374,15 @@ function playPreviewAudio(audioUrl) {
 async function startVoicePreview(record, button) {
   if (!record?.voiceId) return;
   clearVoicePreviewStopTimer();
-  if (activePreviewVoiceId === record.voiceId) return;
+  if (activePreviewVoiceId === record.voiceId) {
+    button.classList.add("is-playing");
+    button.innerHTML = `<span aria-hidden="true">Ⅱ</span>`;
+    if (voicePreviewPopover) voicePreviewPopover.hidden = false;
+    return;
+  }
+
   stopVoicePreview();
+  const sessionId = ++activePreviewSessionId;
   activePreviewVoiceId = record.voiceId;
   button.classList.add("is-playing");
   button.innerHTML = `<span aria-hidden="true">Ⅱ</span>`;
@@ -1351,10 +1410,15 @@ async function startVoicePreview(record, button) {
     let playbackStarted = false;
     for (const audioUrl of candidateUrls) {
       try {
-        await playPreviewAudio(audioUrl);
+        await playPreviewAudio(audioUrl, sessionId, record.voiceId);
+        if (!isActivePreviewSession(sessionId, record.voiceId)) return;
         playbackStarted = true;
         break;
-      } catch {
+      } catch (error) {
+        if (isAbortLikeError(error) || !isActivePreviewSession(sessionId, record.voiceId)) {
+          return;
+        }
+
         if (previewAudio) {
           previewAudio.pause();
           previewAudio = null;
@@ -1363,18 +1427,23 @@ async function startVoicePreview(record, button) {
     }
 
     if (!playbackStarted) {
-      generatedUrl = await fetchGeneratedPreviewUrl(record, fallbackText);
+      generatedUrl = await fetchGeneratedPreviewUrl(record, fallbackText, sessionId);
       previewAudioUrls.set(generatedCacheKey, generatedUrl);
-      await playPreviewAudio(generatedUrl);
+      await playPreviewAudio(generatedUrl, sessionId, record.voiceId);
     }
 
+    if (!isActivePreviewSession(sessionId, record.voiceId)) return;
     previewRevealTimer = window.setInterval(() => {
-      if (!previewAudio) return;
+      if (!previewAudio || !isActivePreviewSession(sessionId, record.voiceId)) return;
       const duration = Number.isFinite(previewAudio.duration) && previewAudio.duration > 0 ? previewAudio.duration : 4.5;
       setPreviewTranscript(text, previewAudio.currentTime / duration);
     }, 90);
   } catch (error) {
-    if (!(error instanceof DOMException && error.name === "AbortError")) {
+    if (isAbortLikeError(error) || !isActivePreviewSession(sessionId, record.voiceId)) {
+      return;
+    }
+
+    if (!isAbortLikeError(error)) {
       if (previewTranscript) {
         previewTranscript.textContent = "Preview unavailable. Try another voice.";
       }
