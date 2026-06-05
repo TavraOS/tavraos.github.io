@@ -1590,7 +1590,9 @@ textarea {
   font-size: clamp(1.72rem, 3.2vw, 2.28rem);
   line-height: 0.95;
   letter-spacing: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  word-break: keep-all;
+  white-space: nowrap;
 }
 
 .operations-logout {
@@ -2651,7 +2653,7 @@ textarea {
   }
 
   .operations-header-row h3 {
-    font-size: clamp(2.15rem, 11vw, 3rem);
+    font-size: clamp(2.15rem, 8.8vw, 2.72rem);
   }
 
   .operations-copy {
@@ -2733,7 +2735,7 @@ textarea {
   }
 
   .operations-header-row h3 {
-    font-size: clamp(1.95rem, 10vw, 2.45rem);
+    font-size: clamp(1.9rem, 8.5vw, 2.28rem);
   }
 
   .operations-logout {
