@@ -1154,6 +1154,7 @@ textarea {
   background: var(--dark-2);
   color: var(--paper);
   padding: 16px;
+  overflow: hidden;
 }
 
 .preview-phone {
@@ -1534,17 +1535,23 @@ textarea {
   background: #000;
   color: #fff;
   padding: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .operations-shell {
   display: grid;
+  width: 100%;
+  min-width: 0;
   min-height: 720px;
   grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
-  gap: 18px;
+  gap: clamp(12px, 2.4vw, 18px);
   border-radius: 14px;
   background: #000;
   color: #fff;
-  padding: 22px 18px 16px;
+  padding: clamp(16px, 2.8vw, 22px) clamp(12px, 2.4vw, 18px) 14px;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .operations-statusbar,
@@ -1565,6 +1572,7 @@ textarea {
 
 .operations-header-row {
   gap: 16px;
+  min-width: 0;
 }
 
 .operations-kicker {
@@ -1579,9 +1587,10 @@ textarea {
 .operations-header-row h3 {
   margin: 0;
   color: #fff;
-  font-size: clamp(2rem, 5vw, 3.1rem);
+  font-size: clamp(1.72rem, 3.2vw, 2.28rem);
   line-height: 0.95;
   letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .operations-logout {
@@ -1592,15 +1601,16 @@ textarea {
   color: #fff;
   font-family: var(--mono);
   font-weight: 900;
-  padding: 11px 14px;
+  font-size: 0.76rem;
+  padding: 9px 11px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
 .operations-copy {
-  max-width: 40ch;
+  max-width: 100%;
   margin: 0;
   color: rgba(255, 255, 255, 0.74);
-  font-size: 0.86rem;
+  font-size: clamp(0.76rem, 1.2vw, 0.86rem);
   font-weight: 750;
   line-height: 1.35;
 }
@@ -1608,7 +1618,8 @@ textarea {
 .operations-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: clamp(8px, 1.8vw, 12px);
+  min-width: 0;
 }
 
 .operation-tile {
@@ -1621,9 +1632,9 @@ textarea {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 22px;
   color: #fff;
-  font: 900 1.28rem/1 var(--body);
+  font: 900 clamp(0.88rem, 1.45vw, 1.1rem)/1 var(--body);
   letter-spacing: 0;
-  padding: 16px;
+  padding: clamp(11px, 1.8vw, 16px);
   text-align: left;
   cursor: pointer;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 22px rgba(0, 0, 0, 0.28);
@@ -1671,12 +1682,16 @@ textarea {
 }
 
 .operation-status {
-  top: 15px;
-  left: 16px;
-  font-size: 0.7rem;
+  top: 13px;
+  left: 13px;
+  max-width: calc(100% - 52px);
+  font-size: 0.6rem;
   font-weight: 950;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .operation-badge {
@@ -1694,10 +1709,10 @@ textarea {
 }
 
 .operation-icon {
-  top: 30px;
-  right: 18px;
+  top: 31px;
+  right: 13px;
   color: rgba(255, 244, 148, 0.9);
-  font-size: 2.8rem;
+  font-size: clamp(1.85rem, 3vw, 2.35rem);
   line-height: 1;
   text-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
 }
@@ -1710,6 +1725,7 @@ textarea {
 .operations-detail {
   display: grid;
   min-height: 210px;
+  min-width: 0;
   gap: 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 22px;
@@ -1803,7 +1819,7 @@ textarea {
 
 .operations-tabbar {
   justify-self: center;
-  width: min(100%, 330px);
+  width: min(100%, 300px);
   margin-top: 2px;
   border: 2px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
@@ -1813,7 +1829,8 @@ textarea {
 
 .operations-tabbar span {
   display: grid;
-  min-width: 86px;
+  min-width: 0;
+  flex: 1 1 0;
   place-items: center;
   gap: 2px;
   border-radius: 999px;
@@ -2623,6 +2640,33 @@ textarea {
     padding: 12px;
   }
 
+  .preview-panel.is-post-call {
+    border-radius: 16px;
+  }
+
+  .operations-shell {
+    max-height: none;
+    min-height: min(780px, calc(100vh - 96px));
+    padding: 18px 14px 14px;
+  }
+
+  .operations-header-row h3 {
+    font-size: clamp(2.15rem, 11vw, 3rem);
+  }
+
+  .operations-copy {
+    font-size: 0.86rem;
+  }
+
+  .operation-tile {
+    min-height: 118px;
+    font-size: clamp(1.02rem, 5vw, 1.34rem);
+  }
+
+  .operation-icon {
+    font-size: clamp(2.1rem, 9vw, 2.75rem);
+  }
+
   .voice-menu {
     width: 100%;
   }
@@ -2677,6 +2721,55 @@ textarea {
   .logo-tile {
     width: 42px;
     height: 42px;
+  }
+
+  .operations-shell {
+    gap: 12px;
+    padding: 16px 11px 12px;
+  }
+
+  .operations-header-row {
+    gap: 10px;
+  }
+
+  .operations-header-row h3 {
+    font-size: clamp(1.95rem, 10vw, 2.45rem);
+  }
+
+  .operations-logout {
+    font-size: 0.68rem;
+    padding: 8px 9px;
+  }
+
+  .operations-grid {
+    gap: 8px;
+  }
+
+  .operation-tile {
+    min-height: 104px;
+    border-radius: 18px;
+    font-size: clamp(0.9rem, 4.5vw, 1.08rem);
+    padding: 11px;
+  }
+
+  .operation-status {
+    top: 11px;
+    left: 11px;
+    font-size: 0.55rem;
+  }
+
+  .operation-icon {
+    top: 30px;
+    right: 10px;
+    font-size: 2rem;
+  }
+
+  .operations-tabbar {
+    width: 100%;
+  }
+
+  .operations-tabbar span {
+    padding-inline: 6px;
   }
 
   .site-header {

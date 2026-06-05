@@ -593,7 +593,8 @@ function setPreviewRows(rows) {
 }
 
 function terminalDemoStatus(status) {
-  return ["completed", "busy", "failed", "no-answer", "canceled"].includes(status);
+  const normalized = typeof status === "string" ? status.toLowerCase() : "";
+  return ["completed", "complete", "ended", "finished", "closed", "processed", "busy", "failed", "no-answer", "canceled"].includes(normalized);
 }
 
 function demoCallHasEnded() {
@@ -1807,14 +1808,19 @@ async function pollDemoCallState(sessionId) {
     renderWorkflowPreview();
 
     if (!terminalDemoStatus(activeDemoCall.status)) {
-      scheduleDemoStatePoll(sessionId, activeDemoState?.activeWorkflow === "waiting" ? 1200 : 1800);
+      const nextDelay = activeDemoState?.callEnded || activeDemoState?.ended
+        ? 650
+        : activeDemoState?.activeWorkflow === "waiting"
+          ? 850
+          : 1000;
+      scheduleDemoStatePoll(sessionId, nextDelay);
     } else if ((activeDemoCall.postCallPolls || 0) < 5) {
       activeDemoCall.postCallPolls = (activeDemoCall.postCallPolls || 0) + 1;
-      scheduleDemoStatePoll(sessionId, 2500);
+      scheduleDemoStatePoll(sessionId, 1200);
     }
   } catch {
     if (activeDemoCall?.sessionId === sessionId && !terminalDemoStatus(activeDemoCall.status)) {
-      scheduleDemoStatePoll(sessionId, 3500);
+      scheduleDemoStatePoll(sessionId, 2200);
     }
   }
 }
