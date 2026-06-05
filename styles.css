@@ -374,10 +374,11 @@ h3 {
 }
 
 .host-sprite {
+  display: block;
   position: relative;
   z-index: 1;
   width: min(100%, 560px);
-  margin: 0 auto;
+  margin: 0 auto clamp(22px, 2.4vw, 36px);
   filter: drop-shadow(8px 9px 0 var(--line));
 }
 
