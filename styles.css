@@ -361,9 +361,16 @@ h3 {
   padding: clamp(16px, 3vw, 30px);
 }
 
+.hero-art-frame {
+  position: relative;
+  width: min(100%, 560px);
+  margin: 0 auto clamp(30px, 4vw, 58px);
+  padding: clamp(10px, 1.8vw, 18px);
+}
+
 .signal-burst {
   position: absolute;
-  inset: 6% 4% 18%;
+  inset: 6% 4%;
   border: 3px solid var(--line);
   border-radius: 28px;
   background:
@@ -377,8 +384,8 @@ h3 {
   display: block;
   position: relative;
   z-index: 1;
-  width: min(100%, 560px);
-  margin: 0 auto clamp(22px, 2.4vw, 36px);
+  width: 100%;
+  margin: 0 auto;
   filter: drop-shadow(8px 9px 0 var(--line));
 }
 
@@ -2282,8 +2289,13 @@ textarea {
     padding: 18px 0 8px;
   }
 
+  .hero-art-frame {
+    margin-bottom: 18px;
+    padding: 8px;
+  }
+
   .signal-burst {
-    inset: 9% 0 18%;
+    inset: 9% 0;
   }
 
   .builder-grid {
