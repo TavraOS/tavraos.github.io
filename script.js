@@ -86,6 +86,7 @@ let activeWorkflow = "orders";
 let activeDemoCall = null;
 let activeDemoState = null;
 let demoStatePollTimer = null;
+let activeOperationsTile = "callLogs";
 const previewAudioUrls = new Map();
 
 const workflowPreviewContent = {
@@ -595,6 +596,10 @@ function terminalDemoStatus(status) {
   return ["completed", "busy", "failed", "no-answer", "canceled"].includes(status);
 }
 
+function demoCallHasEnded() {
+  return terminalDemoStatus(activeDemoCall?.status) || Boolean(activeDemoState?.callEnded || activeDemoState?.ended);
+}
+
 function formatCents(cents) {
   return typeof cents === "number" && Number.isFinite(cents) ? `$${(cents / 100).toFixed(2)}` : "Open";
 }
@@ -645,6 +650,256 @@ function renderTranscriptTail(state) {
           `
         )
         .join("")}
+    </div>
+  `;
+}
+
+function firstObject(...candidates) {
+  return candidates.find((candidate) => candidate && typeof candidate === "object" && !Array.isArray(candidate)) || {};
+}
+
+function firstArray(...candidates) {
+  return candidates.find((candidate) => Array.isArray(candidate)) || [];
+}
+
+function operationState() {
+  const state = activeDemoState || {};
+  const operations = firstObject(state.operations, state.postCall, state.records);
+  const order = firstObject(operations.order, operations.foodOrder, operations.latestOrder, state.order, state.foodOrder, state.latestOrder);
+  const reservation = firstObject(
+    operations.reservation,
+    operations.latestReservation,
+    state.reservation,
+    state.latestReservation
+  );
+  const callLog = firstObject(operations.callLog, operations.latestCallLog, state.callLog, state.latestCallLog);
+  const voicemail = firstObject(operations.voicemail, state.voicemail);
+  const waitList = firstObject(operations.waitList, operations.waitlist, state.waitList, state.waitlist);
+  const transcript = firstArray(
+    callLog.transcript,
+    callLog.messages,
+    state.transcript,
+    state.messages,
+    state.transcriptTail
+  );
+
+  return { state, operations, order, reservation, callLog, voicemail, waitList, transcript };
+}
+
+function hasOrderRecord(order) {
+  return Boolean(order?.submitted || order?.id || order?.objectId || firstArray(order?.items).length);
+}
+
+function hasReservationRecord(reservation) {
+  return Boolean(
+    reservation?.submitted ||
+    reservation?.id ||
+    reservation?.objectId ||
+    reservation?.guestName ||
+    reservation?.partySize
+  );
+}
+
+function hasCallLogRecord(callLog, transcript) {
+  return Boolean(callLog?.id || callLog?.objectId || callLog?.summary || transcript.length);
+}
+
+function normalizedOrderItems(order) {
+  return firstArray(order?.items, order?.lineItems, order?.orderItems).map((item) => ({
+    quantity: item?.quantity || item?.count || 1,
+    name: item?.displayName || item?.name || item?.menuItemName || "Menu item",
+    modifiers: firstArray(item?.modifiers, item?.selectedModifiers, item?.options)
+      .map((modifier) => modifier?.name || modifier?.displayName || modifier)
+      .filter(Boolean)
+  }));
+}
+
+function operationBadges() {
+  const { order, reservation, callLog, transcript } = operationState();
+  return {
+    foodOrders: hasOrderRecord(order) ? 1 : 0,
+    callLogs: hasCallLogRecord(callLog, transcript) ? 1 : 0,
+    reservations: hasReservationRecord(reservation) ? 1 : 0,
+    voicemail: 0,
+    waitList: 0
+  };
+}
+
+function operationDetailTitle(key) {
+  const titles = {
+    foodOrders: "Food Orders",
+    callLogs: "Call Logs",
+    voicemail: "Voicemail",
+    reservations: "Reservations",
+    waitList: "Wait List"
+  };
+  return titles[key] || "Operations";
+}
+
+function renderOperationTile({ key, title, status, icon, badge, disabled = false }) {
+  const isActive = activeOperationsTile === key;
+  return `
+    <button
+      type="button"
+      class="operation-tile operation-tile-${key}${isActive ? " active" : ""}"
+      data-operation-tile="${key}"
+      ${disabled ? "aria-disabled=\"true\"" : ""}
+    >
+      ${status ? `<span class="operation-status">${escapeHTML(status)}</span>` : ""}
+      ${badge ? `<span class="operation-badge">${badge}</span>` : ""}
+      <span class="operation-icon" aria-hidden="true">${icon}</span>
+      <span>${escapeHTML(title)}</span>
+    </button>
+  `;
+}
+
+function renderOrderOperationDetail(order) {
+  const items = normalizedOrderItems(order);
+  const submitted = order?.submitted || order?.status === "submitted" || order?.paymentStatus === "approved";
+  return `
+    <div class="operation-detail-card">
+      <div class="operation-detail-heading">
+        <p class="note-title">Submitted order</p>
+        <span>${submitted ? "Ready for prep" : "No submitted order yet"}</span>
+      </div>
+      ${
+        items.length
+          ? `<ul class="operation-detail-list">${items
+              .map(
+                (item) => `
+                  <li>
+                    <strong>${escapeHTML(`${item.quantity}x ${item.name}`)}</strong>
+                    <span>${escapeHTML(item.modifiers.length ? item.modifiers.join(", ") : "No modifiers")}</span>
+                  </li>
+                `
+              )
+              .join("")}</ul>`
+          : `<p class="operation-empty">When the demo call submits an order, the ticket appears here with caller details, modifiers, payment state, and pickup timing.</p>`
+      }
+      <ul class="live-state-list">
+        ${renderStateRows([
+          ["Payment", order?.paymentStatus || (order?.paymentPending ? "Ready" : submitted ? "Approved" : "Waiting")],
+          ["Total", formatCents(order?.totalCents ?? order?.subtotalCents)],
+          ["Pickup", order?.pickupTime || order?.pickupEta || "Restaurant setup"],
+          ["Kitchen", order?.kitchenStatus || order?.printerStatus || "Configured output"]
+        ])}
+      </ul>
+    </div>
+  `;
+}
+
+function renderReservationOperationDetail(reservation) {
+  return `
+    <div class="operation-detail-card">
+      <div class="operation-detail-heading">
+        <p class="note-title">Reservation record</p>
+        <span>${reservation?.submitted ? "Created by call" : "No reservation yet"}</span>
+      </div>
+      <ul class="live-state-list reservation-card">
+        ${renderStateRows([
+          ["Party", reservation?.partySize ? `${reservation.partySize} guests` : "Waiting"],
+          ["Date", formatReservationDate(reservation?.requestedDateIso || reservation?.dateIso || reservation?.date)],
+          ["Time", formatReservationTime(reservation?.requestedTime || reservation?.time)],
+          ["Guest", reservation?.guestName || [reservation?.firstName, reservation?.lastName].filter(Boolean).join(" ") || "Waiting"],
+          ["Phone", reservation?.callerPhoneNumber || reservation?.phoneNumber ? "Captured" : "Waiting"],
+          ["Notes", reservation?.notes || reservation?.specialRequests || "None"],
+          ["Status", reservation?.status || (reservation?.submitted ? "Submitted" : "Waiting")]
+        ])}
+      </ul>
+    </div>
+  `;
+}
+
+function renderCallLogOperationDetail(callLog, transcript) {
+  const entries = transcript.slice(-12);
+  return `
+    <div class="operation-detail-card">
+      <div class="operation-detail-heading">
+        <p class="note-title">Call transcript</p>
+        <span>${callLog?.duration || callLog?.durationSeconds ? `${callLog.duration || callLog.durationSeconds}s` : "Latest demo call"}</span>
+      </div>
+      ${callLog?.summary ? `<p class="operation-summary">${escapeHTML(callLog.summary)}</p>` : ""}
+      ${
+        entries.length
+          ? `<div class="live-transcript operation-transcript">${entries
+              .map(
+                (entry) => `
+                  <p>
+                    <span>${entry.role === "assistant" ? "Tavra" : "Caller"}</span>
+                    ${escapeHTML(entry.text || entry.content || "")}
+                  </p>
+                `
+              )
+              .join("")}</div>`
+          : `<p class="operation-empty">The full call log and transcript appear here after the demo call finishes processing.</p>`
+      }
+    </div>
+  `;
+}
+
+function renderPlaceholderOperationDetail(kind) {
+  const copy = {
+    voicemail: "Voicemail is available when the restaurant wants Tavra to capture a message instead of transferring or completing the workflow.",
+    waitList: "Wait list activity appears here when the restaurant uses Tavra to capture walk-ins, overflow, or wait-time workflows."
+  };
+  return `
+    <div class="operation-detail-card">
+      <p class="operation-empty">${escapeHTML(copy[kind] || "This operations record appears here when the call creates one.")}</p>
+    </div>
+  `;
+}
+
+function renderOperationDetail() {
+  const { order, reservation, callLog, transcript } = operationState();
+  if (activeOperationsTile === "foodOrders") return renderOrderOperationDetail(order);
+  if (activeOperationsTile === "reservations") return renderReservationOperationDetail(reservation);
+  if (activeOperationsTile === "voicemail") return renderPlaceholderOperationDetail("voicemail");
+  if (activeOperationsTile === "waitList") return renderPlaceholderOperationDetail("waitList");
+  return renderCallLogOperationDetail(callLog, transcript);
+}
+
+function renderOperationsPanel() {
+  const badges = operationBadges();
+  if (!badges[activeOperationsTile] && activeOperationsTile !== "callLogs") {
+    activeOperationsTile = badges.foodOrders ? "foodOrders" : badges.reservations ? "reservations" : "callLogs";
+  }
+
+  return `
+    <div class="operations-shell">
+      <div class="operations-statusbar" aria-hidden="true">
+        <span>8:29</span>
+        <span>▮▮▮ ))) ▭</span>
+      </div>
+      <div class="operations-header-row">
+        <div>
+          <p class="operations-kicker">After the call</p>
+          <h3>Operations</h3>
+        </div>
+        <span class="operations-logout">Log Out</span>
+      </div>
+      <p class="operations-copy">
+        Tavra drops completed phone work into the restaurant's operations view. Staff can inspect orders,
+        reservations, call logs, and messages as much or as little as they want.
+      </p>
+      <div class="operations-grid">
+        ${renderOperationTile({ key: "foodOrders", title: "Food Orders", status: badges.foodOrders ? "IN PROGRESS" : "", icon: "🥤", badge: badges.foodOrders })}
+        ${renderOperationTile({ key: "callLogs", title: "Call Logs", icon: "☎", badge: badges.callLogs })}
+        ${renderOperationTile({ key: "voicemail", title: "Voicemail", icon: "⌁", badge: badges.voicemail })}
+        ${renderOperationTile({ key: "reservations", title: "Reservations", icon: "▦", badge: badges.reservations })}
+        ${renderOperationTile({ key: "waitList", title: "Wait List", icon: "👥", badge: badges.waitList })}
+      </div>
+      <section class="operations-detail" aria-live="polite">
+        <div class="operation-detail-heading">
+          <p class="note-title">${escapeHTML(operationDetailTitle(activeOperationsTile))}</p>
+          <span>Tap tiles to inspect</span>
+        </div>
+        ${renderOperationDetail()}
+      </section>
+      <nav class="operations-tabbar" aria-label="Demo app tabs">
+        <span>🍴<small>Onboarding</small></span>
+        <span>☷<small>Configure</small></span>
+        <span class="active">☎<small>Operations</small></span>
+      </nav>
     </div>
   `;
 }
@@ -748,7 +1003,7 @@ function renderWaitingLivePanel(state) {
   return `
     <div class="live-waiting">
       <div class="live-pulse" aria-hidden="true"></div>
-      <p class="note-title">${terminalDemoStatus(activeDemoCall?.status) ? "Call ended" : "Listening"}</p>
+      <p class="note-title">${demoCallHasEnded() ? "Call ended" : "Listening"}</p>
       <p>${escapeHTML(state?.statusText || "Waiting for the caller's first answer.")}</p>
     </div>
     ${renderTranscriptTail(state || {})}
@@ -761,6 +1016,13 @@ function renderLiveWorkflowPanel() {
   if (!activeDemoCall) {
     liveWorkflowPanel.hidden = true;
     liveWorkflowPanel.innerHTML = "";
+    return;
+  }
+
+  if (demoCallHasEnded()) {
+    liveWorkflowPanel.hidden = false;
+    liveWorkflowPanel.dataset.workflow = "operations";
+    liveWorkflowPanel.innerHTML = renderOperationsPanel();
     return;
   }
 
@@ -801,24 +1063,32 @@ function renderWorkflowPreview() {
   }
 
   const content = workflowPreviewContent[activeWorkflow] || workflowPreviewContent.orders;
+  const isPostCall = Boolean(activeDemoCall) && demoCallHasEnded();
   consolePreview?.setAttribute("data-active-workflow", activeWorkflow);
   consolePreview?.classList.toggle("is-active-call", Boolean(activeDemoCall));
+  consolePreview?.classList.toggle("is-post-call", isPostCall);
   if (previewStatus) {
-    previewStatus.textContent = activeDemoCall ? activeDemoState?.statusText || "Call active" : content.status;
+    previewStatus.textContent = isPostCall
+      ? "Operations updated"
+      : activeDemoCall
+        ? activeDemoState?.statusText || "Call active"
+        : content.status;
   }
   setPreviewRows(
     activeDemoCall
       ? [
-          ["Status", activeDemoState?.activeWorkflow ? workflowLabel(activeDemoState.activeWorkflow) : "Listening"],
+          ["Status", isPostCall ? "Operations" : activeDemoState?.activeWorkflow ? workflowLabel(activeDemoState.activeWorkflow) : "Listening"],
           ["Session", activeDemoCall.sessionId ? activeDemoCall.sessionId.slice(0, 8) : "Requested"],
           ["Call", activeDemoCall.status || "Requested"]
         ]
       : content.rows
   );
-  if (previewNoteTitle) previewNoteTitle.textContent = activeDemoCall ? "Live console" : content.title;
+  if (previewNoteTitle) previewNoteTitle.textContent = isPostCall ? "Restaurant app" : activeDemoCall ? "Live console" : content.title;
   if (previewNote) {
-    previewNote.textContent = activeDemoCall
-      ? "The call has been placed. The workflow panel updates as the caller moves through ordering, reservations, custom answers, or handoff."
+    previewNote.textContent = isPostCall
+      ? "The completed call now appears in the same operating surfaces staff use after Tavra handles phone work."
+      : activeDemoCall
+        ? "The call has been placed. The workflow panel updates as the caller moves through ordering, reservations, custom answers, or handoff."
       : content.note;
   }
   if (demoMenuCard) {
@@ -1538,6 +1808,9 @@ async function pollDemoCallState(sessionId) {
 
     if (!terminalDemoStatus(activeDemoCall.status)) {
       scheduleDemoStatePoll(sessionId, activeDemoState?.activeWorkflow === "waiting" ? 1200 : 1800);
+    } else if ((activeDemoCall.postCallPolls || 0) < 5) {
+      activeDemoCall.postCallPolls = (activeDemoCall.postCallPolls || 0) + 1;
+      scheduleDemoStatePoll(sessionId, 2500);
     }
   } catch {
     if (activeDemoCall?.sessionId === sessionId && !terminalDemoStatus(activeDemoCall.status)) {
@@ -1607,8 +1880,10 @@ async function submitDemoCall(event) {
       sessionId: typeof payload.sessionId === "string" ? payload.sessionId : null,
       callSid: typeof payload.callSid === "string" ? payload.callSid : null,
       status: typeof payload.status === "string" ? payload.status : "requested",
-      workflowConfig
+      workflowConfig,
+      postCallPolls: 0
     };
+    activeOperationsTile = "callLogs";
     activeDemoState = {
       activeWorkflow: "waiting",
       statusText: "Waiting for the caller's first answer.",
@@ -1658,6 +1933,7 @@ workflowToggles.forEach((toggle) => {
     activeWorkflow = toggle.dataset.workflow || activeWorkflow;
     activeDemoCall = null;
     activeDemoState = null;
+    activeOperationsTile = "callLogs";
     stopDemoStatePolling();
     syncGreetingToLocation();
     renderConfigSummaries();
@@ -1675,6 +1951,7 @@ sessionToggles.forEach((toggle) => {
   toggle.addEventListener("change", () => {
     activeDemoCall = null;
     activeDemoState = null;
+    activeOperationsTile = "callLogs";
     stopDemoStatePolling();
     syncGreetingToLocation();
     renderConfigSummaries();
@@ -1684,6 +1961,7 @@ sessionToggles.forEach((toggle) => {
 configModules?.addEventListener("change", () => {
   activeDemoCall = null;
   activeDemoState = null;
+  activeOperationsTile = "callLogs";
   stopDemoStatePolling();
   syncGreetingToLocation();
   renderConfigSummaries();
@@ -1693,6 +1971,12 @@ demoMenuRefresh?.addEventListener("click", ensureDemoMenuLoaded);
 demoMenuExpand?.addEventListener("click", () => {
   demoMenuExpanded = !demoMenuExpanded;
   renderDemoMenu();
+});
+liveWorkflowPanel?.addEventListener("click", (event) => {
+  const tile = event.target instanceof Element ? event.target.closest("[data-operation-tile]") : null;
+  if (!tile || !liveWorkflowPanel.contains(tile)) return;
+  activeOperationsTile = tile.dataset.operationTile || "callLogs";
+  renderLiveWorkflowPanel();
 });
 voicePreviewPopover?.addEventListener("mouseenter", clearVoicePreviewStopTimer);
 voicePreviewPopover?.addEventListener("mouseleave", scheduleVoicePreviewStop);

@@ -1512,6 +1512,326 @@ textarea {
   font-family: var(--mono);
 }
 
+.preview-panel.is-post-call .preview-phone,
+.preview-panel.is-post-call .preview-notes,
+.preview-panel.is-post-call .demo-menu-card {
+  display: none;
+}
+
+.preview-panel.is-post-call {
+  background: #030303;
+  padding: 0;
+  overflow: hidden;
+}
+
+.preview-panel.is-post-call .button-call {
+  display: none;
+}
+
+.live-workflow-panel[data-workflow="operations"] {
+  border: 0;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  padding: 0;
+}
+
+.operations-shell {
+  display: grid;
+  min-height: 720px;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  gap: 18px;
+  border-radius: 14px;
+  background: #000;
+  color: #fff;
+  padding: 22px 18px 16px;
+}
+
+.operations-statusbar,
+.operations-header-row,
+.operations-tabbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.operations-statusbar {
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  opacity: 0.95;
+}
+
+.operations-header-row {
+  gap: 16px;
+}
+
+.operations-kicker {
+  margin: 0 0 2px;
+  color: #2ca8ff;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.operations-header-row h3 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2rem, 5vw, 3.1rem);
+  line-height: 0.95;
+  letter-spacing: 0;
+}
+
+.operations-logout {
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: #1b1b1d;
+  color: #fff;
+  font-family: var(--mono);
+  font-weight: 900;
+  padding: 11px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.operations-copy {
+  max-width: 40ch;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 0.86rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.operation-tile {
+  position: relative;
+  display: grid;
+  min-height: 116px;
+  align-content: end;
+  gap: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 22px;
+  color: #fff;
+  font: 900 1.28rem/1 var(--body);
+  letter-spacing: 0;
+  padding: 16px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 10px 22px rgba(0, 0, 0, 0.28);
+}
+
+.operation-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0) 54%);
+  pointer-events: none;
+}
+
+.operation-tile.active {
+  outline: 3px solid #fff;
+  outline-offset: -5px;
+}
+
+.operation-tile-foodOrders {
+  background: linear-gradient(135deg, #62c9ff, #2578e4);
+}
+
+.operation-tile-callLogs {
+  background: linear-gradient(135deg, #ffb65f, #ff5f33);
+}
+
+.operation-tile-voicemail {
+  background: linear-gradient(135deg, #8ad978, #3da960);
+}
+
+.operation-tile-reservations {
+  background: linear-gradient(135deg, #a982ff, #5a4ef0);
+}
+
+.operation-tile-waitList {
+  grid-column: span 1;
+  background: linear-gradient(135deg, #38d2bc, #0f7c8c);
+}
+
+.operation-status,
+.operation-badge,
+.operation-icon {
+  position: absolute;
+  z-index: 1;
+}
+
+.operation-status {
+  top: 15px;
+  left: 16px;
+  font-size: 0.7rem;
+  font-weight: 950;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.operation-badge {
+  top: 12px;
+  right: 12px;
+  display: grid;
+  min-width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.38);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.operation-icon {
+  top: 30px;
+  right: 18px;
+  color: rgba(255, 244, 148, 0.9);
+  font-size: 2.8rem;
+  line-height: 1;
+  text-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+}
+
+.operation-tile span:last-child {
+  position: relative;
+  z-index: 1;
+}
+
+.operations-detail {
+  display: grid;
+  min-height: 210px;
+  gap: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 22px;
+  background: #101010;
+  padding: 14px;
+}
+
+.operation-detail-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.operation-detail-heading .note-title {
+  margin: 0;
+  color: #fff;
+}
+
+.operation-detail-heading span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.operation-detail-card {
+  display: grid;
+  gap: 10px;
+}
+
+.operation-detail-card .live-state-list,
+.operation-detail-card .reservation-card,
+.operation-detail-card .live-transcript {
+  background: #181818;
+  color: #fff;
+}
+
+.operation-detail-card .live-state-list li {
+  border-bottom-color: rgba(255, 255, 255, 0.18);
+}
+
+.operation-detail-card .live-state-list strong,
+.operation-detail-card .live-transcript span {
+  color: #ffe86b;
+}
+
+.operation-detail-card .live-state-list span,
+.operation-detail-card .live-transcript p,
+.operation-empty,
+.operation-summary {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.operation-detail-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.operation-detail-list li {
+  display: grid;
+  gap: 3px;
+  border-radius: 12px;
+  background: #181818;
+  padding: 10px;
+}
+
+.operation-detail-list strong {
+  color: #fff;
+}
+
+.operation-detail-list span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.operation-empty,
+.operation-summary {
+  margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.operation-transcript {
+  max-height: 245px;
+}
+
+.operations-tabbar {
+  justify-self: center;
+  width: min(100%, 330px);
+  margin-top: 2px;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: #171717;
+  padding: 6px;
+}
+
+.operations-tabbar span {
+  display: grid;
+  min-width: 86px;
+  place-items: center;
+  gap: 2px;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1.3rem;
+  padding: 8px 10px;
+}
+
+.operations-tabbar span.active {
+  background: #3b3b3d;
+  color: #2ca8ff;
+}
+
+.operations-tabbar small {
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 @keyframes pulse-ring {
   0% {
     box-shadow: 0 0 0 0 rgba(52, 184, 114, 0.55);
