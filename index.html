@@ -590,12 +590,86 @@
 
       <section class="contact-section snap-section" id="contact" aria-labelledby="contact-title">
         <div class="contact-card">
-          <div>
+          <div class="contact-copy">
             <p class="eyebrow dark">Contact</p>
             <h2 id="contact-title">Stop letting the phone decide how much revenue you capture.</h2>
             <p>Tavra helps restaurants answer more calls, complete more workflows, and keep staff focused on the guests already in front of them.</p>
+            <div class="pilot-benefits" aria-label="Pilot benefits">
+              <span>☎ Answers missed calls with your restaurant voice</span>
+              <span>🥡 Takes to-go orders and routes them into workflow</span>
+              <span>▣ Accepts secure phone payments through checkout</span>
+              <span>🍴 Pilot tuning for Clover and Toast operators</span>
+            </div>
           </div>
-          <a class="button button-green" href="mailto:hello@tavraos.com?subject=Tavra%20demo%20request">Book a Demo</a>
+          <form class="contact-form" data-contact-form>
+            <input type="text" name="website" class="form-honeypot" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <div class="contact-grid">
+              <label>
+                <span>Name</span>
+                <input name="name" type="text" autocomplete="name" required>
+              </label>
+              <label>
+                <span>Email</span>
+                <input name="email" type="email" autocomplete="email" required>
+              </label>
+              <label>
+                <span>Phone</span>
+                <input name="phone" type="tel" autocomplete="tel">
+              </label>
+              <label>
+                <span>Restaurant</span>
+                <input name="restaurantName" type="text" autocomplete="organization" required>
+              </label>
+              <label>
+                <span>Current POS</span>
+                <select name="posProvider" required>
+                  <option value="">Select one</option>
+                  <option value="Clover">Clover</option>
+                  <option value="Toast">Toast</option>
+                  <option value="Square">Square</option>
+                  <option value="SpotOn">SpotOn</option>
+                  <option value="Lightspeed">Lightspeed</option>
+                  <option value="Other">Other</option>
+                  <option value="None">None yet</option>
+                </select>
+              </label>
+              <label>
+                <span>Locations</span>
+                <input name="locationCount" type="number" min="1" max="500" inputmode="numeric">
+              </label>
+            </div>
+            <label>
+              <span>Website</span>
+              <input name="restaurantWebsite" type="url" autocomplete="url" placeholder="https://">
+            </label>
+            <label>
+              <span>Role</span>
+              <input name="role" type="text" autocomplete="organization-title" placeholder="Owner, GM, operator...">
+            </label>
+            <label>
+              <span>What should Tavra handle?</span>
+              <textarea name="message" rows="4" placeholder="To-go orders, payments, missed calls, reservations, custom answers..."></textarea>
+            </label>
+            <button class="button button-green" type="submit">Request Demo</button>
+            <p class="contact-status" data-contact-status aria-live="polite"></p>
+            <div class="pilot-panel">
+              <div>
+                <p class="eyebrow dark">Pilot access</p>
+                <strong>Join the Tavra Pilot</strong>
+                <p>Limited access for Clover and Toast restaurants ready to put missed calls, phone payments, and to-go orders on autopilot.</p>
+              </div>
+              <div class="pilot-offers" aria-label="Pilot checkout options">
+                <button type="button" class="pilot-offer-card" data-pilot-offer="founding_partner">
+                  <span><strong>Founding Partner</strong><small>Prepaid first 6 months</small></span>
+                  <span><strong>$999</strong><small>$166.50/mo effective</small></span>
+                </button>
+                <button type="button" class="pilot-offer-card" data-pilot-offer="pilot_three_month">
+                  <span><strong>Pilot Program</strong><small>Prepaid first 3 months</small></span>
+                  <span><strong>$597</strong><small>$199/mo pilot price</small></span>
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </section>
     </main>

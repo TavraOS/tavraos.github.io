@@ -54,6 +54,9 @@ const configReservationsSummary = document.querySelector("[data-config-reservati
 const configQuestionsSummary = document.querySelector("[data-config-questions-summary]");
 const configHandoffSummary = document.querySelector("[data-config-handoff-summary]");
 const configKitchenSummary = document.querySelector("[data-config-kitchen-summary]");
+const contactForm = document.querySelector("[data-contact-form]");
+const contactStatus = document.querySelector("[data-contact-status]");
+const pilotOfferButtons = Array.from(document.querySelectorAll("[data-pilot-offer]"));
 
 const productionDemoApiHost = String.fromCharCode(
   111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
@@ -256,7 +259,10 @@ function configHandlingLabel(mode) {
     answer_only: "Answer only",
     answer_then_route_if_needed: "Answer, then route",
     collect_message: "Take a note",
-    route_immediately: "Route immediately"
+    collect_info: "Collect info",
+    collect_then_route: "Collect, then route",
+    route_immediately: "Route immediately",
+    route_only: "Route only"
   };
   return labels[mode] || "Configured handling";
 }
@@ -329,9 +335,10 @@ function renderQuestionConfig(categories) {
       select.dataset.questionMode = category.categoryKey;
       [
         ["answer_only", "Answer"],
+        ["collect_info", "Collect info"],
+        ["route_only", "Route only"],
         ["answer_then_route_if_needed", "Answer + route"],
-        ["collect_message", "Take note"],
-        ["route_immediately", "Route"]
+        ["collect_then_route", "Collect + route"]
       ].forEach(([value, label]) => {
         const option = document.createElement("option");
         option.value = value;
@@ -1908,6 +1915,109 @@ async function submitDemoCall(event) {
   }
 }
 
+function setContactStatus(message, state = "neutral") {
+  if (!contactStatus) return;
+  contactStatus.textContent = message;
+  contactStatus.dataset.state = state;
+}
+
+function contactPayload() {
+  if (!contactForm) return null;
+  const data = new FormData(contactForm);
+
+  if (String(data.get("website") || "").trim()) {
+    return { blocked: true };
+  }
+
+  const payload = {
+    name: String(data.get("name") || "").trim(),
+    email: String(data.get("email") || "").trim(),
+    phone: String(data.get("phone") || "").trim(),
+    restaurantName: String(data.get("restaurantName") || "").trim(),
+    restaurantWebsite: String(data.get("restaurantWebsite") || "").trim(),
+    posProvider: String(data.get("posProvider") || "").trim(),
+    locationCount: String(data.get("locationCount") || "").trim(),
+    role: String(data.get("role") || "").trim(),
+    message: String(data.get("message") || "").trim()
+  };
+
+  if (!payload.name || !payload.email || !payload.restaurantName || !payload.posProvider) {
+    setContactStatus("Add your name, email, restaurant, and current POS first.", "error");
+    return null;
+  }
+
+  return payload;
+}
+
+async function postContactEndpoint(path, payload) {
+  const response = await fetch(`${demoApiBaseUrl}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(body.error || `Request failed with ${response.status}`);
+  }
+  return body;
+}
+
+async function submitContactForm(event) {
+  event.preventDefault();
+  const payload = contactPayload();
+  if (!payload || payload.blocked) return;
+
+  const submitButton = contactForm?.querySelector("button[type='submit']");
+  submitButton?.setAttribute("disabled", "true");
+  setContactStatus("Sending your demo request...", "loading");
+
+  try {
+    await postContactEndpoint("/demo/book-demo-requests", payload);
+    setContactStatus("Demo request sent. Tavra has your restaurant details.", "success");
+    contactForm?.reset();
+  } catch {
+    setContactStatus("The request could not be sent. Please try again shortly.", "error");
+  } finally {
+    submitButton?.removeAttribute("disabled");
+  }
+}
+
+async function beginPilotCheckout(event) {
+  const button = event.currentTarget;
+  if (!(button instanceof HTMLElement)) return;
+  const offerId = button.dataset.pilotOffer;
+  const payload = contactPayload();
+  if (!payload || payload.blocked || !offerId) return;
+
+  pilotOfferButtons.forEach((offerButton) => offerButton.setAttribute("disabled", "true"));
+  setContactStatus("Opening secure checkout...", "loading");
+
+  try {
+    const result = await postContactEndpoint("/demo/pilot-program/checkout-sessions", {
+      ...payload,
+      offerId
+    });
+    if (typeof result.checkoutURL !== "string" || !result.checkoutURL) {
+      throw new Error("checkout_url_missing");
+    }
+    window.location.assign(result.checkoutURL);
+  } catch {
+    setContactStatus("Checkout could not be opened. Please try again shortly.", "error");
+    pilotOfferButtons.forEach((offerButton) => offerButton.removeAttribute("disabled"));
+  }
+}
+
+function showCheckoutReturnStatus() {
+  if (!contactStatus) return;
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get("pilot_checkout");
+  if (status === "success") {
+    setContactStatus("Checkout complete. Tavra has your pilot request.", "success");
+  } else if (status === "cancel") {
+    setContactStatus("Checkout was canceled. Your demo request form is still here.", "neutral");
+  }
+}
+
 demoPhoneInput?.addEventListener("input", () => {
   demoPhoneInput.value = formatUSPhone(demoPhoneInput.value);
 });
@@ -2018,6 +2128,10 @@ document.querySelectorAll("a[href^='#']").forEach((link) => {
 callButton?.addEventListener("click", openModal);
 modalClose?.addEventListener("click", closeModal);
 demoCallForm?.addEventListener("submit", submitDemoCall);
+contactForm?.addEventListener("submit", submitContactForm);
+pilotOfferButtons.forEach((button) => {
+  button.addEventListener("click", beginPilotCheckout);
+});
 
 modal?.addEventListener("click", (event) => {
   if (event.target === modal) {
@@ -2084,3 +2198,5 @@ if ("requestIdleCallback" in window) {
 } else {
   window.setTimeout(loadDemoConfigOnIdle, 350);
 }
+
+showCheckoutReturnStatus();

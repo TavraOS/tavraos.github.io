@@ -2309,9 +2309,9 @@ textarea {
 }
 
 .contact-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(280px, 0.8fr) minmax(360px, 1fr);
+  align-items: start;
   gap: 28px;
   width: min(calc(100% - 32px), var(--max));
   margin: 0 auto;
@@ -2326,6 +2326,152 @@ textarea {
   color: rgba(255, 249, 237, 0.78);
   font-size: 1.18rem;
   font-weight: 600;
+}
+
+.contact-copy {
+  display: grid;
+  gap: 18px;
+}
+
+.pilot-benefits {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 16px;
+  border: 3px solid rgba(255, 249, 237, 0.18);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.pilot-benefits span {
+  color: rgba(255, 249, 237, 0.88);
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.contact-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 4px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: var(--shadow-small);
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.contact-form label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.contact-form label span {
+  font-size: 0.9rem;
+}
+
+.contact-form input,
+.contact-form select,
+.contact-form textarea {
+  width: 100%;
+  min-width: 0;
+  border: 3px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  color: var(--ink);
+  font: 700 1rem var(--body);
+  padding: 12px 14px;
+}
+
+.contact-form textarea {
+  resize: vertical;
+}
+
+.contact-status {
+  min-height: 1.4em;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.contact-status[data-state="success"] {
+  color: var(--green-dark);
+}
+
+.contact-status[data-state="error"] {
+  color: #b93216;
+}
+
+.pilot-panel {
+  display: grid;
+  gap: 14px;
+  margin-top: 6px;
+  padding: 16px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: var(--yellow);
+}
+
+.pilot-panel strong {
+  display: block;
+  font-family: var(--mono);
+  font-size: 1.35rem;
+}
+
+.pilot-panel p:not(.eyebrow) {
+  max-width: none;
+  margin-top: 6px;
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.pilot-offers {
+  display: grid;
+  gap: 10px;
+}
+
+.pilot-offer-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: 100%;
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 5px 5px 0 #000;
+  cursor: pointer;
+  font-family: var(--mono);
+  padding: 13px;
+  text-align: left;
+}
+
+.pilot-offer-card:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0 #000;
+}
+
+.pilot-offer-card:active {
+  transform: translate(5px, 5px);
+  box-shadow: none;
+}
+
+.pilot-offer-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-family: var(--body);
+  font-weight: 800;
 }
 
 .site-footer {
@@ -2715,8 +2861,21 @@ textarea {
 
   .console-top,
   .preview-phone li,
-  .config-row,
+  .config-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .contact-card {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .pilot-offer-card {
     align-items: flex-start;
     flex-direction: column;
   }
