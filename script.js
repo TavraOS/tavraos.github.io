@@ -56,6 +56,7 @@ const configHandoffSummary = document.querySelector("[data-config-handoff-summar
 const configKitchenSummary = document.querySelector("[data-config-kitchen-summary]");
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
+const contactPhoneInput = contactForm?.querySelector("input[name='phone']");
 const pilotOfferButtons = Array.from(document.querySelectorAll("[data-pilot-offer]"));
 
 const productionDemoApiHost = String.fromCharCode(
@@ -1932,7 +1933,7 @@ function contactPayload() {
   const payload = {
     name: String(data.get("name") || "").trim(),
     email: String(data.get("email") || "").trim(),
-    phone: String(data.get("phone") || "").trim(),
+    phone: phoneToE164(String(data.get("phone") || "")) || String(data.get("phone") || "").trim(),
     restaurantName: String(data.get("restaurantName") || "").trim(),
     restaurantWebsite: String(data.get("restaurantWebsite") || "").trim(),
     posProvider: String(data.get("posProvider") || "").trim(),
@@ -2023,6 +2024,12 @@ demoPhoneInput?.addEventListener("input", () => {
 });
 demoPhoneInput?.addEventListener("blur", () => {
   demoPhoneInput.value = formatUSPhone(demoPhoneInput.value);
+});
+contactPhoneInput?.addEventListener("input", () => {
+  contactPhoneInput.value = formatUSPhone(contactPhoneInput.value);
+});
+contactPhoneInput?.addEventListener("blur", () => {
+  contactPhoneInput.value = formatUSPhone(contactPhoneInput.value);
 });
 
 voiceTrigger?.addEventListener("click", async () => {

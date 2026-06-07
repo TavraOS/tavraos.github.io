@@ -2213,36 +2213,6 @@ textarea {
   background: var(--green);
 }
 
-.mockup-row {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  width: min(calc(100% - 32px), var(--max));
-  margin: 28px auto 0;
-}
-
-.mockup-row article {
-  border: 3px dashed var(--line);
-  border-radius: var(--radius);
-  background: var(--paper);
-  padding: 18px;
-}
-
-.mockup-row strong,
-.mockup-row span {
-  display: block;
-}
-
-.mockup-row strong {
-  margin-bottom: 6px;
-  font-family: var(--mono);
-}
-
-.mockup-row span {
-  color: var(--muted);
-  font-weight: 600;
-}
-
 .pricing-section {
   background: var(--paper);
 }
@@ -2358,6 +2328,19 @@ textarea {
   background: var(--cream);
   color: var(--ink);
   box-shadow: var(--shadow-small);
+}
+
+.contact-form .form-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .contact-grid {
@@ -2665,8 +2648,7 @@ textarea {
   }
 
   .feature-grid,
-  .agent-grid,
-  .mockup-row {
+  .agent-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -2765,7 +2747,6 @@ textarea {
   .feature-grid,
   .agent-grid,
   .step-grid,
-  .mockup-row,
   .integration-bubbles {
     width: calc(100% - 24px);
   }
@@ -2893,8 +2874,7 @@ textarea {
   .metric-grid,
   .feature-grid,
   .agent-grid,
-  .step-grid,
-  .mockup-row {
+  .step-grid {
     grid-template-columns: 1fr;
   }
 
