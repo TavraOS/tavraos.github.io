@@ -2388,19 +2388,33 @@ textarea {
 
 .contact-status[data-state="success"] {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   margin: 2px 0;
   border: 3px solid var(--line);
   border-radius: 12px;
   background: #dff6b8;
-  color: var(--green-dark);
+  color: var(--ink);
   box-shadow: 4px 4px 0 #000;
-  padding: 12px;
+  font-family: var(--body);
+  font-size: 1rem;
+  line-height: 1.35;
+  padding: 14px 16px;
 }
 
 .contact-status[data-state="success"] strong,
 .contact-status[data-state="success"] span {
   display: block;
+}
+
+.contact-status[data-state="success"] strong {
+  font-family: var(--mono);
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.contact-status[data-state="success"] span {
+  color: #2f3a25;
+  font-weight: 800;
 }
 
 .contact-status[data-state="error"] {
