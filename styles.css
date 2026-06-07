@@ -2407,6 +2407,7 @@ textarea {
 }
 
 .contact-status[data-state="success"] strong {
+  color: var(--ink);
   font-family: var(--mono);
   font-size: 1.05rem;
   line-height: 1.1;
