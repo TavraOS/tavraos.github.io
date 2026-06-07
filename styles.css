@@ -1296,7 +1296,7 @@ textarea {
 
 .demo-menu-list {
   display: grid;
-  max-height: 245px;
+  max-height: 330px;
   overflow: auto;
   gap: 7px;
   padding-right: 2px;
@@ -2387,7 +2387,20 @@ textarea {
 }
 
 .contact-status[data-state="success"] {
+  display: grid;
+  gap: 4px;
+  margin: 2px 0;
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  background: #dff6b8;
   color: var(--green-dark);
+  box-shadow: 4px 4px 0 #000;
+  padding: 12px;
+}
+
+.contact-status[data-state="success"] strong,
+.contact-status[data-state="success"] span {
+  display: block;
 }
 
 .contact-status[data-state="error"] {
@@ -2838,6 +2851,10 @@ textarea {
     position: static;
     width: 100%;
     margin-top: 8px;
+  }
+
+  .demo-menu-list {
+    max-height: 245px;
   }
 
   .console-top,

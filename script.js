@@ -1169,7 +1169,7 @@ function renderDemoMenu() {
     return;
   }
 
-  const visibleItems = demoMenuRecords.slice(0, demoMenuExpanded ? 18 : 6);
+  const visibleItems = demoMenuRecords.slice(0, demoMenuExpanded ? 18 : 9);
   demoMenuList.replaceChildren(
     ...visibleItems.map((item) => {
       const row = document.createElement("article");
@@ -1183,7 +1183,7 @@ function renderDemoMenu() {
   );
 
   if (demoMenuExpand) {
-    demoMenuExpand.hidden = demoMenuRecords.length <= 6;
+    demoMenuExpand.hidden = demoMenuRecords.length <= 9;
     demoMenuExpand.textContent = demoMenuExpanded ? "Show fewer items" : `View ${Math.min(18, demoMenuRecords.length)} menu items`;
   }
 }
@@ -1918,7 +1918,7 @@ async function submitDemoCall(event) {
 
 function setContactStatus(message, state = "neutral") {
   if (!contactStatus) return;
-  contactStatus.textContent = message;
+  contactStatus.innerHTML = message;
   contactStatus.dataset.state = state;
 }
 
@@ -1974,8 +1974,10 @@ async function submitContactForm(event) {
 
   try {
     await postContactEndpoint("/demo/book-demo-requests", payload);
-    setContactStatus("Demo request sent. Tavra has your restaurant details.", "success");
-    contactForm?.reset();
+    setContactStatus(
+      "<strong>Demo request sent.</strong><span>Tavra has your restaurant details and pilot interest. You can keep exploring the demo from here.</span>",
+      "success"
+    );
   } catch {
     setContactStatus("The request could not be sent. Please try again shortly.", "error");
   } finally {
