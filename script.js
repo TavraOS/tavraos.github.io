@@ -882,7 +882,8 @@ function renderOperationDetail() {
 
 function renderOperationsPanel() {
   const badges = operationBadges();
-  if (!badges[activeOperationsTile] && activeOperationsTile !== "callLogs") {
+  const selectableEmptyTiles = new Set(["callLogs", "menu86", "voicemail", "waitList"]);
+  if (!badges[activeOperationsTile] && !selectableEmptyTiles.has(activeOperationsTile)) {
     activeOperationsTile = badges.foodOrders ? "foodOrders" : badges.reservations ? "reservations" : "callLogs";
   }
 
