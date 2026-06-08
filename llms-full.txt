@@ -37,7 +37,7 @@ The public web demo lets visitors configure a Tavra-style session and request a 
 - `/restaurant-phone-integrations/` explains integration philosophy and active/planned/provider-dependent wording.
 - `/clover-pos-ai-phone-agent/` speaks to Clover-merchant restaurants without implying marketplace approval or unsupported direct integration.
 - `/restaurant-missed-calls/` explains the missed-call business problem without fake statistics.
-- `/faq/` answers common public questions.
+- `/faq/` answers common public questions and includes buyer-evaluation questions about integrations, fallback behavior, live inventory, modifier handling, human handoff, noisy calls, pricing, and restaurant-managed updates.
 
 ## Fact Files
 

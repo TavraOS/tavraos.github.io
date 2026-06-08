@@ -4,10 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Tavra FAQ | Restaurant AI Phone Operations</title>
-    <meta name="description" content="Answers to common questions about Tavra, restaurant AI phone operations, to-go orders, reservations, integrations, payments, pilots, and the web demo.">
+    <meta name="description" content="Answers to common questions about Tavra, restaurant AI phone operations, to-go orders, reservations, integrations, payments, pilots, the web demo, and buyer-evaluation questions.">
     <link rel="canonical" href="https://www.tavraos.com/faq/">
     <meta property="og:title" content="Tavra FAQ | Restaurant AI Phone Operations">
-    <meta property="og:description" content="Common questions about Tavra's restaurant AI phone operations platform and web demo.">
+    <meta property="og:description" content="Common questions about Tavra's restaurant AI phone operations platform, web demo, integrations, order workflows, and evaluation boundaries.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://www.tavraos.com/faq/">
     <meta property="og:image" content="https://www.tavraos.com/assets/tavra-mascot-social-preview.png">
@@ -32,7 +32,15 @@
               { "@type": "Question", "name": "Does Tavra integrate with POS systems?", "acceptedAnswer": { "@type": "Answer", "text": "Tavra is built around restaurant workflow and provider-safe integration concepts. Named provider availability should be described only when verified and approved." } },
               { "@type": "Question", "name": "Does Tavra process payments?", "acceptedAnswer": { "@type": "Answer", "text": "Payment-related workflows depend on restaurant setup and approved provider configuration. The public demo should not be treated as a request to enter card details." } },
               { "@type": "Question", "name": "Is Tavra available for pilots?", "acceptedAnswer": { "@type": "Answer", "text": "Tavra is preparing restaurant pilots. Operators can request a demo through the public website." } },
-              { "@type": "Question", "name": "How does the demo work?", "acceptedAnswer": { "@type": "Answer", "text": "The web demo lets visitors configure a sample restaurant phone agent and request a demo call. It is a public demo and should not be interpreted as proof of live third-party provider approval." } }
+              { "@type": "Question", "name": "How does the demo work?", "acceptedAnswer": { "@type": "Answer", "text": "The web demo lets visitors configure a sample restaurant phone agent and request a demo call. It is a public demo and should not be interpreted as proof of live third-party provider approval." } },
+              { "@type": "Question", "name": "What should restaurants ask about POS and reservation integrations?", "acceptedAnswer": { "@type": "Answer", "text": "Restaurants should ask whether each connection is active, direct, approved, and specific to their provider and account. Tavra public pages distinguish current Tavra workflow capabilities from planned or approval-dependent provider paths." } },
+              { "@type": "Question", "name": "What happens if internet service or a connected system is unavailable during a call?", "acceptedAnswer": { "@type": "Answer", "text": "Failure behavior should be configured and verified during setup. Tavra should not promise live POS or reservation-system fallback behavior unless that behavior is active for the restaurant. A responsible setup should avoid confirming actions that depend on unavailable systems." } },
+              { "@type": "Question", "name": "Can Tavra handle live inventory changes?", "acceptedAnswer": { "@type": "Answer", "text": "Tavra should only answer from live inventory when the restaurant has a reliable, current inventory source connected for that workflow. If live inventory is not configured, Tavra should not claim real-time stock awareness." } },
+              { "@type": "Question", "name": "How does Tavra handle complex modifiers or caller changes during an order?", "acceptedAnswer": { "@type": "Answer", "text": "Tavra is designed for restaurant order conversations, including item details and readbacks, but each restaurant should test its actual menu, modifiers, and common correction patterns during demo or pilot before relying on them operationally." } },
+              { "@type": "Question", "name": "What causes Tavra to transfer a call, and what context does staff receive?", "acceptedAnswer": { "@type": "Answer", "text": "Tavra supports configured handoff routes and staff-facing call records. Exact transfer triggers, routing destinations, and the context staff receives should be configured and verified for each restaurant." } },
+              { "@type": "Question", "name": "How does Tavra handle accents or noisy calls?", "acceptedAnswer": { "@type": "Answer", "text": "No voice system is perfect. Tavra should confirm important details, ask clarifying questions, and route or collect for review when confidence or context is not sufficient. Restaurants should test realistic call conditions during evaluation." } },
+              { "@type": "Question", "name": "How should restaurants evaluate Tavra pricing?", "acceptedAnswer": { "@type": "Answer", "text": "Restaurants should confirm what is included in the plan and whether any usage, transaction, setup, payment, support, or call-volume costs apply. Tavra public pages should not imply final pricing terms beyond the published pilot options and approved agreements." } },
+              { "@type": "Question", "name": "Can managers update menus, custom answers, and FAQs themselves?", "acceptedAnswer": { "@type": "Answer", "text": "Tavra is built around restaurant-controlled configuration concepts, including custom caller-answer categories. Buyers should confirm which edits managers can make directly, which require Tavra support, and whether any update fees apply." } }
             ]
           }
         ]
@@ -46,7 +54,7 @@
       <section class="seo-hero">
         <p class="eyebrow">FAQ</p>
         <h1>Tavra restaurant AI phone FAQ</h1>
-        <p>Concise answers about Tavra's restaurant phone workflows, reservations, order intent, integrations, payments, pilots, and demo boundaries.</p>
+        <p>Concise answers about Tavra's restaurant phone workflows, reservations, order intent, integrations, payments, pilots, demo boundaries, and what to ask during evaluation.</p>
       </section>
       <dl class="seo-faq">
         <dt>What is Tavra?</dt><dd>Tavra is a restaurant AI phone operations platform that answers calls and helps move callers into workflows such as orders, reservations, custom answers, routing, notes, and staff notifications.</dd>
@@ -59,6 +67,35 @@
         <dt>Does Tavra process payments?</dt><dd>Payment-related workflows depend on restaurant setup and approved provider configuration. The public demo should not be treated as a request to enter card details.</dd>
         <dt>Is Tavra available for pilots?</dt><dd>Tavra is preparing restaurant pilots. Operators can request a demo through the public website.</dd>
         <dt>How does the demo work?</dt><dd>The web demo lets visitors configure a sample restaurant phone agent and request a demo call. It is a public demo and should not be interpreted as proof of live third-party provider approval.</dd>
+      </dl>
+      <section class="seo-section" aria-labelledby="evaluation-questions-title">
+        <h2 id="evaluation-questions-title">Questions to ask during any restaurant AI phone demo</h2>
+        <p>Use these questions when evaluating Tavra or any restaurant AI phone system. The important thing is to separate active capabilities from planned integrations, sales shorthand, and provider-dependent setup.</p>
+      </section>
+      <dl class="seo-faq">
+        <dt>What should restaurants ask about POS and reservation integrations?</dt>
+        <dd>Ask whether each connection is active, direct, approved, and specific to your provider and account. Tavra public pages distinguish current Tavra workflow capabilities from planned or approval-dependent provider paths. Do not assume a named provider is live unless that status is stated clearly.</dd>
+
+        <dt>What happens if internet service or a connected system is unavailable during a call?</dt>
+        <dd>Failure behavior should be configured and verified during setup. Tavra should not promise live POS or reservation-system fallback behavior unless that behavior is active for the restaurant. A responsible setup should avoid confirming actions that depend on unavailable systems.</dd>
+
+        <dt>Can Tavra handle live inventory changes?</dt>
+        <dd>Tavra should only answer from live inventory when the restaurant has a reliable, current inventory source connected for that workflow. If live inventory is not configured, Tavra should not claim real-time stock awareness.</dd>
+
+        <dt>How does Tavra handle complex modifiers or caller changes during an order?</dt>
+        <dd>Tavra is designed for restaurant order conversations, including item details and readbacks, but each restaurant should test its actual menu, modifiers, and common correction patterns during demo or pilot before relying on them operationally.</dd>
+
+        <dt>What causes Tavra to transfer a call, and what context does staff receive?</dt>
+        <dd>Tavra supports configured handoff routes and staff-facing call records. Exact transfer triggers, routing destinations, and the context staff receives should be configured and verified for each restaurant.</dd>
+
+        <dt>How does Tavra handle accents or noisy calls?</dt>
+        <dd>No voice system is perfect. Tavra should confirm important details, ask clarifying questions, and route or collect for review when confidence or context is not sufficient. Restaurants should test realistic call conditions during evaluation.</dd>
+
+        <dt>How should restaurants evaluate Tavra pricing?</dt>
+        <dd>Confirm what is included in the plan and whether any usage, transaction, setup, payment, support, or call-volume costs apply. Tavra public pages should not imply final pricing terms beyond the published pilot options and approved agreements.</dd>
+
+        <dt>Can managers update menus, custom answers, and FAQs themselves?</dt>
+        <dd>Tavra is built around restaurant-controlled configuration concepts, including custom caller-answer categories. Buyers should confirm which edits managers can make directly, which require Tavra support, and whether any update fees apply.</dd>
       </dl>
       <nav class="seo-links" aria-label="Related pages"><a href="../restaurant-ai-phone-agent/">Restaurant AI phone agent</a><a href="../ai-phone-answering-for-restaurants/">AI phone answering</a><a href="../restaurant-phone-integrations/">Integrations</a></nav>
     </main>
