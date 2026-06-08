@@ -1663,6 +1663,10 @@ textarea {
   background: linear-gradient(135deg, #ffb65f, #ff5f33);
 }
 
+.operation-tile-menu86 {
+  background: linear-gradient(135deg, #ff5f33, #e0b829);
+}
+
 .operation-tile-voicemail {
   background: linear-gradient(135deg, #8ad978, #3da960);
 }

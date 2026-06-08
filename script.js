@@ -643,17 +643,33 @@ function renderStateRows(rows) {
     .join("");
 }
 
+function transcriptEntriesForState(state) {
+  const operations = firstObject(state?.operations, state?.postCall, state?.records);
+  const callLog = firstObject(operations.callLog, operations.latestCallLog, state?.callLog, state?.latestCallLog);
+  return firstArray(
+    callLog.transcript,
+    callLog.messages,
+    operations.transcript,
+    operations.callTranscript,
+    state?.transcript,
+    state?.fullTranscript,
+    state?.transcriptFull,
+    state?.messages,
+    state?.transcriptTail
+  );
+}
+
 function renderTranscriptTail(state) {
-  const tail = Array.isArray(state?.transcriptTail) ? state.transcriptTail.slice(-4) : [];
-  if (!tail.length) return "";
+  const entries = transcriptEntriesForState(state);
+  if (!entries.length) return "";
   return `
     <div class="live-transcript">
-      ${tail
+      ${entries
         .map(
           (entry) => `
             <p>
               <span>${entry.role === "assistant" ? "Tavra" : "Caller"}</span>
-              ${escapeHTML(entry.text || "")}
+              ${escapeHTML(entry.text || entry.content || "")}
             </p>
           `
         )
@@ -683,13 +699,7 @@ function operationState() {
   const callLog = firstObject(operations.callLog, operations.latestCallLog, state.callLog, state.latestCallLog);
   const voicemail = firstObject(operations.voicemail, state.voicemail);
   const waitList = firstObject(operations.waitList, operations.waitlist, state.waitList, state.waitlist);
-  const transcript = firstArray(
-    callLog.transcript,
-    callLog.messages,
-    state.transcript,
-    state.messages,
-    state.transcriptTail
-  );
+  const transcript = transcriptEntriesForState(state);
 
   return { state, operations, order, reservation, callLog, voicemail, waitList, transcript };
 }
@@ -727,6 +737,7 @@ function operationBadges() {
   return {
     foodOrders: hasOrderRecord(order) ? 1 : 0,
     callLogs: hasCallLogRecord(callLog, transcript) ? 1 : 0,
+    menu86: 0,
     reservations: hasReservationRecord(reservation) ? 1 : 0,
     voicemail: 0,
     waitList: 0
@@ -737,6 +748,7 @@ function operationDetailTitle(key) {
   const titles = {
     foodOrders: "Food Orders",
     callLogs: "Call Logs",
+    menu86: "86 Board",
     voicemail: "Voicemail",
     reservations: "Reservations",
     waitList: "Wait List"
@@ -819,7 +831,7 @@ function renderReservationOperationDetail(reservation) {
 }
 
 function renderCallLogOperationDetail(callLog, transcript) {
-  const entries = transcript.slice(-12);
+  const entries = transcript;
   return `
     <div class="operation-detail-card">
       <div class="operation-detail-heading">
@@ -847,6 +859,7 @@ function renderCallLogOperationDetail(callLog, transcript) {
 
 function renderPlaceholderOperationDetail(kind) {
   const copy = {
+    menu86: "The 86 Board shows menu items or ingredients staff have marked unavailable, so Tavra avoids selling items the restaurant cannot serve.",
     voicemail: "Voicemail is available when the restaurant wants Tavra to capture a message instead of transferring or completing the workflow.",
     waitList: "Wait list activity appears here when the restaurant uses Tavra to capture walk-ins, overflow, or wait-time workflows."
   };
@@ -861,6 +874,7 @@ function renderOperationDetail() {
   const { order, reservation, callLog, transcript } = operationState();
   if (activeOperationsTile === "foodOrders") return renderOrderOperationDetail(order);
   if (activeOperationsTile === "reservations") return renderReservationOperationDetail(reservation);
+  if (activeOperationsTile === "menu86") return renderPlaceholderOperationDetail("menu86");
   if (activeOperationsTile === "voicemail") return renderPlaceholderOperationDetail("voicemail");
   if (activeOperationsTile === "waitList") return renderPlaceholderOperationDetail("waitList");
   return renderCallLogOperationDetail(callLog, transcript);
@@ -891,6 +905,7 @@ function renderOperationsPanel() {
       </p>
       <div class="operations-grid">
         ${renderOperationTile({ key: "foodOrders", title: "Food Orders", status: badges.foodOrders ? "IN PROGRESS" : "", icon: "🥤", badge: badges.foodOrders })}
+        ${renderOperationTile({ key: "menu86", title: "86 Board", icon: "⚠", badge: badges.menu86 })}
         ${renderOperationTile({ key: "callLogs", title: "Call Logs", icon: "☎", badge: badges.callLogs })}
         ${renderOperationTile({ key: "voicemail", title: "Voicemail", icon: "⌁", badge: badges.voicemail })}
         ${renderOperationTile({ key: "reservations", title: "Reservations", icon: "▦", badge: badges.reservations })}
@@ -1801,6 +1816,20 @@ function scheduleDemoStatePoll(sessionId, delay = 1400) {
   }, delay);
 }
 
+function scrollActiveDemoCallIntoView() {
+  if (!consolePreview) return;
+  const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const headerOffset = document.querySelector("[data-header]")?.getBoundingClientRect().height || 0;
+  const targetY = Math.max(
+    0,
+    consolePreview.getBoundingClientRect().top + window.scrollY - Math.min(headerOffset + 14, 92)
+  );
+  window.scrollTo({
+    top: targetY,
+    behavior: prefersReducedMotion ? "auto" : "smooth"
+  });
+}
+
 async function pollDemoCallState(sessionId) {
   if (!sessionId || !activeDemoCall || activeDemoCall.sessionId !== sessionId) {
     return;
@@ -1910,6 +1939,7 @@ async function submitDemoCall(event) {
     renderWorkflowPreview();
     setDemoCallStatus("Call requested. Your phone should ring shortly.", "success");
     closeModal();
+    window.requestAnimationFrame(scrollActiveDemoCallIntoView);
     if (activeDemoCall.sessionId) {
       scheduleDemoStatePoll(activeDemoCall.sessionId, 900);
     }
