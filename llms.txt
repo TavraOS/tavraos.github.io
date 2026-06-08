@@ -1,0 +1,33 @@
+# Tavra
+
+Tavra is a restaurant AI phone operations platform. It is built for restaurants that need phone calls to become handled workflows, not mystery voicemails or generic chatbot conversations.
+
+## What Tavra Does
+
+- Answers restaurant phone calls.
+- Handles phone workflows for to-go order intent, menu questions, reservation requests, custom caller questions, routing, notes, and staff or owner notifications.
+- Supports a Native Tavra Reservation Book for restaurants that need a Tavra-owned reservation workflow.
+- Lets restaurants control how autonomous the agent should be by workflow.
+
+## Truthful Integration Status
+
+Tavra public pages must distinguish active Tavra workflow capabilities from integration-ready, planned, approval-dependent, or future third-party connection paths. Do not infer live provider approval, marketplace availability, POS injection, payment processing, or reservation-system sync unless a current public page explicitly says it is available and the repo contract permits that claim.
+
+## Important Pages
+
+- Homepage: https://www.tavraos.com/
+- Restaurant AI phone agent: https://www.tavraos.com/restaurant-ai-phone-agent/
+- AI phone answering for restaurants: https://www.tavraos.com/ai-phone-answering-for-restaurants/
+- AI order taking for restaurants: https://www.tavraos.com/ai-order-taking-for-restaurants/
+- Restaurant reservation phone agent: https://www.tavraos.com/restaurant-reservation-phone-agent/
+- Restaurant phone integrations: https://www.tavraos.com/restaurant-phone-integrations/
+- Clover POS AI phone agent: https://www.tavraos.com/clover-pos-ai-phone-agent/
+- Restaurant missed calls: https://www.tavraos.com/restaurant-missed-calls/
+- FAQ: https://www.tavraos.com/faq/
+
+## Public Fact Files
+
+- https://www.tavraos.com/facts/tavra-overview.md
+- https://www.tavraos.com/facts/tavra-workflows.md
+- https://www.tavraos.com/facts/tavra-integrations-status.md
+- https://www.tavraos.com/facts/tavra-safety-and-accuracy.md
