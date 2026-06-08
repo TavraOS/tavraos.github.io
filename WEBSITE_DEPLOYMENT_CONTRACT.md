@@ -55,6 +55,10 @@ Use `available`, `active`, `integration-ready`, `planned`, `approval-dependent`,
 
 Do not describe Tavra as merely detecting that a caller might want food. Tavra public copy should say Tavra takes to-go orders, answers menu questions, handles modifiers and corrections, reads orders back, and supports configured secure payment workflows. Use setup-specific language for POS submission, payment availability, provider approvals, and marketplace status.
 
+### 5b. Public FAQ authority rule
+
+Public FAQ answers must be grounded in Tavra's current code, app configuration surfaces, deployed product behavior, or explicitly approved product status. Do not publish unsupported generic purchasing advice as Tavra's answer. If a truthful public answer exposes a missing restaurant-facing control, design or build that product control before presenting the answer as handled.
+
 ### 6. Competitor/comparison-page rule
 
 Do not publish competitor comparison pages with named competitors unless explicitly requested by Wes. If requested later, comparisons must be factual, fair, non-defamatory, and based on public information. Do not use competitor trademarks in misleading page titles or imply affiliation.

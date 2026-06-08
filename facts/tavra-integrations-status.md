@@ -11,3 +11,5 @@ Use these terms precisely:
 Do not claim live third-party POS injection, live payment processing, marketplace listing, approved provider status, or reservation-system sync unless current public code/config/docs and explicit approval support it.
 
 Provider names such as Clover, Square, Toast, OpenTable, Resy, Tock, SevenRooms, and Google must be used carefully. Public pages should distinguish active Tavra workflow capabilities from planned or provider-approved connection paths.
+
+When a connected order, payment, or printer path is unavailable, public copy may describe Tavra's staff-facing Operations records and configurable System Fallbacks behavior. Do not imply the outage magically completes a provider action that the connected system could not accept.

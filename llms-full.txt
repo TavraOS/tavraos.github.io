@@ -14,6 +14,7 @@ Tavra is for restaurant owners, operators, general managers, and staff teams tha
 - Native Tavra Reservation Book workflows.
 - Custom caller question handling for topics such as hours, directions, parking, accessibility, wait times, walk-ins, dietary questions, private dining, catering, gift cards, loyalty, lost and found, complaints, hiring, events, and entertainment.
 - Call routing and live handoff when a caller needs a human.
+- System fallback behavior for connected order, payment, or printer paths: Tavra keeps staff-facing records in Operations and can be configured to save for follow-up, offer a live handoff, or pause affected ordering behavior.
 - Staff and owner notification concepts.
 - Restaurant-controlled autonomy: the restaurant decides what Tavra completes, collects, routes, or escalates.
 
@@ -27,6 +28,10 @@ Tavra pages may describe integration categories and philosophy: provider-safe ad
 
 The public web demo lets visitors configure a Tavra-style session and request a demo call. The demo should not be described as proof of live third-party provider approval or live production integration with a named external platform.
 
+## Public FAQ Boundary
+
+FAQ answers should be grounded in Tavra's current code, app configuration surfaces, and approved product status. Do not publish unsupported generic purchasing advice as Tavra answers. If a public answer would expose a missing product control, add or design the product control before publishing the answer.
+
 ## Public Pages
 
 - `/` explains Tavra's main restaurant phone operations positioning and includes the live demo console.
@@ -37,7 +42,7 @@ The public web demo lets visitors configure a Tavra-style session and request a 
 - `/restaurant-phone-integrations/` explains integration philosophy and active/planned/provider-dependent wording.
 - `/clover-pos-ai-phone-agent/` speaks to Clover-merchant restaurants without implying marketplace approval or unsupported direct integration.
 - `/restaurant-missed-calls/` explains the missed-call business problem without fake statistics.
-- `/faq/` answers common public questions and includes buyer-evaluation questions about integrations, fallback behavior, live inventory, modifier handling, human handoff, noisy calls, pricing, and restaurant-managed updates.
+- `/faq/` answers common public questions about Tavra's current ordering, payment, reservation, integration, fallback, live inventory, modifier, handoff, noisy-call, pricing, and restaurant-managed configuration behavior.
 
 ## Fact Files
 
