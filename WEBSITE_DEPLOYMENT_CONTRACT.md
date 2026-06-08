@@ -59,6 +59,10 @@ Do not describe Tavra as merely detecting that a caller might want food. Tavra p
 
 Public FAQ answers must be grounded in Tavra's current code, app configuration surfaces, deployed product behavior, or explicitly approved product status. Do not publish unsupported generic purchasing advice as Tavra's answer. If a truthful public answer exposes a missing restaurant-facing control, design or build that product control before presenting the answer as handled.
 
+### 5c. System Fallback wording rule
+
+Public fallback copy must distinguish local store-device outages from provider API/auth failures and kitchen printer status after a POS order is accepted. Do not collapse all outage cases into “connected system unavailable.” If store devices are offline but the provider cloud is reachable, Tavra may be described as submitting the order to the provider cloud and tracking kitchen print status separately. If the provider API is unavailable or authorization is broken, Tavra may be described as saving the order in Operations for staff follow-up and using configured System Fallback behavior.
+
 ### 6. Competitor/comparison-page rule
 
 Do not publish competitor comparison pages with named competitors unless explicitly requested by Wes. If requested later, comparisons must be factual, fair, non-defamatory, and based on public information. Do not use competitor trademarks in misleading page titles or imply affiliation.

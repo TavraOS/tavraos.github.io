@@ -12,4 +12,10 @@ Do not claim live third-party POS injection, live payment processing, marketplac
 
 Provider names such as Clover, Square, Toast, OpenTable, Resy, Tock, SevenRooms, and Google must be used carefully. Public pages should distinguish active Tavra workflow capabilities from planned or provider-approved connection paths.
 
-When a connected order, payment, or printer path is unavailable, public copy may describe Tavra's staff-facing Operations records and configurable System Fallbacks behavior. Do not imply the outage magically completes a provider action that the connected system could not accept.
+When an order/payment/printing path has an outage, public copy must separate the failure case:
+
+- Store devices offline, provider cloud reachable: Tavra can submit the order to the provider cloud and track kitchen print status separately.
+- Provider API unavailable or authorization broken: Tavra saves the order in Operations for staff follow-up and can use configured System Fallback behavior.
+- Printer offline after the POS accepts the order: the order remains submitted, while kitchen print status is tracked separately.
+
+Do not imply Tavra completes a provider action that the provider API could not accept.

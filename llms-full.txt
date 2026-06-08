@@ -14,7 +14,7 @@ Tavra is for restaurant owners, operators, general managers, and staff teams tha
 - Native Tavra Reservation Book workflows.
 - Custom caller question handling for topics such as hours, directions, parking, accessibility, wait times, walk-ins, dietary questions, private dining, catering, gift cards, loyalty, lost and found, complaints, hiring, events, and entertainment.
 - Call routing and live handoff when a caller needs a human.
-- System fallback behavior for connected order, payment, or printer paths: Tavra keeps staff-facing records in Operations and can be configured to save for follow-up, offer a live handoff, or pause affected ordering behavior.
+- System fallback behavior for order/payment/printing paths: Tavra separates local store-device outages from provider API/auth failures and kitchen printer status. If store devices are offline but the provider cloud is reachable, Tavra can submit the order to the provider cloud and track kitchen print status separately. If the provider API is unavailable or authorization is broken, Tavra keeps the order in Operations for staff follow-up and can use configured System Fallback behavior. If a printer is offline after the POS accepts the order, the order remains submitted while print status is tracked separately.
 - Staff and owner notification concepts.
 - Restaurant-controlled autonomy: the restaurant decides what Tavra completes, collects, routes, or escalates.
 

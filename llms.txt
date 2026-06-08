@@ -7,7 +7,7 @@ Tavra is a restaurant AI phone operations platform. It is built for restaurants 
 - Answers restaurant phone calls.
 - Handles phone workflows for to-go orders, configured payment, menu questions, reservation requests, custom caller questions, routing, notes, and staff or owner notifications.
 - Supports a Native Tavra Reservation Book for restaurants that need a Tavra-owned reservation workflow.
-- Creates staff-facing Operations records and supports system fallback behavior when a connected order, payment, or printer path is unavailable.
+- Creates staff-facing Operations records and supports System Fallback behavior that separates local store-device outages, provider API/auth failures, and kitchen printer status after an order is accepted.
 - Lets restaurants control how autonomous the agent should be by workflow.
 
 ## Truthful Integration Status
