@@ -11,6 +11,7 @@ Tavra public pages may describe these restaurant phone workflows:
 - Call routing and human handoff.
 - Notes and staff-facing records.
 - System Fallback settings that separate local store-device outages, provider API/auth failures, and kitchen printer status after POS order acceptance.
+- Operations 86 Board controls for restaurant-managed availability changes. Permitted staff can mark menu items unavailable or enter an unavailable ingredient/modifier, preview affected dishes using menu names, descriptions, and modifier data, and keep those items out of the voice agent for a selected period or until manually cleared.
 - Owner or staff notifications.
 
 Restaurant-controlled autonomy is central to Tavra: each restaurant should be able to decide what Tavra completes, collects, routes, or escalates.
