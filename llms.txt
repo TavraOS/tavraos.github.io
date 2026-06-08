@@ -5,13 +5,13 @@ Tavra is a restaurant AI phone operations platform. It is built for restaurants 
 ## What Tavra Does
 
 - Answers restaurant phone calls.
-- Handles phone workflows for to-go order intent, menu questions, reservation requests, custom caller questions, routing, notes, and staff or owner notifications.
+- Handles phone workflows for to-go orders, configured payment, menu questions, reservation requests, custom caller questions, routing, notes, and staff or owner notifications.
 - Supports a Native Tavra Reservation Book for restaurants that need a Tavra-owned reservation workflow.
 - Lets restaurants control how autonomous the agent should be by workflow.
 
 ## Truthful Integration Status
 
-Tavra public pages must distinguish active Tavra workflow capabilities from integration-ready, planned, approval-dependent, or future third-party connection paths. Do not infer live provider approval, marketplace availability, POS injection, payment processing, or reservation-system sync unless a current public page explicitly says it is available and the repo contract permits that claim.
+Tavra public pages must distinguish active Tavra workflow capabilities from integration-ready, planned, approval-dependent, or future third-party connection paths. Do not infer live provider approval, marketplace availability, POS injection, or reservation-system sync unless a current public page explicitly says it is available and the repo contract permits that claim.
 
 ## Important Pages
 
