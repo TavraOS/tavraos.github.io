@@ -147,8 +147,7 @@ function closeModal() {
 
 function openModal() {
   if (!modal || !modalDialog) return;
-  ensureVoiceOptionsLoaded();
-  ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
+  hydrateDemoOnInteraction();
   modal.hidden = false;
   document.body.classList.add("modal-open");
   window.setTimeout(() => demoPhoneInput?.focus() || modalDialog.focus(), 0);
@@ -1356,6 +1355,11 @@ function ensureVoiceOptionsLoaded() {
   return voiceLoadPromise;
 }
 
+function hydrateDemoOnInteraction() {
+  ensureVoiceOptionsLoaded();
+  ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
+}
+
 function selectedVoiceRecord() {
   if (!voiceSelect?.value) return null;
   return voiceRecords.find((record) => record.voiceId === voiceSelect.value) || null;
@@ -2035,13 +2039,12 @@ contactPhoneInput?.addEventListener("blur", () => {
 });
 
 voiceTrigger?.addEventListener("click", async () => {
-  await ensureVoiceOptionsLoaded();
+  await Promise.allSettled([ensureVoiceOptionsLoaded(), ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded())]);
   setVoiceMenuOpen(Boolean(voiceMenu?.hidden));
 });
-voiceTrigger?.addEventListener("focus", ensureVoiceOptionsLoaded);
+voiceTrigger?.addEventListener("focus", hydrateDemoOnInteraction);
 document.querySelectorAll("a[href='#demo'], [data-scroll-target='demo']").forEach((link) => {
-  link.addEventListener("click", ensureVoiceOptionsLoaded);
-  link.addEventListener("click", () => ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded()));
+  link.addEventListener("click", hydrateDemoOnInteraction);
 });
 voiceSearch?.addEventListener("input", renderVoiceMenu);
 voiceFilterButtons.forEach((button) => {
@@ -2052,6 +2055,7 @@ voiceFilterButtons.forEach((button) => {
 });
 workflowToggles.forEach((toggle) => {
   toggle.addEventListener("change", () => {
+    ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
     if (enabledWorkflowKeys().length === 0) {
       toggle.checked = true;
     }
@@ -2068,12 +2072,14 @@ workflowToggles.forEach((toggle) => {
     }
   });
   toggle.addEventListener("focus", () => {
+    ensureDemoConfigLoaded().catch(() => undefined);
     activeWorkflow = toggle.dataset.workflow || activeWorkflow;
     renderWorkflowPreview();
   });
 });
 sessionToggles.forEach((toggle) => {
   toggle.addEventListener("change", () => {
+    ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
     activeDemoCall = null;
     activeDemoState = null;
     activeOperationsTile = "callLogs";
@@ -2082,6 +2088,12 @@ sessionToggles.forEach((toggle) => {
     renderConfigSummaries();
     renderWorkflowPreview();
   });
+});
+configModules?.addEventListener("pointerdown", () => {
+  ensureDemoConfigLoaded().catch(() => undefined);
+});
+configModules?.addEventListener("focusin", () => {
+  ensureDemoConfigLoaded().catch(() => undefined);
 });
 configModules?.addEventListener("change", () => {
   activeDemoCall = null;
@@ -2196,16 +2208,6 @@ if ("IntersectionObserver" in window && observedSections.length > 0) {
   );
 
   observedSections.forEach((section) => observer.observe(section));
-}
-
-const loadDemoConfigOnIdle = () => {
-  ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
-};
-
-if ("requestIdleCallback" in window) {
-  window.requestIdleCallback(loadDemoConfigOnIdle, { timeout: 1200 });
-} else {
-  window.setTimeout(loadDemoConfigOnIdle, 350);
 }
 
 showCheckoutReturnStatus();
