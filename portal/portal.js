@@ -112,6 +112,26 @@ const menu86DurationOptions = [
   { hours: 0, title: "Until further notice" }
 ];
 
+const waitListSourceModes = [
+  { key: "automatic", title: "Automatic", subtitle: "Recommended: host quote, then reservation book" },
+  { key: "host_override", title: "Host quote only", subtitle: "Most exact, but expires if staff do not update it" },
+  { key: "reservation_book", title: "Reservation book", subtitle: "Uses Tavra reservations to infer pressure" },
+  { key: "manual_only", title: "Manual text", subtitle: "Uses the configured category answer only" }
+];
+
+const waitListHostOptions = [
+  { title: "No wait", state: "no_wait", minMinutes: 0, maxMinutes: 0 },
+  { title: "5-10 min", state: "quoted", minMinutes: 5, maxMinutes: 10 },
+  { title: "10-15 min", state: "quoted", minMinutes: 10, maxMinutes: 15 },
+  { title: "15-20 min", state: "quoted", minMinutes: 15, maxMinutes: 20 },
+  { title: "20-25 min", state: "quoted", minMinutes: 20, maxMinutes: 25 },
+  { title: "25-30 min", state: "quoted", minMinutes: 25, maxMinutes: 30 },
+  { title: "30-45 min", state: "quoted", minMinutes: 30, maxMinutes: 45 },
+  { title: "45-60 min", state: "quoted", minMinutes: 45, maxMinutes: 60 },
+  { title: "60+ min", state: "long_wait", minMinutes: 60, maxMinutes: null },
+  { title: "No walk-ins", state: "not_accepting_walk_ins", minMinutes: null, maxMinutes: null }
+];
+
 const defaultReservationTimezone = "America/Chicago";
 const defaultReservationSlotMinutes = 15;
 const defaultReservationStartMinutes = 17 * 60;
@@ -196,6 +216,12 @@ let portalState = {
   voicemailLoadingAudioId: null,
   voicemailAudio: null,
   voicemailAudioUrl: null,
+  waitStatus: null,
+  waitStatusLoaded: false,
+  waitStatusLoading: false,
+  waitStatusSaving: false,
+  waitStatusMessage: "",
+  waitStatusIsError: false,
   menu86Outages: [],
   menu86MenuItems: [],
   menu86Loaded: false,
@@ -985,6 +1011,91 @@ function stopPortalVoicemail() {
   portalState.voicemailLoadingAudioId = null;
 }
 
+async function loadPortalWaitStatus() {
+  if (portalState.waitStatusLoading) {
+    return;
+  }
+  portalState.waitStatusLoading = true;
+  portalState.waitStatusMessage = "";
+  portalState.waitStatusIsError = false;
+  renderWaitListStatus();
+  try {
+    const payload = await apiRequest("/operations/wait-status", { method: "GET" });
+    portalState.waitStatus = payload.waitStatus || defaultWaitStatus();
+    portalState.waitStatusLoaded = true;
+  } catch (error) {
+    portalState.waitStatusMessage = `Could not load wait status: ${error instanceof Error ? error.message : String(error)}`;
+    portalState.waitStatusIsError = true;
+  } finally {
+    portalState.waitStatusLoading = false;
+    renderWaitListStatus();
+  }
+}
+
+async function savePortalWaitStatus(draft) {
+  if (portalState.waitStatusSaving) {
+    return;
+  }
+  portalState.waitStatusSaving = true;
+  portalState.waitStatusMessage = "";
+  portalState.waitStatusIsError = false;
+  renderWaitListStatus();
+  try {
+    const payload = await apiRequest("/operations/wait-status", {
+      method: "PUT",
+      body: JSON.stringify({ waitStatus: draft })
+    });
+    portalState.waitStatus = payload.waitStatus || draft;
+    portalState.waitStatusLoaded = true;
+    portalState.waitStatusMessage = "Wait status saved.";
+    portalState.waitStatusIsError = false;
+  } catch (error) {
+    portalState.waitStatusMessage = `Could not save wait status: ${error instanceof Error ? error.message : String(error)}`;
+    portalState.waitStatusIsError = true;
+  } finally {
+    portalState.waitStatusSaving = false;
+    renderWaitListStatus();
+  }
+}
+
+function savePortalWaitSourceMode(mode) {
+  const draft = {
+    ...defaultWaitStatus(),
+    ...(portalState.waitStatus || {})
+  };
+  draft.sourceMode = mode;
+  void savePortalWaitStatus(draft);
+}
+
+function setPortalHostWaitStatus(option) {
+  const staleAfter = finiteNumber(portalState.waitStatus?.staleAfterMinutes, 30);
+  const now = new Date();
+  const draft = {
+    ...defaultWaitStatus(),
+    ...(portalState.waitStatus || {}),
+    staleAfterMinutes: staleAfter,
+    hostStatus: {
+      state: option.state,
+      minMinutes: option.minMinutes,
+      maxMinutes: option.maxMinutes,
+      note: null,
+      updatedAt: now.toISOString(),
+      expiresAt: new Date(now.getTime() + staleAfter * 60 * 1000).toISOString(),
+      updatedBy: null
+    }
+  };
+  void savePortalWaitStatus(draft);
+}
+
+function clearPortalHostWaitStatus() {
+  const draft = {
+    ...defaultWaitStatus(),
+    ...(portalState.waitStatus || {}),
+    hostStatus: null
+  };
+  void savePortalWaitStatus(draft);
+}
+
 async function loadPortalMenu86Board() {
   if (portalState.menu86Loading) {
     return;
@@ -1168,8 +1279,9 @@ function setActiveSection(section) {
   document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
   document.body.classList.toggle("portal-call-logs-page", section === "callLogs");
   document.body.classList.toggle("portal-voicemail-page", section === "voicemail");
+  document.body.classList.toggle("portal-wait-list-page", section === "waitList");
   document.body.classList.toggle("portal-menu86-page", section === "menu86");
-  const sidebarSection = ["reservations", "foodOrders", "callLogs", "voicemail", "menu86"].includes(section) ? "operations" : section;
+  const sidebarSection = ["reservations", "foodOrders", "callLogs", "voicemail", "waitList", "menu86"].includes(section) ? "operations" : section;
   sectionButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sidebarSection);
   });
@@ -1195,6 +1307,13 @@ function setActiveSection(section) {
     renderVoicemailInbox();
     if (!portalState.voicemailsLoaded && !portalState.voicemailsLoading) {
       void loadPortalVoicemails();
+    }
+    return;
+  }
+  if (section === "waitList") {
+    renderWaitListStatus();
+    if (!portalState.waitStatusLoaded && !portalState.waitStatusLoading) {
+      void loadPortalWaitStatus();
     }
     return;
   }
@@ -1245,6 +1364,10 @@ function renderOperations() {
       }
       if (permission.read && moduleKey === "voicemail") {
         setActiveSection("voicemail");
+        return;
+      }
+      if (permission.read && moduleKey === "waitList") {
+        setActiveSection("waitList");
         return;
       }
       if (permission.read && moduleKey === "menu86") {
@@ -2667,6 +2790,221 @@ function voicemailId(voicemail) {
   return String(voicemail?.objectId || voicemail?.id || "");
 }
 
+function renderWaitListStatus() {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  pageTitle.textContent = "Wait List";
+  pageKicker.textContent = "Operations";
+
+  const permission = modulePermission("waitList");
+  if (!permission.read) {
+    portalContent.innerHTML = `
+      <section class="wait-list-page">
+        <div class="wait-list-shell">
+          <h1>Wait List</h1>
+          <article class="wait-list-empty">This account does not currently have access to Wait List.</article>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const status = portalState.waitStatus || defaultWaitStatus();
+  portalContent.innerHTML = `
+    <section class="wait-list-page" aria-labelledby="wait-list-title">
+      <div class="wait-list-shell">
+        <div class="wait-list-top">
+          <div>
+            <h1 id="wait-list-title">Wait List</h1>
+            <p>Set a fresh host quote, or let Tavra answer from the reservation book when no fresh quote is available.</p>
+          </div>
+          <button class="wait-list-refresh" type="button" data-wait-list-refresh ${portalState.waitStatusLoading ? "disabled" : ""}>
+            <span aria-hidden="true">↻</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        ${portalState.waitStatusLoading && !portalState.waitStatusLoaded ? `<article class="wait-list-empty">Loading wait status...</article>` : ""}
+        ${portalState.waitStatusMessage ? `
+          <div class="wait-list-status ${portalState.waitStatusIsError ? "error" : ""}">
+            ${escapeHTML(portalState.waitStatusMessage)}
+          </div>
+        ` : ""}
+
+        ${renderWaitListSourceModeSection(status, permission.write)}
+        ${renderWaitListHostStatusSection(status, permission.write)}
+        ${renderWaitListReservationEstimateSection(status)}
+      </div>
+    </section>
+  `;
+  wireWaitListEvents();
+}
+
+function renderWaitListSourceModeSection(status, canWrite) {
+  return `
+    <article class="wait-list-card">
+      <h2>Agent Source</h2>
+      <p>Accuracy order: fresh host quote first, then reservation book estimate, then manually configured category text.</p>
+      <div class="wait-list-grid">
+        ${waitListSourceModes.map((mode) => `
+          <button
+            class="wait-list-option ${status.sourceMode === mode.key ? "selected" : ""}"
+            type="button"
+            data-wait-source="${escapeHTML(mode.key)}"
+            ${canWrite && !portalState.waitStatusSaving ? "" : "disabled"}
+          >
+            <strong>${escapeHTML(mode.title)}</strong>
+            <span>${escapeHTML(mode.subtitle)}</span>
+          </button>
+        `).join("")}
+      </div>
+    </article>
+  `;
+}
+
+function renderWaitListHostStatusSection(status, canWrite) {
+  const freshness = waitListFreshness(status);
+  return `
+    <article class="wait-list-card">
+      <div class="wait-list-card-head">
+        <h2>Host Quote</h2>
+        <div>
+          <strong class="${freshness.isFresh ? "fresh" : "expired"}">${escapeHTML(freshness.label)}</strong>
+          ${freshness.lastUpdated ? `<span>${escapeHTML(freshness.lastUpdated)}</span>` : ""}
+        </div>
+      </div>
+      <p>${escapeHTML(waitListHostStatusText(status))}</p>
+      <div class="wait-list-grid">
+        ${waitListHostOptions.map((option, index) => `
+          <button
+            class="wait-list-option compact ${waitListHostOptionSelected(status, option) ? "selected" : ""}"
+            type="button"
+            data-wait-host-option="${index}"
+            ${canWrite && !portalState.waitStatusSaving ? "" : "disabled"}
+          >
+            <strong>${escapeHTML(option.title)}</strong>
+          </button>
+        `).join("")}
+      </div>
+      <button
+        class="wait-list-clear"
+        type="button"
+        data-wait-clear-host
+        ${canWrite && !portalState.waitStatusSaving && status.hostStatus ? "" : "disabled"}
+      >
+        ⓧ Clear host quote
+      </button>
+    </article>
+  `;
+}
+
+function renderWaitListReservationEstimateSection(status) {
+  return `
+    <article class="wait-list-card">
+      <h2>Reservation Book Estimate</h2>
+      <p>${escapeHTML(waitListReservationEstimateText(status))}</p>
+    </article>
+  `;
+}
+
+function wireWaitListEvents() {
+  portalContent.querySelector("[data-wait-list-refresh]")?.addEventListener("click", () => {
+    void loadPortalWaitStatus();
+  });
+  portalContent.querySelectorAll("[data-wait-source]").forEach((button) => {
+    button.addEventListener("click", () => {
+      savePortalWaitSourceMode(button.dataset.waitSource || "automatic");
+    });
+  });
+  portalContent.querySelectorAll("[data-wait-host-option]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.waitHostOption);
+      const option = waitListHostOptions[index];
+      if (option) {
+        setPortalHostWaitStatus(option);
+      }
+    });
+  });
+  portalContent.querySelector("[data-wait-clear-host]")?.addEventListener("click", clearPortalHostWaitStatus);
+}
+
+function defaultWaitStatus() {
+  return {
+    sourceMode: "automatic",
+    staleAfterMinutes: 30,
+    hostStatus: null,
+    reservationEstimate: null,
+    updatedAt: null
+  };
+}
+
+function waitListFreshness(status) {
+  const hostStatus = status?.hostStatus;
+  if (!hostStatus?.updatedAt) {
+    return { label: "Not set", isFresh: false, lastUpdated: "" };
+  }
+  const updatedAt = parsePortalDate(hostStatus.updatedAt);
+  const expiresAt = parsePortalDate(hostStatus.expiresAt);
+  const fallbackExpiresAt = updatedAt
+    ? new Date(updatedAt.getTime() + finiteNumber(status?.staleAfterMinutes, 30) * 60 * 1000)
+    : null;
+  const effectiveExpiresAt = expiresAt || fallbackExpiresAt;
+  const isFresh = effectiveExpiresAt ? Date.now() <= effectiveExpiresAt.getTime() : false;
+  return {
+    label: isFresh ? "Fresh" : "Expired",
+    isFresh,
+    lastUpdated: updatedAt ? `Updated ${relativePortalTime(updatedAt.toISOString())}` : ""
+  };
+}
+
+function waitListHostStatusText(status) {
+  const hostStatus = status?.hostStatus;
+  if (!hostStatus) {
+    return "No host quote is set. In Automatic mode, Tavra will fall back to the reservation book estimate.";
+  }
+  let base = "No precise quote.";
+  if (hostStatus.state === "no_wait") {
+    base = "Currently no wait.";
+  } else if (hostStatus.state === "quoted") {
+    const min = finiteNumber(hostStatus.minMinutes, null);
+    const max = finiteNumber(hostStatus.maxMinutes, null);
+    if (min !== null && max !== null && min !== max) {
+      base = `Currently ${min}-${max} minutes.`;
+    } else if (max !== null || min !== null) {
+      base = `Currently about ${max ?? min} minutes.`;
+    } else {
+      base = "A wait quote is set.";
+    }
+  } else if (hostStatus.state === "long_wait") {
+    base = "Currently a long wait.";
+  } else if (hostStatus.state === "not_accepting_walk_ins") {
+    base = "Currently not accepting walk-ins.";
+  }
+  return [base, hostStatus.note].filter(Boolean).join(" ");
+}
+
+function waitListHostOptionSelected(status, option) {
+  const hostStatus = status?.hostStatus;
+  if (!hostStatus || hostStatus.state !== option.state) {
+    return false;
+  }
+  if (option.state !== "quoted") {
+    return true;
+  }
+  return Number(hostStatus.minMinutes) === Number(option.minMinutes) &&
+    Number(hostStatus.maxMinutes) === Number(option.maxMinutes);
+}
+
+function waitListReservationEstimateText(status) {
+  const estimate = status?.reservationEstimate;
+  if (!estimate) {
+    return "No reservation pressure estimate is available yet. This appears when Tavra can read the native reservation book.";
+  }
+  const level = statusText(estimate.level || "unknown").toLowerCase();
+  return `Current estimate: ${level}. Next ${finiteNumber(estimate.windowMinutes, 0)} minutes: ${finiteNumber(estimate.activeReservations, 0)} reservations, ${finiteNumber(estimate.activeCovers, 0)} covers.`;
+}
+
 function money(cents) {
   return `$${(Number(cents) / 100).toFixed(2)}`;
 }
@@ -3099,6 +3437,7 @@ function showLogin() {
   document.body.classList.remove("portal-food-orders-page");
   document.body.classList.remove("portal-call-logs-page");
   document.body.classList.remove("portal-voicemail-page");
+  document.body.classList.remove("portal-wait-list-page");
   document.body.classList.remove("portal-menu86-page");
   portalState.session = null;
   portalState.membership = null;

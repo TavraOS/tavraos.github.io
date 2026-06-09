@@ -1543,6 +1543,231 @@ body.portal-voicemail-page .portal-content {
   background: rgba(255, 84, 84, 0.12);
 }
 
+body.portal-wait-list-page {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(86, 222, 206, 0.16), transparent 24rem),
+    radial-gradient(circle at 82% 18%, rgba(146, 219, 128, 0.1), transparent 26rem),
+    #020202;
+}
+
+body.portal-wait-list-page .portal-main-shell {
+  padding: 24px 24px 42px 28px;
+  background: #000;
+}
+
+body.portal-wait-list-page .portal-header {
+  display: none;
+}
+
+body.portal-wait-list-page .portal-content {
+  min-height: calc(100vh - 46px);
+}
+
+.wait-list-page {
+  min-height: calc(100vh - 46px);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+.wait-list-shell {
+  width: min(880px, 100%);
+  display: grid;
+  gap: 16px;
+  padding: 12px 2px 90px;
+}
+
+.wait-list-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.wait-list-top h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 34px;
+  font-weight: 850;
+  letter-spacing: -0.025em;
+}
+
+.wait-list-top p {
+  max-width: 620px;
+  margin: 8px 0 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.42;
+}
+
+.wait-list-refresh {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 16px;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 760;
+}
+
+.wait-list-refresh:disabled {
+  opacity: 0.55;
+}
+
+.wait-list-card,
+.wait-list-empty,
+.wait-list-status {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.055);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.wait-list-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.wait-list-card h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.wait-list-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.wait-list-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.wait-list-card-head > div {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+  text-align: right;
+}
+
+.wait-list-card-head strong {
+  color: #ff9f0a;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.wait-list-card-head strong.fresh {
+  color: #34c759;
+}
+
+.wait-list-card-head span {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.wait-list-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.wait-list-option {
+  min-height: 74px;
+  display: grid;
+  place-items: center;
+  gap: 4px;
+  padding: 12px 9px;
+  color: #fff;
+  border: 0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.09);
+  text-align: center;
+}
+
+.wait-list-option.compact {
+  min-height: 52px;
+}
+
+.wait-list-option.selected {
+  color: #020202;
+  background: #34c759;
+}
+
+.wait-list-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.wait-list-option strong {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 850;
+  line-height: 1.15;
+}
+
+.wait-list-option span {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.wait-list-option.selected span {
+  color: rgba(0, 0, 0, 0.68);
+}
+
+.wait-list-clear {
+  min-height: 42px;
+  padding: 0 14px;
+  color: #ff8585;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.wait-list-clear:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.wait-list-empty {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  padding: 26px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 15px;
+  font-weight: 720;
+  text-align: center;
+}
+
+.wait-list-status {
+  padding: 13px 15px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.wait-list-status.error {
+  color: #ff8585;
+  background: rgba(255, 84, 84, 0.12);
+}
+
 body.portal-menu86-page {
   background:
     radial-gradient(circle at 20% 4%, rgba(255, 108, 47, 0.16), transparent 24rem),
@@ -2958,13 +3183,18 @@ body.portal-reservations-page .portal-content {
     padding: 18px 16px 34px;
   }
 
+  body.portal-wait-list-page .portal-main-shell {
+    padding: 18px 16px 34px;
+  }
+
   body.portal-menu86-page .portal-main-shell {
     padding: 18px 16px 34px;
   }
 
   .food-orders-shell,
   .call-logs-shell,
-  .voicemail-shell {
+  .voicemail-shell,
+  .wait-list-shell {
     width: 100%;
     padding-top: 10px;
   }
@@ -3020,6 +3250,27 @@ body.portal-reservations-page .portal-content {
   .voicemail-row-head strong {
     white-space: normal;
     overflow-wrap: anywhere;
+  }
+
+  .wait-list-top {
+    display: grid;
+  }
+
+  .wait-list-top h1 {
+    font-size: 31px;
+  }
+
+  .wait-list-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wait-list-card-head {
+    display: grid;
+  }
+
+  .wait-list-card-head > div {
+    justify-items: start;
+    text-align: left;
   }
 
   .menu86-shell {
