@@ -27,7 +27,7 @@ const operationModules = [
     icon: "🥤",
     status: "Order work",
     description:
-      "Food Orders will show submitted and in-progress phone orders, payment status, kitchen output, and staff follow-up when the full web module is enabled."
+      "Food Orders shows submitted and in-progress phone orders, payment status, kitchen output, and staff follow-up."
   },
   {
     key: "menu86",
@@ -59,7 +59,7 @@ const operationModules = [
     icon: "▦",
     status: "Book",
     description:
-      "Reservations will become the web version of Tavra's native reservation book with timeline, list, and table views for phone-originated reservations."
+      "Reservations opens Tavra's native reservation book with timeline, calendar, add, check-in, no-show, and notes controls."
   },
   {
     key: "waitList",
@@ -68,6 +68,33 @@ const operationModules = [
     status: "Queue",
     description:
       "Wait List will show current wait status, party context, and guest-facing timing details when that workflow is enabled for a restaurant."
+  }
+];
+
+const foodOrderFilters = [
+  {
+    key: "active",
+    title: "Active",
+    emptyText: "Active food orders will appear here after Tavra takes them by phone.",
+    className: "active"
+  },
+  {
+    key: "needsAttention",
+    title: "Needs Attention",
+    emptyText: "No orders need attention right now.",
+    className: "attention"
+  },
+  {
+    key: "completed",
+    title: "Completed",
+    emptyText: "Completed orders will appear here.",
+    className: "completed"
+  },
+  {
+    key: "cancelled",
+    title: "Cancelled",
+    emptyText: "Cancelled orders will appear here.",
+    className: "cancelled"
   }
 ];
 
@@ -132,6 +159,13 @@ let portalState = {
   business: null,
   section: "operations",
   activeModule: "foodOrders",
+  foodOrders: [],
+  foodOrdersLoaded: false,
+  foodOrdersLoading: false,
+  foodOrdersError: "",
+  foodOrderFilter: "active",
+  expandedFoodOrderIds: new Set(),
+  foodOrderUpdatingId: null,
   reservations: [],
   reservationsLoaded: false,
   reservationsLoading: false,
@@ -701,6 +735,51 @@ async function loadPortalReservations() {
   }
 }
 
+async function loadPortalFoodOrders() {
+  if (portalState.foodOrdersLoading) {
+    return;
+  }
+  portalState.foodOrdersLoading = true;
+  portalState.foodOrdersError = "";
+  renderFoodOrdersInbox();
+  try {
+    const payload = await apiRequest("/operations/food-orders?limit=100", { method: "GET" });
+    portalState.foodOrders = Array.isArray(payload.orders) ? payload.orders : [];
+    portalState.foodOrdersLoaded = true;
+  } catch (error) {
+    portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.foodOrdersLoading = false;
+    renderFoodOrdersInbox();
+  }
+}
+
+async function updatePortalFoodOrderStatus(orderId, status) {
+  if (!orderId || !status || portalState.foodOrderUpdatingId) {
+    return;
+  }
+  portalState.foodOrderUpdatingId = orderId;
+  portalState.foodOrdersError = "";
+  renderFoodOrdersInbox();
+  try {
+    const payload = await apiRequest(`/operations/food-orders/${encodeURIComponent(orderId)}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status })
+    });
+    if (payload.order) {
+      portalState.foodOrders = portalState.foodOrders.map((order) => {
+        const currentId = foodOrderId(order);
+        return currentId === orderId ? payload.order : order;
+      });
+    }
+  } catch (error) {
+    portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.foodOrderUpdatingId = null;
+    renderFoodOrdersInbox();
+  }
+}
+
 async function logIn(email, password) {
   const payload = await apiRequest("/operations/auth/login", {
     method: "POST",
@@ -787,11 +866,20 @@ function roleLabel(role) {
 function setActiveSection(section) {
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
+  document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
+  const sidebarSection = section === "reservations" || section === "foodOrders" ? "operations" : section;
   sectionButtons.forEach((button) => {
-    button.classList.toggle("active", button.dataset.section === section);
+    button.classList.toggle("active", button.dataset.section === sidebarSection);
   });
   if (section === "operations") {
     renderOperations();
+    return;
+  }
+  if (section === "foodOrders") {
+    renderFoodOrdersInbox();
+    if (!portalState.foodOrdersLoaded && !portalState.foodOrdersLoading) {
+      void loadPortalFoodOrders();
+    }
     return;
   }
   if (section === "reservations") {
@@ -821,7 +909,17 @@ function renderOperations() {
   `;
   portalContent.querySelectorAll("[data-operation-module]").forEach((button) => {
     button.addEventListener("click", () => {
-      portalState.activeModule = button.dataset.operationModule || "foodOrders";
+      const moduleKey = button.dataset.operationModule || "foodOrders";
+      portalState.activeModule = moduleKey;
+      const permission = modulePermission(moduleKey);
+      if (permission.read && moduleKey === "foodOrders") {
+        setActiveSection("foodOrders");
+        return;
+      }
+      if (permission.read && moduleKey === "reservations") {
+        setActiveSection("reservations");
+        return;
+      }
       renderOperations();
     });
   });
@@ -1578,6 +1676,389 @@ function wireReservationBookEvents(model) {
   });
 }
 
+function renderFoodOrdersInbox() {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  pageTitle.textContent = "Food Orders";
+  pageKicker.textContent = "Operations";
+
+  const permission = modulePermission("foodOrders");
+  if (!permission.read) {
+    portalContent.innerHTML = `
+      <section class="food-orders-page">
+        <div class="food-orders-shell">
+          <h1>Food Orders</h1>
+          <article class="food-order-empty">This account does not currently have access to Food Orders.</article>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const activeFilter = foodOrderFilterForKey(portalState.foodOrderFilter);
+  const filteredOrders = filteredFoodOrders(activeFilter.key);
+  const statusMessage = portalState.foodOrdersError
+    ? `<div class="food-order-status-message error">Food orders failed to load: ${escapeHTML(portalState.foodOrdersError)}</div>`
+    : portalState.foodOrdersLoading && !portalState.foodOrdersLoaded
+      ? `<div class="food-order-status-message">Loading food orders...</div>`
+      : "";
+
+  portalContent.innerHTML = `
+    <section class="food-orders-page" aria-labelledby="food-orders-title">
+      <div class="food-orders-shell">
+        <div class="food-orders-top">
+          <h1 id="food-orders-title">Food Orders</h1>
+          <button class="food-order-refresh" type="button" data-food-order-refresh ${portalState.foodOrdersLoading ? "disabled" : ""}>
+            <span aria-hidden="true">↻</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <div class="food-order-metric-grid" aria-label="Food order filters">
+          ${foodOrderFilters.map(renderFoodOrderMetric).join("")}
+        </div>
+
+        ${statusMessage}
+
+        <div class="food-order-group">
+          <h2>${escapeHTML(activeFilter.title)}</h2>
+          ${filteredOrders.length
+            ? filteredOrders.map((order) => renderFoodOrderCard(order, permission.write)).join("")
+            : `<article class="food-order-empty">${escapeHTML(activeFilter.emptyText)}</article>`
+          }
+        </div>
+      </div>
+    </section>
+  `;
+  wireFoodOrdersEvents();
+}
+
+function renderFoodOrderMetric(filter) {
+  const isSelected = portalState.foodOrderFilter === filter.key;
+  const count = portalState.foodOrders.filter((order) => foodOrderMatchesFilter(order, filter.key)).length;
+  return `
+    <button
+      class="food-order-metric ${filter.className} ${isSelected ? "selected" : ""}"
+      type="button"
+      data-food-order-filter="${escapeHTML(filter.key)}"
+      aria-pressed="${isSelected ? "true" : "false"}"
+    >
+      <strong>${count}</strong>
+      <span>${escapeHTML(filter.title)}</span>
+    </button>
+  `;
+}
+
+function renderFoodOrderCard(order, canWrite) {
+  const orderId = foodOrderId(order);
+  const expanded = portalState.expandedFoodOrderIds.has(orderId);
+  const display = foodOrderStatusDisplay(order);
+  const warnings = foodOrderWarnings(order);
+  return `
+    <article class="food-order-card ${display.kind === "needsAttention" ? "needs-attention" : ""}" data-food-order-card="${escapeHTML(orderId)}">
+      <button class="food-order-card-main" type="button" data-food-order-toggle="${escapeHTML(orderId)}" aria-expanded="${expanded ? "true" : "false"}">
+        <div class="food-order-card-head">
+          <div>
+            <strong>${escapeHTML(foodOrderPickupText(order))}</strong>
+            <span>${escapeHTML(foodOrderCustomerLine(order))}</span>
+          </div>
+          <div class="food-order-card-actions">
+            <span class="food-order-badge ${display.kind}">${escapeHTML(display.label)}</span>
+            <span class="food-order-chevron" aria-hidden="true">${expanded ? "⌃" : "⌄"}</span>
+          </div>
+        </div>
+        <div class="food-order-meta-row">
+          <span>${escapeHTML(foodOrderItemCountText(order))}</span>
+          ${foodOrderTotalText(order) ? `<span aria-hidden="true">·</span><span>${escapeHTML(foodOrderTotalText(order))}</span>` : ""}
+        </div>
+        ${foodOrderItemPreview(order) ? `<p class="food-order-preview">${escapeHTML(foodOrderItemPreview(order))}</p>` : ""}
+        ${warnings.slice(0, 2).map((warning) => `<p class="food-order-warning">⚠ ${escapeHTML(warning)}</p>`).join("")}
+      </button>
+      ${expanded ? renderFoodOrderExpanded(order, canWrite) : ""}
+    </article>
+  `;
+}
+
+function renderFoodOrderExpanded(order, canWrite) {
+  const items = foodOrderLineItems(order);
+  const orderId = foodOrderId(order);
+  const actions = foodOrderAvailableActions(order);
+  const createdText = relativeFoodOrderTime(order.createdAt);
+  const issue = order.kitchenPrint?.error || order.payment?.error || order.clover?.error || "";
+  return `
+    <div class="food-order-expanded">
+      <div class="food-order-divider" aria-hidden="true"></div>
+
+      <section>
+        <h3>Line Items</h3>
+        ${items.length ? items.map(renderFoodOrderLineItem).join("") : `<p class="food-order-muted">No line items recorded.</p>`}
+      </section>
+
+      ${String(order.orderSummaryText || "").trim() ? `
+        <section>
+          <h3>Order Notes</h3>
+          <p class="food-order-muted">${escapeHTML(order.orderSummaryText)}</p>
+        </section>
+      ` : ""}
+
+      <div class="food-order-detail-grid">
+        ${renderFoodOrderDetail("Source", statusText(order.source || "voice_agent"))}
+        ${createdText ? renderFoodOrderDetail("Created", createdText) : ""}
+        ${order.payment?.status ? renderFoodOrderDetail("Payment", statusText(order.payment.status)) : ""}
+        ${order.status !== "submission_followup_required" && (order.kitchenPrint?.status || order.kitchenPrint?.state)
+          ? renderFoodOrderDetail("Printer", statusText(order.kitchenPrint.status || order.kitchenPrint.state))
+          : ""
+        }
+        ${issue ? renderFoodOrderDetail("Issue", issue) : ""}
+      </div>
+
+      ${canWrite && actions.length ? `
+        <div class="food-order-action-row">
+          ${actions.map((action) => `
+            <button
+              class="food-order-action ${action.role === "danger" ? "danger" : ""}"
+              type="button"
+              data-food-order-id="${escapeHTML(orderId)}"
+              data-food-order-status="${escapeHTML(action.status)}"
+              ${portalState.foodOrderUpdatingId === orderId ? "disabled" : ""}
+            >
+              ${escapeHTML(portalState.foodOrderUpdatingId === orderId ? "Updating..." : action.title)}
+            </button>
+          `).join("")}
+        </div>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderFoodOrderLineItem(item) {
+  const quantity = Math.max(1, finiteNumber(item.quantity, 1));
+  const displayName = item.displayName || item.name || "Unknown item";
+  const price = Number.isFinite(Number(item.unitPriceCents)) ? money(Number(item.unitPriceCents) * quantity) : "";
+  const selectedModifiers = Array.isArray(item.selectedModifiers) ? item.selectedModifiers : [];
+  const removedModifiers = Array.isArray(item.removedModifiers) ? item.removedModifiers : [];
+  return `
+    <div class="food-order-line-item">
+      <div>
+        <span>${quantity} ×</span>
+        <strong>${escapeHTML(displayName)}</strong>
+      </div>
+      ${price ? `<em>${escapeHTML(price)}</em>` : ""}
+      ${(selectedModifiers.length || removedModifiers.length) ? `
+        <ul>
+          ${selectedModifiers.map((modifier) => `<li>${escapeHTML(modifier.name || "Modifier")}</li>`).join("")}
+          ${removedModifiers.map((modifier) => `<li>No ${escapeHTML(modifier.name || "modifier")}</li>`).join("")}
+        </ul>
+      ` : ""}
+    </div>
+  `;
+}
+
+function renderFoodOrderDetail(title, value) {
+  return `
+    <p>
+      <span>${escapeHTML(title)}</span>
+      <strong>${escapeHTML(value)}</strong>
+    </p>
+  `;
+}
+
+function wireFoodOrdersEvents() {
+  portalContent.querySelector("[data-food-order-refresh]")?.addEventListener("click", () => {
+    void loadPortalFoodOrders();
+  });
+  portalContent.querySelectorAll("[data-food-order-filter]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.foodOrderFilter = button.dataset.foodOrderFilter || "active";
+      renderFoodOrdersInbox();
+    });
+  });
+  portalContent.querySelectorAll("[data-food-order-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const orderId = button.dataset.foodOrderToggle || "";
+      if (portalState.expandedFoodOrderIds.has(orderId)) {
+        portalState.expandedFoodOrderIds.delete(orderId);
+      } else {
+        portalState.expandedFoodOrderIds.add(orderId);
+      }
+      renderFoodOrdersInbox();
+    });
+  });
+  portalContent.querySelectorAll("[data-food-order-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void updatePortalFoodOrderStatus(button.dataset.foodOrderId || "", button.dataset.foodOrderStatus || "");
+    });
+  });
+}
+
+function foodOrderFilterForKey(key) {
+  return foodOrderFilters.find((filter) => filter.key === key) || foodOrderFilters[0];
+}
+
+function filteredFoodOrders(filterKey) {
+  return portalState.foodOrders
+    .filter((order) => foodOrderMatchesFilter(order, filterKey))
+    .sort(sortFoodOrders);
+}
+
+function foodOrderMatchesFilter(order, filterKey) {
+  return foodOrderStatusDisplay(order).kind === filterKey;
+}
+
+function foodOrderStatusDisplay(order) {
+  const raw = String(order.status || "needs_review");
+  const printFailed = raw !== "submission_followup_required" &&
+    (order.kitchenPrint?.status === "failed" || order.kitchenPrint?.state === "failed");
+  const priceMissing = order.subtotalCents === null || order.subtotalCents === undefined;
+  const isManualActiveStatus = raw === "confirmed";
+  if (!isManualActiveStatus && (printFailed || priceMissing)) {
+    return { kind: "needsAttention", label: "Needs Attention" };
+  }
+  if (["payment_pending", "payment_tokenized", "confirmed", "submitted", "sent_to_kitchen", "ready"].includes(raw)) {
+    return { kind: "active", label: "Active" };
+  }
+  if (raw === "completed") {
+    return { kind: "completed", label: "Completed" };
+  }
+  if (raw === "cancelled") {
+    return { kind: "cancelled", label: "Cancelled" };
+  }
+  return { kind: "needsAttention", label: "Needs Attention" };
+}
+
+function foodOrderAvailableActions(order) {
+  const kind = foodOrderStatusDisplay(order).kind;
+  if (kind === "active") {
+    return [
+      { title: "Complete", status: "completed" },
+      { title: "Cancel", status: "cancelled", role: "danger" }
+    ];
+  }
+  if (kind === "needsAttention") {
+    return [
+      { title: "Move to Active", status: "confirmed" },
+      { title: "Cancel", status: "cancelled", role: "danger" }
+    ];
+  }
+  return [];
+}
+
+function sortFoodOrders(left, right) {
+  const leftDate = parsePortalDate(left.submittedAt) || parsePortalDate(left.createdAt) || new Date(8640000000000000);
+  const rightDate = parsePortalDate(right.submittedAt) || parsePortalDate(right.createdAt) || new Date(8640000000000000);
+  return leftDate.getTime() - rightDate.getTime();
+}
+
+function foodOrderId(order) {
+  return String(order.objectId || order.id || "");
+}
+
+function foodOrderLineItems(order) {
+  return Array.isArray(order.orderItems) ? order.orderItems : [];
+}
+
+function foodOrderPickupText(order) {
+  return order.submittedAt ? `Pickup ${clockTime(order.submittedAt)}` : "ASAP";
+}
+
+function foodOrderCustomerLine(order) {
+  const name = String(order.callerName || "").trim();
+  const phone = order.callerPhone ? formatNorthAmericanPhone(order.callerPhone) : "";
+  return [name || null, phone || null].filter(Boolean).join(" · ") || "Unknown caller";
+}
+
+function foodOrderItemCountText(order) {
+  const count = foodOrderLineItems(order).reduce((total, item) => total + Math.max(1, finiteNumber(item.quantity, 1)), 0);
+  return count === 1 ? "1 item" : `${count} items`;
+}
+
+function foodOrderTotalText(order) {
+  return Number.isFinite(Number(order.subtotalCents)) ? money(Number(order.subtotalCents)) : "";
+}
+
+function foodOrderItemPreview(order) {
+  return foodOrderLineItems(order)
+    .slice(0, 3)
+    .map((item) => `${Math.max(1, finiteNumber(item.quantity, 1))} × ${item.displayName || item.name || "Unknown item"}`)
+    .join(", ");
+}
+
+function foodOrderWarnings(order) {
+  const warnings = [];
+  switch (order.status) {
+  case "draft":
+    warnings.push("Caller hung up before confirmation");
+    break;
+  case "payment_failed":
+    warnings.push("Payment failed");
+    break;
+  case "payment_followup_required":
+    warnings.push("Payment follow-up required");
+    break;
+  case "submission_followup_required":
+    warnings.push("Submission follow-up required");
+    break;
+  default:
+    break;
+  }
+  if (order.status !== "submission_followup_required" && (order.kitchenPrint?.status === "failed" || order.kitchenPrint?.state === "failed")) {
+    warnings.push("Kitchen print failed");
+  }
+  if (order.subtotalCents === null || order.subtotalCents === undefined) {
+    warnings.push("Price unavailable");
+  }
+  return warnings;
+}
+
+function money(cents) {
+  return `$${(Number(cents) / 100).toFixed(2)}`;
+}
+
+function parsePortalDate(value) {
+  return parseReservationDateValue(value);
+}
+
+function clockTime(value) {
+  const date = parsePortalDate(value);
+  if (!date) {
+    return "";
+  }
+  return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function relativeFoodOrderTime(value) {
+  const date = parsePortalDate(value);
+  if (!date) {
+    return "";
+  }
+  const diffMs = Date.now() - date.getTime();
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+  if (Math.abs(diffMs) < minuteMs) {
+    return "Just now";
+  }
+  if (Math.abs(diffMs) < hourMs) {
+    const minutes = Math.round(diffMs / minuteMs);
+    return `${Math.abs(minutes)} minute${Math.abs(minutes) === 1 ? "" : "s"} ${minutes >= 0 ? "ago" : "from now"}`;
+  }
+  if (Math.abs(diffMs) < dayMs) {
+    const hours = Math.round(diffMs / hourMs);
+    return `${Math.abs(hours)} hour${Math.abs(hours) === 1 ? "" : "s"} ${hours >= 0 ? "ago" : "from now"}`;
+  }
+  const days = Math.round(diffMs / dayMs);
+  return `${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"} ${days >= 0 ? "ago" : "from now"}`;
+}
+
+function statusText(raw) {
+  return String(raw || "")
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function renderPlaceholderSection(section) {
   if (!portalContent || !pageTitle || !pageKicker) {
     return;
@@ -1603,6 +2084,7 @@ function showLogin() {
   }
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
+  document.body.classList.remove("portal-food-orders-page");
   portalState.session = null;
   portalState.membership = null;
   portalState.business = null;
