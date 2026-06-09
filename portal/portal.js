@@ -180,6 +180,14 @@ let portalState = {
   foodOrderFilter: "active",
   expandedFoodOrderIds: new Set(),
   foodOrderUpdatingId: null,
+  callLogs: [],
+  callLogsLoaded: false,
+  callLogsLoading: false,
+  callLogsError: "",
+  selectedCallLogId: null,
+  callLogDetails: new Map(),
+  callLogDetailLoadingId: null,
+  callLogDetailError: "",
   menu86Outages: [],
   menu86MenuItems: [],
   menu86Loaded: false,
@@ -823,6 +831,44 @@ async function updatePortalFoodOrderStatus(orderId, status) {
   }
 }
 
+async function loadPortalCallLogs() {
+  if (portalState.callLogsLoading) {
+    return;
+  }
+  portalState.callLogsLoading = true;
+  portalState.callLogsError = "";
+  renderCallLogsInbox();
+  try {
+    const payload = await apiRequest("/operations/call-logs?limit=100", { method: "GET" });
+    portalState.callLogs = Array.isArray(payload.calls) ? payload.calls : [];
+    portalState.callLogsLoaded = true;
+  } catch (error) {
+    portalState.callLogsError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.callLogsLoading = false;
+    renderCallLogsInbox();
+  }
+}
+
+async function loadPortalCallLogDetail(callLogId) {
+  if (!callLogId || portalState.callLogDetailLoadingId === callLogId) {
+    return;
+  }
+  portalState.callLogDetailLoadingId = callLogId;
+  portalState.callLogDetailError = "";
+  renderCallLogsInbox();
+  try {
+    const payload = await apiRequest(`/operations/call-logs/${encodeURIComponent(callLogId)}`, { method: "GET" });
+    const detail = payload.call || payload;
+    portalState.callLogDetails.set(callLogId, detail);
+  } catch (error) {
+    portalState.callLogDetailError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.callLogDetailLoadingId = null;
+    renderCallLogsInbox();
+  }
+}
+
 async function loadPortalMenu86Board() {
   if (portalState.menu86Loading) {
     return;
@@ -1001,8 +1047,9 @@ function setActiveSection(section) {
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
   document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
+  document.body.classList.toggle("portal-call-logs-page", section === "callLogs");
   document.body.classList.toggle("portal-menu86-page", section === "menu86");
-  const sidebarSection = ["reservations", "foodOrders", "menu86"].includes(section) ? "operations" : section;
+  const sidebarSection = ["reservations", "foodOrders", "callLogs", "menu86"].includes(section) ? "operations" : section;
   sectionButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sidebarSection);
   });
@@ -1014,6 +1061,13 @@ function setActiveSection(section) {
     renderFoodOrdersInbox();
     if (!portalState.foodOrdersLoaded && !portalState.foodOrdersLoading) {
       void loadPortalFoodOrders();
+    }
+    return;
+  }
+  if (section === "callLogs") {
+    renderCallLogsInbox();
+    if (!portalState.callLogsLoaded && !portalState.callLogsLoading) {
+      void loadPortalCallLogs();
     }
     return;
   }
@@ -1056,6 +1110,10 @@ function renderOperations() {
       const permission = modulePermission(moduleKey);
       if (permission.read && moduleKey === "foodOrders") {
         setActiveSection("foodOrders");
+        return;
+      }
+      if (permission.read && moduleKey === "callLogs") {
+        setActiveSection("callLogs");
         return;
       }
       if (permission.read && moduleKey === "menu86") {
@@ -2153,6 +2211,239 @@ function foodOrderWarnings(order) {
   return warnings;
 }
 
+function renderCallLogsInbox() {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  pageTitle.textContent = "Call Logs";
+  pageKicker.textContent = "Operations";
+
+  const permission = modulePermission("callLogs");
+  if (!permission.read) {
+    portalContent.innerHTML = `
+      <section class="call-logs-page">
+        <div class="call-logs-shell">
+          <h1>Call Logs</h1>
+          <article class="call-log-empty">This account does not currently have access to Call Logs.</article>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  const selectedId = portalState.selectedCallLogId;
+  const selectedDetail = selectedId ? portalState.callLogDetails.get(selectedId) : null;
+  const selectedSummary = selectedId ? portalState.callLogs.find((call) => callLogId(call) === selectedId) : null;
+
+  portalContent.innerHTML = `
+    <section class="call-logs-page" aria-labelledby="call-logs-title">
+      <div class="call-logs-shell">
+        <div class="call-logs-top">
+          <div>
+            <h1 id="call-logs-title">Call Logs</h1>
+            <p>Completed phone work, caller details, workflow outcomes, and full transcripts.</p>
+          </div>
+          <button class="call-log-refresh" type="button" data-call-log-refresh ${portalState.callLogsLoading ? "disabled" : ""}>
+            <span aria-hidden="true">↻</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        ${portalState.callLogsError ? `<div class="call-log-status error">Call logs failed to load: ${escapeHTML(portalState.callLogsError)}</div>` : ""}
+
+        <div class="call-logs-layout">
+          <aside class="call-log-list" aria-label="Calls">
+            ${portalState.callLogsLoading && !portalState.callLogsLoaded ? `<article class="call-log-empty">Loading call logs...</article>` : ""}
+            ${sortedCallLogs().length
+              ? sortedCallLogs().map(renderCallLogPreview).join("")
+              : !portalState.callLogsLoading ? `<article class="call-log-empty">No call logs yet.</article>` : ""
+            }
+          </aside>
+          <main class="call-log-detail-panel" aria-label="Call detail">
+            ${selectedId
+              ? renderCallLogDetail(selectedId, selectedDetail, selectedSummary)
+              : renderCallLogNoSelection()
+            }
+          </main>
+        </div>
+      </div>
+    </section>
+  `;
+  wireCallLogsEvents();
+}
+
+function renderCallLogPreview(call) {
+  const id = callLogId(call);
+  const selected = portalState.selectedCallLogId === id;
+  const amount = Number.isFinite(Number(call.orderAmountCents)) ? money(Number(call.orderAmountCents)) : "";
+  return `
+    <button class="call-log-row ${selected ? "selected" : ""}" type="button" data-call-log-select="${escapeHTML(id)}">
+      <span class="call-log-row-main">
+        <strong>${escapeHTML(call.reason || "General call")}</strong>
+        <em>${escapeHTML(call.fromNumber ? formatNorthAmericanPhone(call.fromNumber) : "Unknown caller")}</em>
+      </span>
+      <span class="call-log-row-metrics">
+        <span class="call-log-metric blue">◷ ${escapeHTML(durationText(call.durationSeconds))}</span>
+        <span class="call-log-metric ${call.status === "in_progress" ? "green" : "mint"}">☎ ${escapeHTML(statusText(call.status || "unknown"))}</span>
+        ${call.hasOrder ? `<span class="call-log-metric orange">▣ Order${amount ? ` · ${escapeHTML(amount)}` : ""}</span>` : ""}
+      </span>
+      <span class="call-log-row-foot">
+        <span>${escapeHTML(call.transcriptTurnCount || 0)} turns</span>
+        <span>${escapeHTML(relativePortalTime(call.startedAt))}</span>
+      </span>
+    </button>
+  `;
+}
+
+function renderCallLogNoSelection() {
+  return `
+    <article class="call-log-no-selection">
+      <span aria-hidden="true">☎</span>
+      <h2>Select a call</h2>
+      <p>Open a call log to inspect caller context, workflow status, order output, and the full transcript.</p>
+    </article>
+  `;
+}
+
+function renderCallLogDetail(callLogId, detail, summary) {
+  const loading = portalState.callLogDetailLoadingId === callLogId;
+  if (loading && !detail) {
+    return `<article class="call-log-empty">Loading transcript...</article>`;
+  }
+  if (portalState.callLogDetailError && !detail) {
+    return `<article class="call-log-empty error">Call detail failed to load: ${escapeHTML(portalState.callLogDetailError)}</article>`;
+  }
+
+  const source = detail || summary || {};
+  const callSummary = detail?.summary || detail || summary || {};
+  const transcript = Array.isArray(detail?.transcript) ? detail.transcript : [];
+  const order = detail?.order || {};
+  const callerPhone = detail?.callerPhone || order.callerPhone || callSummary.fromNumber;
+  const orderItems = callLogOrderItems(detail);
+  return `
+    <article class="call-log-detail-card">
+      <div class="call-log-detail-head">
+        <button class="call-log-back" type="button" data-call-log-back>‹ Calls</button>
+        <div>
+          <p class="call-log-kicker">Call Detail</p>
+          <h2>${escapeHTML(callSummary.reason || source.reason || "General call")}</h2>
+          <span>${escapeHTML(relativePortalTime(callSummary.startedAt || source.startedAt))}</span>
+        </div>
+      </div>
+
+      ${portalState.callLogDetailError ? `<div class="call-log-status error">${escapeHTML(portalState.callLogDetailError)}</div>` : ""}
+
+      <section class="call-log-section">
+        <h3>Call</h3>
+        <div class="call-log-detail-grid">
+          ${renderCallLogDetailMetric("Caller", callerPhone ? formatNorthAmericanPhone(callerPhone) : "Unknown")}
+          ${renderCallLogDetailMetric("Duration", durationText(callSummary.durationSeconds))}
+          ${renderCallLogDetailMetric("Status", statusText(callSummary.status || "unknown"))}
+          ${Number.isFinite(Number(callSummary.orderAmountCents)) ? renderCallLogDetailMetric("Order Amount", money(Number(callSummary.orderAmountCents))) : ""}
+          ${callSummary.orderStatus ? renderCallLogDetailMetric("Order Status", statusText(callSummary.orderStatus)) : ""}
+          ${detail?.paymentStatus || order.payment?.status ? renderCallLogDetailMetric("Payment", statusText(detail?.paymentStatus || order.payment.status)) : ""}
+          ${detail?.kitchenPrintStatus || order.kitchenPrint?.status || order.kitchenPrint?.state ? renderCallLogDetailMetric("Kitchen Print", statusText(detail?.kitchenPrintStatus || order.kitchenPrint?.status || order.kitchenPrint?.state)) : ""}
+          ${detail?.kitchenPrintDetail ? renderCallLogDetailMetric("Print Detail", detail.kitchenPrintDetail) : ""}
+        </div>
+      </section>
+
+      ${(callSummary.hasOrder || orderItems.length || detail?.orderSummaryText || order.orderSummaryText) ? `
+        <section class="call-log-section">
+          <h3>Order</h3>
+          ${String(detail?.orderSummaryText || order.orderSummaryText || "").trim()
+            ? `<p class="call-log-order-summary">${escapeHTML(detail?.orderSummaryText || order.orderSummaryText)}</p>`
+            : ""
+          }
+          ${orderItems.length ? `
+            <ul class="call-log-order-items">
+              ${orderItems.map((item) => `<li>${escapeHTML(item)}</li>`).join("")}
+            </ul>
+          ` : ""}
+        </section>
+      ` : ""}
+
+      <section class="call-log-section">
+        <h3>Transcript</h3>
+        ${transcript.length
+          ? `<div class="call-log-transcript">${transcript.map(renderCallLogTranscriptTurn).join("")}</div>`
+          : `<p class="call-log-muted">${loading ? "Loading transcript..." : "No transcript turns were captured."}</p>`
+        }
+      </section>
+    </article>
+  `;
+}
+
+function renderCallLogDetailMetric(title, value) {
+  return `
+    <p>
+      <span>${escapeHTML(title)}</span>
+      <strong>${escapeHTML(value)}</strong>
+    </p>
+  `;
+}
+
+function renderCallLogTranscriptTurn(turn, index) {
+  const isCaller = turn.role === "user";
+  return `
+    <article class="call-log-turn ${isCaller ? "caller" : "agent"}">
+      <div>
+        <strong>${isCaller ? "Caller" : "Agent"}</strong>
+        ${turn.at ? `<span>${escapeHTML(clockTime(turn.at))}</span>` : ""}
+      </div>
+      <p>${escapeHTML(turn.text || "")}</p>
+      ${turn.actionType ? `<em>${escapeHTML(statusText(turn.actionType))}</em>` : ""}
+    </article>
+  `;
+}
+
+function wireCallLogsEvents() {
+  portalContent.querySelector("[data-call-log-refresh]")?.addEventListener("click", () => {
+    void loadPortalCallLogs();
+  });
+  portalContent.querySelectorAll("[data-call-log-select]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const callLogId = button.dataset.callLogSelect || "";
+      portalState.selectedCallLogId = callLogId;
+      renderCallLogsInbox();
+      if (callLogId && !portalState.callLogDetails.has(callLogId)) {
+        void loadPortalCallLogDetail(callLogId);
+      }
+    });
+  });
+  portalContent.querySelector("[data-call-log-back]")?.addEventListener("click", () => {
+    portalState.selectedCallLogId = null;
+    portalState.callLogDetailError = "";
+    renderCallLogsInbox();
+  });
+}
+
+function sortedCallLogs() {
+  return portalState.callLogs.slice().sort((left, right) => {
+    const leftDate = parsePortalDate(left.startedAt || left.createdAt)?.getTime() || 0;
+    const rightDate = parsePortalDate(right.startedAt || right.createdAt)?.getTime() || 0;
+    return rightDate - leftDate;
+  });
+}
+
+function callLogId(call) {
+  return String(call?.objectId || call?.id || "");
+}
+
+function callLogOrderItems(detail) {
+  if (!detail) {
+    return [];
+  }
+  if (Array.isArray(detail.orderItems)) {
+    return detail.orderItems.map((item) => String(item || "")).filter(Boolean);
+  }
+  const items = Array.isArray(detail.order?.orderItems) ? detail.order.orderItems : [];
+  return items.map((item) => {
+    const quantity = Math.max(1, finiteNumber(item.quantity, 1));
+    const name = item.displayName || item.name || "Unknown item";
+    return `${quantity}x ${name}`;
+  });
+}
+
 function money(cents) {
   return `$${(Number(cents) / 100).toFixed(2)}`;
 }
@@ -2169,7 +2460,25 @@ function clockTime(value) {
   return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
 }
 
+function durationText(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value < 0) {
+    return "Unknown";
+  }
+  const wholeSeconds = Math.round(value);
+  const minutes = Math.floor(wholeSeconds / 60);
+  const remainingSeconds = wholeSeconds % 60;
+  if (minutes === 0) {
+    return `${remainingSeconds}s`;
+  }
+  return `${minutes}m ${remainingSeconds}s`;
+}
+
 function relativeFoodOrderTime(value) {
+  return relativePortalTime(value);
+}
+
+function relativePortalTime(value) {
   const date = parsePortalDate(value);
   if (!date) {
     return "";
@@ -2552,6 +2861,7 @@ function showLogin() {
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");
+  document.body.classList.remove("portal-call-logs-page");
   document.body.classList.remove("portal-menu86-page");
   portalState.session = null;
   portalState.membership = null;
