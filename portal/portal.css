@@ -47,6 +47,14 @@ button {
   min-height: 100vh;
 }
 
+body.portal-authenticated .login-screen {
+  display: none !important;
+}
+
+body.portal-authenticated .portal-app {
+  display: grid !important;
+}
+
 .login-screen {
   min-height: 100vh;
   display: grid;

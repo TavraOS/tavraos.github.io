@@ -135,7 +135,11 @@ function setLoginStatus(message, isError = false) {
 }
 
 function storeSession(session) {
-  sessionStorage.setItem(sessionKey, JSON.stringify(session));
+  try {
+    sessionStorage.setItem(sessionKey, JSON.stringify(session));
+  } catch {
+    // Some private browsing modes can reject session storage. The live session can still render.
+  }
 }
 
 function readStoredSession() {
@@ -148,7 +152,11 @@ function readStoredSession() {
 }
 
 function clearStoredSession() {
-  sessionStorage.removeItem(sessionKey);
+  try {
+    sessionStorage.removeItem(sessionKey);
+  } catch {
+    // Ignore storage cleanup failures and keep the visible login state authoritative.
+  }
 }
 
 async function apiRequest(path, options = {}) {
@@ -228,16 +236,25 @@ function permissionLabel(permission) {
 
 function renderShell() {
   if (!loginScreen || !portalApp) {
-    return;
+    throw new Error("portal_shell_missing");
   }
+  document.body.classList.add("portal-authenticated");
   loginScreen.hidden = true;
+  loginScreen.setAttribute("aria-hidden", "true");
   portalApp.hidden = false;
+  portalApp.removeAttribute("hidden");
+  portalApp.removeAttribute("aria-hidden");
+  portalApp.style.display = "grid";
   const businessName = portalState.business?.name || "Tavra restaurant";
   const role = portalState.membership?.role || "member";
-  businessSummary.textContent = `${businessName} · ${roleLabel(role)} access`;
-  roleChip.textContent = portalState.membership?.status === "active"
-    ? `${roleLabel(role)} · active`
-    : "No active access";
+  if (businessSummary) {
+    businessSummary.textContent = `${businessName} · ${roleLabel(role)} access`;
+  }
+  if (roleChip) {
+    roleChip.textContent = portalState.membership?.status === "active"
+      ? `${roleLabel(role)} · active`
+      : "No active access";
+  }
   setActiveSection(portalState.section);
 }
 
@@ -379,12 +396,16 @@ function showLogin() {
   if (!loginScreen || !portalApp) {
     return;
   }
+  document.body.classList.remove("portal-authenticated");
   portalState.session = null;
   portalState.membership = null;
   portalState.business = null;
   clearStoredSession();
   loginScreen.hidden = false;
+  loginScreen.removeAttribute("aria-hidden");
   portalApp.hidden = true;
+  portalApp.setAttribute("aria-hidden", "true");
+  portalApp.style.display = "";
 }
 
 loginForm?.addEventListener("submit", async (event) => {
@@ -408,6 +429,8 @@ loginForm?.addEventListener("submit", async (event) => {
     if (message === "no_active_portal_access") {
       clearStoredSession();
       setLoginStatus("Login worked, but this account does not have active portal access yet.", true);
+    } else if (message === "portal_shell_missing") {
+      setLoginStatus("Login worked, but the portal shell could not render. Reload the page and try again.", true);
     } else {
       setLoginStatus("Login failed. Check your email and password.", true);
     }
@@ -442,3 +465,16 @@ async function boot() {
 }
 
 boot();
+
+window.addEventListener("error", (event) => {
+  if (!document.body.classList.contains("portal-authenticated")) {
+    setLoginStatus(`Portal render error: ${event.message || "unknown error"}`, true);
+  }
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  if (!document.body.classList.contains("portal-authenticated")) {
+    const reason = event.reason instanceof Error ? event.reason.message : String(event.reason || "unknown error");
+    setLoginStatus(`Portal request error: ${reason}`, true);
+  }
+});
