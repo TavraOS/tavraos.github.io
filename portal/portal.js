@@ -71,13 +71,22 @@ const operationModules = [
   }
 ];
 
-const reservationTimezone = "America/Chicago";
-const reservationSlotMinutes = 15;
+const defaultReservationTimezone = "America/Chicago";
+const defaultReservationSlotMinutes = 15;
 const defaultReservationStartMinutes = 17 * 60;
 const defaultReservationEndMinutes = 22 * 60;
-const reservationMaxCoversPerSlot = 24;
-const reservationMaxPartiesPerSlot = 6;
+const defaultReservationMaxCoversPerSlot = 24;
+const defaultReservationMaxPartiesPerSlot = 6;
+const defaultReservationMinPartySize = 1;
+const defaultReservationMaxPartySize = 12;
 const reservationActiveStatuses = new Set(["requested", "confirmed", "checked_in"]);
+const reservationServiceDayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const reservationServiceLabels = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  service: "Service"
+};
 
 const sectionCopy = {
   onboarding: {
@@ -127,7 +136,19 @@ let portalState = {
   reservationsLoaded: false,
   reservationsLoading: false,
   reservationLoadError: "",
-  reservationSelectedDateKey: null
+  reservationConfig: null,
+  reservationSelectedDateKey: null,
+  reservationSelectedServiceKey: null,
+  reservationCalendarMonthKey: null,
+  reservationViewMode: "timeline",
+  reservationFormOpen: false,
+  reservationFormDateKey: null,
+  reservationFormSaving: false,
+  reservationFormError: "",
+  reservationDetailId: null,
+  reservationDetailSaving: false,
+  reservationDetailError: "",
+  reservationNoteModal: null
 };
 
 function escapeHTML(value) {
@@ -222,9 +243,89 @@ function reservationEndDate(reservation) {
   return parseReservationDateValue(reservation.slotEndAt);
 }
 
-function datePartsInReservationTimezone(date) {
+function finiteNumber(value, fallback) {
+  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function clampNumber(value, fallback, min, max) {
+  const number = finiteNumber(value, fallback);
+  return Math.min(max, Math.max(min, number));
+}
+
+function timeStringToMinutes(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return null;
+  }
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  return hour * 60 + minute;
+}
+
+function normalizeServiceHours(rawServiceHours) {
+  if (!rawServiceHours || typeof rawServiceHours !== "object" || Array.isArray(rawServiceHours)) {
+    return {};
+  }
+  return reservationServiceDayKeys.reduce((result, dayKey) => {
+    const rawWindows = rawServiceHours[dayKey];
+    if (!Array.isArray(rawWindows)) {
+      return result;
+    }
+    const windows = rawWindows
+      .map((window, index) => {
+        const start = timeStringToMinutes(window?.start ?? window?.startTime);
+        const end = timeStringToMinutes(window?.end ?? window?.endTime);
+        if (start === null || end === null) {
+          return null;
+        }
+        return { start, end: end <= start ? end + 1440 : end, sourceIndex: index };
+      })
+      .filter(Boolean);
+    if (windows.length) {
+      result[dayKey] = windows;
+    }
+    return result;
+  }, {});
+}
+
+function reservationSettings() {
+  const config = portalState.reservationConfig || {};
+  const slotMinutes = clampNumber(config.reservationTimeSlotMinutes, defaultReservationSlotMinutes, 5, 120);
+  const maxCoversFromHour = Number.isFinite(Number(config.maxCoversPerHour))
+    ? Math.max(1, Math.ceil((Number(config.maxCoversPerHour) * slotMinutes) / 60))
+    : null;
+  const maxCoversPerSlot = clampNumber(
+    config.maxCoversPerSlot ?? maxCoversFromHour,
+    defaultReservationMaxCoversPerSlot,
+    1,
+    500
+  );
+  return {
+    timezone: typeof config.timezone === "string" && config.timezone.trim() ? config.timezone.trim() : defaultReservationTimezone,
+    slotMinutes,
+    maxCoversPerSlot,
+    maxPartiesPerSlot: clampNumber(config.maxPartiesPerSlot, defaultReservationMaxPartiesPerSlot, 1, 100),
+    minPartySize: clampNumber(config.minPartySize, defaultReservationMinPartySize, 1, 500),
+    maxPartySize: clampNumber(config.maxPartySize, defaultReservationMaxPartySize, 1, 500),
+    serviceHours: normalizeServiceHours(config.serviceHours),
+    closedDays: Array.isArray(config.closedDays)
+      ? config.closedDays.map((day) => Number(day)).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6)
+      : [],
+    reservationsEnabled: config.reservationsEnabled !== false,
+    defaultReservationStatus: typeof config.defaultReservationStatus === "string" ? config.defaultReservationStatus : "requested"
+  };
+}
+
+function datePartsInReservationTimezone(date, timezone = reservationSettings().timezone) {
   const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: reservationTimezone,
+    timeZone: timezone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -283,6 +384,103 @@ function formatReservationTime(minutes) {
   return `${hour12}:${String(minute).padStart(2, "0")} ${meridiem}`;
 }
 
+function minutesToInputTime(minutes) {
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(normalized / 60)).padStart(2, "0")}:${String(normalized % 60).padStart(2, "0")}`;
+}
+
+function dateKeyWeekday(dateKey) {
+  const [year, month, day] = String(dateKey || dateKeyForToday()).split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).getUTCDay();
+}
+
+function splitServiceWindow(window, dayKey, index) {
+  const segments = [
+    { type: "breakfast", start: 5 * 60, end: 11 * 60 },
+    { type: "lunch", start: 11 * 60, end: 16 * 60 },
+    { type: "dinner", start: 16 * 60, end: 29 * 60 }
+  ];
+  const split = segments
+    .map((segment) => {
+      const start = Math.max(window.start, segment.start);
+      const end = Math.min(window.end, segment.end);
+      if (start >= end) {
+        return null;
+      }
+      return {
+        key: `${dayKey}-${segment.type}-${index}`,
+        type: segment.type,
+        label: reservationServiceLabels[segment.type],
+        start,
+        end
+      };
+    })
+    .filter(Boolean);
+  if (split.length) {
+    return split;
+  }
+  return [{
+    key: `${dayKey}-service-${index}`,
+    type: "service",
+    label: reservationServiceLabels.service,
+    start: window.start,
+    end: window.end
+  }];
+}
+
+function serviceWindowsForDateKey(dateKey, settings = reservationSettings()) {
+  const weekday = dateKeyWeekday(dateKey);
+  if (settings.closedDays.includes(weekday)) {
+    return [];
+  }
+  const dayKey = reservationServiceDayKeys[weekday];
+  const rawWindows = settings.serviceHours[dayKey] || [];
+  const windows = rawWindows.length
+    ? rawWindows
+    : [{ start: defaultReservationStartMinutes, end: defaultReservationEndMinutes, sourceIndex: 0 }];
+  return windows.flatMap((window, index) => splitServiceWindow(window, dayKey, window.sourceIndex ?? index));
+}
+
+function chooseServiceWindow(windows) {
+  if (!windows.length) {
+    return null;
+  }
+  const selected = portalState.reservationSelectedServiceKey
+    ? windows.find((window) => window.key === portalState.reservationSelectedServiceKey)
+    : null;
+  return selected || windows.find((window) => window.type === "dinner") || windows[0];
+}
+
+function reservationTimeOptionsForDate(dateKey) {
+  const settings = reservationSettings();
+  const windows = serviceWindowsForDateKey(dateKey, settings);
+  const options = [];
+  const seen = new Set();
+  windows.forEach((window) => {
+    for (let minute = window.start; minute < window.end; minute += settings.slotMinutes) {
+      const value = minutesToInputTime(minute);
+      if (!seen.has(value)) {
+        seen.add(value);
+        options.push({ value, label: `${formatReservationTime(minute)} · ${window.label}`, minute });
+      }
+    }
+  });
+  return options;
+}
+
+function zonedDateTimeToUtc(dateKey, timeValue, timezone = reservationSettings().timezone) {
+  const [year, month, day] = String(dateKey).split("-").map(Number);
+  const [hour, minute] = String(timeValue).split(":").map(Number);
+  const desiredLocalMs = Date.UTC(year, month - 1, day, hour, minute, 0);
+  let guess = desiredLocalMs;
+  for (let index = 0; index < 3; index += 1) {
+    const parts = datePartsInReservationTimezone(new Date(guess), timezone);
+    const actualLocalMs = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), parts.hour, parts.minute, 0);
+    guess += desiredLocalMs - actualLocalMs;
+  }
+  return new Date(guess);
+}
+
 function reservationStatusClass(status) {
   switch (status) {
     case "confirmed":
@@ -337,8 +535,7 @@ function chooseReservationDateKey(reservations) {
   return dated.length ? reservationDateKey(dated[dated.length - 1]) : today;
 }
 
-function reservationsForSelectedDate() {
-  const dateKey = portalState.reservationSelectedDateKey || chooseReservationDateKey(portalState.reservations);
+function reservationsForDateKey(dateKey) {
   return portalState.reservations
     .filter((reservation) => {
       const start = reservationStartDate(reservation);
@@ -351,10 +548,21 @@ function reservationsForSelectedDate() {
     });
 }
 
+function reservationsForSelectedDate() {
+  const dateKey = portalState.reservationSelectedDateKey || chooseReservationDateKey(portalState.reservations);
+  return reservationsForDateKey(dateKey);
+}
+
 function buildReservationTimelineModel() {
+  const settings = reservationSettings();
   const selectedDateKey = portalState.reservationSelectedDateKey || chooseReservationDateKey(portalState.reservations);
-  const dateReservations = reservationsForSelectedDate();
-  const timedReservations = dateReservations
+  const serviceWindows = serviceWindowsForDateKey(selectedDateKey, settings);
+  const selectedWindow = chooseServiceWindow(serviceWindows);
+  if (selectedWindow && portalState.reservationSelectedServiceKey !== selectedWindow.key) {
+    portalState.reservationSelectedServiceKey = selectedWindow.key;
+  }
+  const allDateReservations = reservationsForSelectedDate();
+  const timedReservations = allDateReservations
     .map((reservation) => {
       const startDate = reservationStartDate(reservation);
       if (!startDate) {
@@ -363,30 +571,33 @@ function buildReservationTimelineModel() {
       const endDate = reservationEndDate(reservation);
       const startMinutes = reservationMinutesOfDay(startDate);
       const endMinutes = endDate
-        ? Math.max(startMinutes + reservationSlotMinutes, reservationMinutesOfDay(endDate))
+        ? Math.max(startMinutes + settings.slotMinutes, reservationMinutesOfDay(endDate))
         : startMinutes + 45;
       return { reservation, startDate, startMinutes, endMinutes };
     })
     .filter(Boolean)
+    .filter((item) => !selectedWindow || (item.startMinutes >= selectedWindow.start && item.startMinutes < selectedWindow.end))
     .sort((a, b) => a.startMinutes - b.startMinutes);
 
   const minReservationMinute = timedReservations.length
     ? Math.min(...timedReservations.map((item) => item.startMinutes))
-    : defaultReservationStartMinutes;
+    : selectedWindow?.start ?? defaultReservationStartMinutes;
   const maxReservationMinute = timedReservations.length
     ? Math.max(...timedReservations.map((item) => item.endMinutes))
-    : defaultReservationEndMinutes;
-  const startMinute = Math.min(defaultReservationStartMinutes, Math.floor(minReservationMinute / reservationSlotMinutes) * reservationSlotMinutes);
-  const endMinute = Math.max(defaultReservationEndMinutes, Math.ceil(maxReservationMinute / reservationSlotMinutes) * reservationSlotMinutes);
+    : selectedWindow?.end ?? defaultReservationEndMinutes;
+  const startBoundary = selectedWindow?.start ?? defaultReservationStartMinutes;
+  const endBoundary = selectedWindow?.end ?? defaultReservationEndMinutes;
+  const startMinute = Math.min(startBoundary, Math.floor(minReservationMinute / settings.slotMinutes) * settings.slotMinutes);
+  const endMinute = Math.max(endBoundary, Math.ceil(maxReservationMinute / settings.slotMinutes) * settings.slotMinutes);
   const slotLabels = [];
-  for (let minute = startMinute; minute <= endMinute; minute += reservationSlotMinutes) {
+  for (let minute = startMinute; minute <= endMinute; minute += settings.slotMinutes) {
     slotLabels.push(formatReservationTime(minute));
   }
 
   const lanes = [];
   const events = timedReservations.map((item) => {
-    const start = (item.startMinutes - startMinute) / reservationSlotMinutes;
-    const span = Math.max(1.35, (item.endMinutes - item.startMinutes) / reservationSlotMinutes);
+    const start = (item.startMinutes - startMinute) / settings.slotMinutes;
+    const span = Math.max(1.35, (item.endMinutes - item.startMinutes) / settings.slotMinutes);
     let row = lanes.findIndex((laneEnd) => laneEnd <= start);
     if (row === -1) {
       row = lanes.length;
@@ -402,6 +613,7 @@ function buildReservationTimelineModel() {
       party: Number(reservation.partySize || 1),
       status: className,
       rawStatus: reservation.status || "requested",
+      reservation,
       start,
       span,
       row,
@@ -409,7 +621,8 @@ function buildReservationTimelineModel() {
     };
   });
 
-  const activeReservations = dateReservations.filter((reservation) => reservationActiveStatuses.has(reservation.status || "requested"));
+  const visibleReservations = timedReservations.map((item) => item.reservation);
+  const activeReservations = visibleReservations.filter((reservation) => reservationActiveStatuses.has(reservation.status || "requested"));
   const coversReserved = activeReservations.reduce((sum, reservation) => sum + Number(reservation.partySize || 0), 0);
   const hourStarts = [];
   for (let minute = startMinute; minute <= endMinute; minute += 60) {
@@ -426,27 +639,31 @@ function buildReservationTimelineModel() {
         ? sum + Number(reservation.partySize || 0)
         : sum;
     }, 0);
-    const percent = Math.min(100, Math.round((count / reservationMaxCoversPerSlot) * 100));
+    const percent = Math.min(100, Math.round((count / settings.maxCoversPerSlot) * 100));
     return {
       time: formatReservationTime(minute),
-      count: `${count} / ${reservationMaxCoversPerSlot}`,
+      count: `${count} / ${settings.maxCoversPerSlot}`,
       percent,
       tone: percent >= 85 ? "yellow" : percent > 0 ? "green" : "gray"
     };
   });
 
-  const totalCapacity = Math.max(reservationMaxCoversPerSlot, hourStarts.length * reservationMaxCoversPerSlot);
+  const totalCapacity = Math.max(settings.maxCoversPerSlot, slotLabels.length * settings.maxCoversPerSlot);
   const totalPercent = Math.min(100, Math.round((coversReserved / totalCapacity) * 100));
   const progressOffset = Math.round(220 - ((220 * totalPercent) / 100));
   const now = new Date();
   const showNow = reservationDateKey(now) === selectedDateKey;
-  const nowSlot = (reservationMinutesOfDay(now) - startMinute) / reservationSlotMinutes;
+  const nowSlot = (reservationMinutesOfDay(now) - startMinute) / settings.slotMinutes;
   return {
     selectedDateKey,
+    selectedWindow,
+    serviceWindows,
+    settings,
     slotLabels,
     events,
     rowCount: Math.max(6, lanes.length || 1),
-    reservationsCount: dateReservations.length,
+    reservationsCount: visibleReservations.length,
+    allDateReservationsCount: allDateReservations.length,
     coversReserved,
     totalCapacity,
     totalPercent,
@@ -468,9 +685,13 @@ async function loadPortalReservations() {
   try {
     const payload = await apiRequest("/operations/reservations?limit=200", { method: "GET" });
     portalState.reservations = Array.isArray(payload.reservations) ? payload.reservations : [];
+    portalState.reservationConfig = payload.reservationConfig || portalState.reservationConfig;
     portalState.reservationsLoaded = true;
     if (!portalState.reservationSelectedDateKey) {
       portalState.reservationSelectedDateKey = chooseReservationDateKey(portalState.reservations);
+    }
+    if (!portalState.reservationCalendarMonthKey) {
+      portalState.reservationCalendarMonthKey = portalState.reservationSelectedDateKey.slice(0, 7);
     }
   } catch (error) {
     portalState.reservationLoadError = error instanceof Error ? error.message : String(error);
@@ -697,9 +918,10 @@ function renderReservationsBook() {
     ? `<div class="reservation-book-status error">Reservations failed to load: ${escapeHTML(portalState.reservationLoadError)}</div>`
     : portalState.reservationsLoading
       ? `<div class="reservation-book-status">Loading reservations from Tavra Operations...</div>`
-      : model.reservationsCount === 0
+      : model.allDateReservationsCount === 0
         ? `<div class="reservation-book-status">No reservations found for ${escapeHTML(dateLabel)}.</div>`
         : "";
+  const canWriteReservations = modulePermission("reservations").write;
   portalContent.innerHTML = `
     <section class="reservation-book" aria-labelledby="reservation-book-title">
       <div class="reservation-workspace">
@@ -710,7 +932,7 @@ function renderReservationsBook() {
               <span aria-hidden="true">◷</span>
               <span>Refresh</span>
             </button>
-            <button class="reservation-action blue" type="button">
+            <button class="reservation-action blue" type="button" data-reservation-add ${canWriteReservations ? "" : "disabled"}>
               <span aria-hidden="true">+</span>
               <span>Add reservation</span>
             </button>
@@ -719,14 +941,14 @@ function renderReservationsBook() {
 
         <div class="reservation-controls-row">
           <div class="reservation-view-switch" aria-label="Reservation view">
-            <button class="active" type="button"><span aria-hidden="true">☷</span> Timeline</button>
+            <button class="${portalState.reservationViewMode === "timeline" ? "active" : ""}" type="button" data-reservation-view="timeline"><span aria-hidden="true">☷</span> Timeline</button>
             <button type="button"><span aria-hidden="true">☰</span> List</button>
             <button type="button"><span aria-hidden="true">▦</span> Table</button>
           </div>
 
           <div class="reservation-date-controls">
             <button class="date-step" type="button" aria-label="Previous day" data-reservation-date-step="-1">‹</button>
-            <button class="date-pill" type="button">
+            <button class="date-pill" type="button" data-reservation-calendar>
               <span aria-hidden="true">▣</span>
               <span>${escapeHTML(dateLabel)}</span>
               <span aria-hidden="true">⌄</span>
@@ -743,41 +965,11 @@ function renderReservationsBook() {
           </div>
         </div>
 
+        ${renderServiceWindowPicker(model)}
+
         ${statusMessage}
 
-        <div
-          class="reservation-timeline-card"
-          style="--timeline-slot-count: ${model.slotLabels.length}; --timeline-row-count: ${model.rowCount};"
-          aria-label="Reservation timeline for ${escapeHTML(dateLabel)}"
-        >
-          <div class="reservation-head-row time-row">
-            <div class="reservation-label-cell">Time</div>
-            <div class="reservation-slot-head">
-              ${model.slotLabels.map(renderReservationTimeSlot).join("")}
-            </div>
-          </div>
-          <div class="reservation-head-row capacity-row">
-            <div class="reservation-label-cell">Max Covers / Slot</div>
-            <div class="reservation-capacity-cells">
-              ${model.slotLabels.map(() => `<span>${reservationMaxCoversPerSlot}</span>`).join("")}
-            </div>
-          </div>
-          <div class="reservation-head-row capacity-row parties-row">
-            <div class="reservation-label-cell">Max Parties / Slot</div>
-            <div class="reservation-capacity-cells">
-              ${model.slotLabels.map(() => `<span>${reservationMaxPartiesPerSlot}</span>`).join("")}
-            </div>
-          </div>
-
-          <div class="reservation-grid-area">
-            ${model.showNow ? `
-              <div class="reservation-now-line" style="--now: ${model.nowSlot};" aria-label="Current time ${escapeHTML(model.nowLabel)}">
-                <span>${escapeHTML(model.nowLabel)}</span>
-              </div>
-            ` : ""}
-            ${model.events.map(renderReservationEvent).join("")}
-          </div>
-        </div>
+        ${portalState.reservationViewMode === "calendar" ? renderReservationCalendar(model) : renderReservationTimeline(model, dateLabel)}
 
         <div class="reservation-bottom-row">
           <article class="reservation-night-card">
@@ -802,29 +994,77 @@ function renderReservationsBook() {
 
           <article class="reservation-legend-card">
             <h2>Legend</h2>
-            <p><span aria-hidden="true">♧</span> Max 24 covers / 15 min</p>
-            <p><span aria-hidden="true">♧</span> Max 6 parties / 15 min</p>
+            <p><span aria-hidden="true">♧</span> Max ${model.settings.maxCoversPerSlot} covers / ${model.settings.slotMinutes} min</p>
+            <p><span aria-hidden="true">♧</span> Max ${model.settings.maxPartiesPerSlot} parties / ${model.settings.slotMinutes} min</p>
           </article>
         </div>
 
-        <p class="reservation-timezone">All times shown in America/Chicago</p>
+        <p class="reservation-timezone">All times shown in ${escapeHTML(model.settings.timezone)}</p>
       </div>
+      ${renderAddReservationModal(model)}
+      ${renderReservationDetailModal(model)}
+      ${renderReservationNoteModal()}
     </section>
   `;
-  portalContent.querySelector("[data-reservation-refresh]")?.addEventListener("click", () => {
-    void loadPortalReservations();
-  });
-  portalContent.querySelectorAll("[data-reservation-date-step]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const offset = Number(button.dataset.reservationDateStep || 0);
-      portalState.reservationSelectedDateKey = offsetDateKey(model.selectedDateKey, offset);
-      renderReservationsBook();
-    });
-  });
-  portalContent.querySelector("[data-reservation-today]")?.addEventListener("click", () => {
-    portalState.reservationSelectedDateKey = dateKeyForToday();
-    renderReservationsBook();
-  });
+  wireReservationBookEvents(model);
+}
+
+function renderServiceWindowPicker(model) {
+  if (model.serviceWindows.length <= 1) {
+    return "";
+  }
+  return `
+    <div class="reservation-service-switch" aria-label="Bookable service windows">
+      ${model.serviceWindows.map((window) => `
+        <button
+          type="button"
+          class="${window.key === model.selectedWindow?.key ? "active" : ""}"
+          data-reservation-service="${escapeHTML(window.key)}"
+        >
+          ${escapeHTML(window.label)}
+          <span>${escapeHTML(formatReservationTime(window.start))}–${escapeHTML(formatReservationTime(window.end))}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderReservationTimeline(model, dateLabel) {
+  return `
+    <div
+      class="reservation-timeline-card"
+      style="--timeline-slot-count: ${model.slotLabels.length}; --timeline-row-count: ${model.rowCount};"
+      aria-label="Reservation timeline for ${escapeHTML(dateLabel)}"
+    >
+      <div class="reservation-head-row time-row">
+        <div class="reservation-label-cell">Time</div>
+        <div class="reservation-slot-head">
+          ${model.slotLabels.map(renderReservationTimeSlot).join("")}
+        </div>
+      </div>
+      <div class="reservation-head-row capacity-row">
+        <div class="reservation-label-cell">Max Covers / Slot</div>
+        <div class="reservation-capacity-cells">
+          ${model.slotLabels.map(() => `<span>${model.settings.maxCoversPerSlot}</span>`).join("")}
+        </div>
+      </div>
+      <div class="reservation-head-row capacity-row parties-row">
+        <div class="reservation-label-cell">Max Parties / Slot</div>
+        <div class="reservation-capacity-cells">
+          ${model.slotLabels.map(() => `<span>${model.settings.maxPartiesPerSlot}</span>`).join("")}
+        </div>
+      </div>
+
+      <div class="reservation-grid-area">
+        ${model.showNow ? `
+          <div class="reservation-now-line" style="--now: ${model.nowSlot};" aria-label="Current time ${escapeHTML(model.nowLabel)}">
+            <span>${escapeHTML(model.nowLabel)}</span>
+          </div>
+        ` : ""}
+        ${model.events.map(renderReservationEvent).join("")}
+      </div>
+    </div>
+  `;
 }
 
 function renderReservationTimeSlot(label) {
@@ -847,10 +1087,13 @@ function renderReservationLegendItem(status, label) {
 }
 
 function renderReservationEvent(event) {
+  const nameSize = reservationNameFontSize(event.name);
   return `
-    <article
+    <button
+      type="button"
       class="reservation-event ${escapeHTML(event.status)}"
-      style="--start: ${event.start}; --span: ${event.span}; --row: ${event.row};"
+      style="--start: ${event.start}; --span: ${event.span}; --row: ${event.row}; --reservation-name-size: ${nameSize}px;"
+      data-reservation-detail="${escapeHTML(event.id)}"
       aria-label="${escapeHTML(event.name)} ${escapeHTML(event.rawStatus)} reservation"
     >
       <strong>${escapeHTML(event.name)}</strong>
@@ -858,7 +1101,7 @@ function renderReservationEvent(event) {
         <i aria-hidden="true">♟</i>
         ${escapeHTML(event.note)}
       </span>
-    </article>
+    </button>
   `;
 }
 
@@ -873,6 +1116,466 @@ function renderReservationHourCapacity(item) {
       <em>${item.percent}%</em>
     </div>
   `;
+}
+
+function reservationNameFontSize(name) {
+  const length = String(name || "").length;
+  if (length <= 10) {
+    return 16;
+  }
+  if (length <= 16) {
+    return 15;
+  }
+  if (length <= 24) {
+    return 13.5;
+  }
+  if (length <= 34) {
+    return 12;
+  }
+  return 11;
+}
+
+function calendarMonthKeyForDateKey(dateKey) {
+  return String(dateKey || dateKeyForToday()).slice(0, 7);
+}
+
+function offsetCalendarMonthKey(monthKey, offsetMonths) {
+  const [year, month] = String(monthKey || calendarMonthKeyForDateKey(dateKeyForToday())).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1 + offsetMonths, 1, 12, 0, 0));
+  return date.toISOString().slice(0, 7);
+}
+
+function formatCalendarMonthHeading(monthKey) {
+  const [year, month] = String(monthKey || calendarMonthKeyForDateKey(dateKeyForToday())).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, 1, 12, 0, 0));
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+function reservationStatusCountsForDate(dateKey) {
+  return reservationsForDateKey(dateKey).reduce((counts, reservation) => {
+    const status = reservationStatusClass(reservation.status);
+    counts[status] = (counts[status] || 0) + 1;
+    counts.total += 1;
+    counts.covers += Number(reservation.partySize || 0);
+    return counts;
+  }, { total: 0, covers: 0, confirmed: 0, requested: 0, declined: 0, cancelled: 0 });
+}
+
+function renderReservationCalendar(model) {
+  const settings = model.settings;
+  const monthKey = portalState.reservationCalendarMonthKey || calendarMonthKeyForDateKey(model.selectedDateKey);
+  const [year, month] = monthKey.split("-").map(Number);
+  const firstOfMonth = new Date(Date.UTC(year, month - 1, 1, 12, 0, 0));
+  const gridStart = new Date(Date.UTC(year, month - 1, 1 - firstOfMonth.getUTCDay(), 12, 0, 0));
+  const cells = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setUTCDate(gridStart.getUTCDate() + index);
+    return date.toISOString().slice(0, 10);
+  });
+  return `
+    <div class="reservation-calendar-card" aria-label="Reservation calendar">
+      <div class="reservation-calendar-header">
+        <button type="button" class="date-step" data-reservation-month-step="-1" aria-label="Previous month">‹</button>
+        <h2>${escapeHTML(formatCalendarMonthHeading(monthKey))}</h2>
+        <button type="button" class="date-step" data-reservation-month-step="1" aria-label="Next month">›</button>
+      </div>
+      <div class="reservation-calendar-weekdays">
+        ${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => `<span>${day}</span>`).join("")}
+      </div>
+      <div class="reservation-calendar-grid">
+        ${cells.map((dateKey) => renderReservationCalendarDay(dateKey, monthKey, model.selectedDateKey, settings)).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderReservationCalendarDay(dateKey, monthKey, selectedDateKey, settings) {
+  const counts = reservationStatusCountsForDate(dateKey);
+  const serviceWindows = serviceWindowsForDateKey(dateKey, settings);
+  const outside = calendarMonthKeyForDateKey(dateKey) !== monthKey;
+  const selected = dateKey === selectedDateKey;
+  const [, , day] = dateKey.split("-");
+  const dots = ["confirmed", "requested", "declined", "cancelled"]
+    .filter((status) => counts[status] > 0)
+    .map((status) => `<i class="legend-dot ${status}" aria-label="${status} reservations"></i>`)
+    .join("");
+  return `
+    <button
+      type="button"
+      class="reservation-calendar-day ${outside ? "outside" : ""} ${selected ? "selected" : ""} ${serviceWindows.length ? "" : "closed"}"
+      data-reservation-calendar-day="${escapeHTML(dateKey)}"
+      aria-label="${escapeHTML(formatReservationDateHeading(dateKey))}, ${counts.total} reservations"
+    >
+      <span class="day-number">${Number(day)}</span>
+      <strong>${counts.total ? `${counts.total} res` : serviceWindows.length ? "Open" : "Closed"}</strong>
+      <em>${counts.covers ? `${counts.covers} covers` : serviceWindows.map((window) => window.label).join(" / ")}</em>
+      <span class="calendar-dots">${dots}</span>
+    </button>
+  `;
+}
+
+function findReservationById(reservationId) {
+  return portalState.reservations.find((reservation) => reservation.objectId === reservationId) || null;
+}
+
+function formatReservationDateTime(reservation) {
+  const start = reservationStartDate(reservation);
+  if (!start) {
+    return "No time set";
+  }
+  const dateKey = reservationDateKey(start);
+  return `${formatReservationDateHeading(dateKey)} at ${formatReservationTime(reservationMinutesOfDay(start))}`;
+}
+
+function reservationNotesText(reservation) {
+  const notes = [
+    reservation.notes,
+    reservation.specialRequests ? `Special requests: ${reservation.specialRequests}` : "",
+    reservation.allergies ? `Allergies: ${reservation.allergies}` : "",
+    reservation.occasion ? `Occasion: ${reservation.occasion}` : "",
+    reservation.highChairRequest ? "High chair requested." : "",
+    reservation.boosterSeatRequest ? "Booster seat requested." : "",
+    reservation.internalStaffNote ? `Staff note: ${reservation.internalStaffNote}` : ""
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+  return notes.length ? notes.join("\n") : "No notes on this reservation.";
+}
+
+function formatNorthAmericanPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "").slice(0, 10);
+  if (!digits) {
+    return "";
+  }
+  if (digits.length <= 3) {
+    return `(${digits}`;
+  }
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function phoneForSubmit(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+${digits}`;
+  }
+  return String(value || "").trim();
+}
+
+function renderAddReservationModal(model) {
+  if (!portalState.reservationFormOpen) {
+    return "";
+  }
+  const settings = model.settings;
+  const dateKey = portalState.reservationFormDateKey || model.selectedDateKey || dateKeyForToday();
+  const timeOptions = reservationTimeOptionsForDate(dateKey);
+  const defaultPartySize = Math.max(settings.minPartySize, Math.min(2, settings.maxPartySize));
+  return `
+    <div class="reservation-modal-backdrop" role="presentation">
+      <form class="reservation-modal reservation-form-modal" data-reservation-create-form aria-label="Add reservation">
+        <div class="reservation-modal-head">
+          <div>
+            <p class="eyebrow blue">Native book</p>
+            <h2>Add reservation</h2>
+          </div>
+          <button type="button" class="reservation-modal-close" data-reservation-modal-close aria-label="Close">×</button>
+        </div>
+        <div class="reservation-form-grid">
+          <label>
+            <span>Reservation name</span>
+            <input name="guestName" type="text" autocomplete="name" required>
+          </label>
+          <label>
+            <span>Callback phone</span>
+            <input name="callerPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" data-reservation-phone required>
+          </label>
+          <label>
+            <span>Date</span>
+            <input name="dateKey" type="date" value="${escapeHTML(dateKey)}" data-reservation-form-date required>
+          </label>
+          <label>
+            <span>Time</span>
+            <select name="timeValue" required ${timeOptions.length ? "" : "disabled"}>
+              ${timeOptions.length
+                ? timeOptions.map((option) => `<option value="${escapeHTML(option.value)}">${escapeHTML(option.label)}</option>`).join("")
+                : `<option value="">No bookable times</option>`}
+            </select>
+          </label>
+          <label>
+            <span>Party size</span>
+            <input name="partySize" type="number" min="${settings.minPartySize}" max="${settings.maxPartySize}" value="${defaultPartySize}" required>
+          </label>
+          <label class="wide">
+            <span>Notes</span>
+            <textarea name="notes" rows="4" placeholder="Occasion, allergies, seating notes, special requests..."></textarea>
+          </label>
+        </div>
+        ${portalState.reservationFormError ? `<p class="reservation-modal-error">${escapeHTML(portalState.reservationFormError)}</p>` : ""}
+        <div class="reservation-modal-actions">
+          <button type="button" class="reservation-action dark" data-reservation-modal-close>Cancel</button>
+          <button type="submit" class="reservation-action blue" ${portalState.reservationFormSaving || !timeOptions.length ? "disabled" : ""}>
+            ${portalState.reservationFormSaving ? "Adding..." : "Add reservation"}
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function renderReservationDetailModal() {
+  const reservation = portalState.reservationDetailId ? findReservationById(portalState.reservationDetailId) : null;
+  if (!reservation) {
+    return "";
+  }
+  const canWrite = modulePermission("reservations").write;
+  return `
+    <div class="reservation-modal-backdrop" role="presentation">
+      <article class="reservation-modal reservation-detail-modal" aria-label="Reservation details">
+        <div class="reservation-modal-head">
+          <div>
+            <p class="eyebrow blue">${escapeHTML(reservation.status || "requested")}</p>
+            <h2>${escapeHTML(reservation.guestName || "Unknown guest")}</h2>
+          </div>
+          <button type="button" class="reservation-modal-close" data-reservation-detail-close aria-label="Close">×</button>
+        </div>
+        <div class="reservation-detail-grid">
+          <p><span>When</span><strong>${escapeHTML(formatReservationDateTime(reservation))}</strong></p>
+          <p><span>Party</span><strong>${escapeHTML(reservation.partySize || 1)} guests</strong></p>
+          <p><span>Phone</span><strong>${escapeHTML(reservation.callbackNumber || reservation.callerPhoneNumber || "Not captured")}</strong></p>
+          <p><span>Source</span><strong>${escapeHTML(reservation.source || "Tavra")}</strong></p>
+        </div>
+        <div class="reservation-note-box">
+          <span>Reservation notes</span>
+          <p>${escapeHTML(reservationNotesText(reservation)).replaceAll("\n", "<br>")}</p>
+        </div>
+        ${portalState.reservationDetailError ? `<p class="reservation-modal-error">${escapeHTML(portalState.reservationDetailError)}</p>` : ""}
+        <div class="reservation-modal-actions">
+          <button type="button" class="reservation-action dark" data-reservation-detail-close>Close</button>
+          <button type="button" class="reservation-action green" data-reservation-status="checked_in" ${canWrite && !portalState.reservationDetailSaving ? "" : "disabled"}>Check in</button>
+          <button type="button" class="reservation-action danger" data-reservation-status="no_show" ${canWrite && !portalState.reservationDetailSaving ? "" : "disabled"}>No-show</button>
+        </div>
+      </article>
+    </div>
+  `;
+}
+
+function renderReservationNoteModal() {
+  if (!portalState.reservationNoteModal) {
+    return "";
+  }
+  return `
+    <div class="reservation-modal-backdrop" role="presentation">
+      <article class="reservation-modal reservation-note-modal" aria-label="Reservation notes">
+        <div class="reservation-modal-head">
+          <div>
+            <p class="eyebrow blue">Checked in</p>
+            <h2>${escapeHTML(portalState.reservationNoteModal.guestName)}</h2>
+          </div>
+          <button type="button" class="reservation-modal-close" data-reservation-note-close aria-label="Close">×</button>
+        </div>
+        <div class="reservation-note-box large">
+          <span>Surface these notes for the host stand</span>
+          <p>${escapeHTML(portalState.reservationNoteModal.notes).replaceAll("\n", "<br>")}</p>
+        </div>
+        <div class="reservation-modal-actions">
+          <button type="button" class="reservation-action blue" data-reservation-note-close>Done</button>
+        </div>
+      </article>
+    </div>
+  `;
+}
+
+function replaceReservation(reservation) {
+  if (!reservation?.objectId) {
+    return;
+  }
+  const index = portalState.reservations.findIndex((item) => item.objectId === reservation.objectId);
+  if (index >= 0) {
+    portalState.reservations.splice(index, 1, reservation);
+  } else {
+    portalState.reservations.push(reservation);
+  }
+}
+
+async function createPortalReservation(form) {
+  portalState.reservationFormSaving = true;
+  portalState.reservationFormError = "";
+  renderReservationsBook();
+  const formData = new FormData(form);
+  const guestName = String(formData.get("guestName") || "").trim();
+  const callerPhoneNumber = phoneForSubmit(formData.get("callerPhoneNumber"));
+  const dateKey = String(formData.get("dateKey") || "").trim();
+  const timeValue = String(formData.get("timeValue") || "").trim();
+  const partySize = Number(formData.get("partySize") || 0);
+  const notes = String(formData.get("notes") || "").trim();
+  try {
+    if (!guestName || !callerPhoneNumber || !dateKey || !timeValue || !Number.isInteger(partySize)) {
+      throw new Error("Fill in the reservation name, phone, date, time, and party size.");
+    }
+    const requestedAtIso = zonedDateTimeToUtc(dateKey, timeValue).toISOString();
+    const payload = await apiRequest("/operations/reservations", {
+      method: "POST",
+      body: JSON.stringify({
+        guestName,
+        callerPhoneNumber,
+        requestedAtIso,
+        partySize,
+        notes,
+        rawCallerText: "Created manually in Tavra web portal.",
+        createdBy: "owner_web_portal"
+      })
+    });
+    replaceReservation(payload.reservation);
+    portalState.reservationSelectedDateKey = dateKey;
+    portalState.reservationSelectedServiceKey = null;
+    portalState.reservationFormOpen = false;
+    portalState.reservationFormDateKey = null;
+  } catch (error) {
+    portalState.reservationFormError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.reservationFormSaving = false;
+    renderReservationsBook();
+  }
+}
+
+async function updatePortalReservationStatus(status) {
+  const reservationId = portalState.reservationDetailId;
+  if (!reservationId) {
+    return;
+  }
+  portalState.reservationDetailSaving = true;
+  portalState.reservationDetailError = "";
+  renderReservationsBook();
+  try {
+    const payload = await apiRequest(`/operations/reservations/${encodeURIComponent(reservationId)}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status })
+    });
+    replaceReservation(payload.reservation);
+    if (status === "checked_in") {
+      portalState.reservationNoteModal = {
+        guestName: payload.reservation?.guestName || "Guest",
+        notes: reservationNotesText(payload.reservation || {})
+      };
+    }
+    portalState.reservationDetailId = null;
+  } catch (error) {
+    portalState.reservationDetailError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.reservationDetailSaving = false;
+    renderReservationsBook();
+  }
+}
+
+function wireReservationBookEvents(model) {
+  portalContent.querySelector("[data-reservation-refresh]")?.addEventListener("click", () => {
+    void loadPortalReservations();
+  });
+  portalContent.querySelector("[data-reservation-add]")?.addEventListener("click", () => {
+    portalState.reservationFormOpen = true;
+    portalState.reservationFormDateKey = model.selectedDateKey;
+    portalState.reservationFormError = "";
+    renderReservationsBook();
+  });
+  portalContent.querySelectorAll("[data-reservation-date-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const offset = Number(button.dataset.reservationDateStep || 0);
+      portalState.reservationSelectedDateKey = offsetDateKey(model.selectedDateKey, offset);
+      portalState.reservationSelectedServiceKey = null;
+      portalState.reservationViewMode = "timeline";
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelector("[data-reservation-calendar]")?.addEventListener("click", () => {
+    portalState.reservationViewMode = portalState.reservationViewMode === "calendar" ? "timeline" : "calendar";
+    portalState.reservationCalendarMonthKey = calendarMonthKeyForDateKey(model.selectedDateKey);
+    renderReservationsBook();
+  });
+  portalContent.querySelector("[data-reservation-today]")?.addEventListener("click", () => {
+    portalState.reservationSelectedDateKey = dateKeyForToday();
+    portalState.reservationSelectedServiceKey = null;
+    portalState.reservationViewMode = "timeline";
+    renderReservationsBook();
+  });
+  portalContent.querySelectorAll("[data-reservation-view]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationViewMode = button.dataset.reservationView || "timeline";
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelectorAll("[data-reservation-service]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationSelectedServiceKey = button.dataset.reservationService || null;
+      portalState.reservationViewMode = "timeline";
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelectorAll("[data-reservation-month-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationCalendarMonthKey = offsetCalendarMonthKey(portalState.reservationCalendarMonthKey, Number(button.dataset.reservationMonthStep || 0));
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelectorAll("[data-reservation-calendar-day]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationSelectedDateKey = button.dataset.reservationCalendarDay || dateKeyForToday();
+      portalState.reservationSelectedServiceKey = null;
+      portalState.reservationViewMode = "timeline";
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelectorAll("[data-reservation-detail]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationDetailId = button.dataset.reservationDetail || null;
+      portalState.reservationDetailError = "";
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelector("[data-reservation-create-form]")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void createPortalReservation(event.currentTarget);
+  });
+  portalContent.querySelector("[data-reservation-form-date]")?.addEventListener("change", (event) => {
+    portalState.reservationFormDateKey = event.currentTarget.value || dateKeyForToday();
+    renderReservationsBook();
+  });
+  portalContent.querySelector("[data-reservation-phone]")?.addEventListener("input", (event) => {
+    event.currentTarget.value = formatNorthAmericanPhone(event.currentTarget.value);
+  });
+  portalContent.querySelectorAll("[data-reservation-modal-close]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationFormOpen = false;
+      portalState.reservationFormError = "";
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelectorAll("[data-reservation-detail-close]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationDetailId = null;
+      portalState.reservationDetailError = "";
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelectorAll("[data-reservation-status]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void updatePortalReservationStatus(button.dataset.reservationStatus || "requested");
+    });
+  });
+  portalContent.querySelectorAll("[data-reservation-note-close]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.reservationNoteModal = null;
+      renderReservationsBook();
+    });
+  });
 }
 
 function renderPlaceholderSection(section) {
