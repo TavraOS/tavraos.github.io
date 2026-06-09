@@ -154,6 +154,7 @@ function clearStoredSession() {
 async function apiRequest(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
+    "Cache-Control": "no-cache",
     ...(options.headers ?? {})
   };
   if (portalState.session?.sessionToken) {
@@ -162,6 +163,7 @@ async function apiRequest(path, options = {}) {
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
+    cache: "no-store",
     headers
   });
   const text = await response.text();
@@ -183,8 +185,10 @@ async function logIn(email, password) {
   portalState.session = payload.session;
   portalState.membership = payload.membership;
   portalState.business = payload.business;
+  if (!portalState.membership || portalState.membership.status !== "active") {
+    throw new Error("no_active_portal_access");
+  }
   storeSession(payload.session);
-  await refreshMembership();
 }
 
 async function refreshMembership() {
@@ -399,8 +403,14 @@ loginForm?.addEventListener("submit", async (event) => {
     await logIn(email, password);
     setLoginStatus("");
     renderShell();
-  } catch {
-    setLoginStatus("Login failed. Check your email and password.", true);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === "no_active_portal_access") {
+      clearStoredSession();
+      setLoginStatus("Login worked, but this account does not have active portal access yet.", true);
+    } else {
+      setLoginStatus("Login failed. Check your email and password.", true);
+    }
   } finally {
     loginSubmit.disabled = false;
   }
