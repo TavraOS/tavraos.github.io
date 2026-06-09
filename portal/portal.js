@@ -71,75 +71,13 @@ const operationModules = [
   }
 ];
 
-const reservationTimeSlots = [
-  "5:00 PM",
-  "5:15 PM",
-  "5:30 PM",
-  "5:45 PM",
-  "6:00 PM",
-  "6:15 PM",
-  "6:30 PM",
-  "6:45 PM",
-  "7:00 PM",
-  "7:15 PM",
-  "7:30 PM",
-  "7:45 PM",
-  "8:00 PM",
-  "8:15 PM",
-  "8:30 PM",
-  "8:45 PM",
-  "9:00 PM",
-  "9:15 PM",
-  "9:30 PM",
-  "9:45 PM",
-  "10:00 PM"
-];
-
-const reservationTimelineEvents = [
-  { name: "Miller", party: 2, status: "confirmed", start: 1.1, span: 1.45, row: 0 },
-  { name: "Thompson", party: 4, status: "confirmed", start: 4.2, span: 2.3, row: 0 },
-  { name: "Garcia", party: 2, status: "confirmed", start: 7.15, span: 1.45, row: 0 },
-  { name: "Patel", party: 4, status: "confirmed", start: 9.6, span: 1.95, row: 0 },
-  { name: "Johnson", party: 6, status: "confirmed", start: 13.4, span: 2.5, row: 0 },
-  { name: "Lee", party: 2, status: "confirmed", start: 17.2, span: 1.4, row: 0 },
-  { name: "Brown", party: 4, status: "confirmed", start: 19.6, span: 2.0, row: 0 },
-  { name: "Wilson", party: 4, status: "confirmed", start: 2.1, span: 2.0, row: 1 },
-  { name: "Anderson", party: 2, status: "confirmed", start: 5.55, span: 2.3, row: 1 },
-  { name: "Stewart", party: 4, status: "requested", start: 9.8, span: 2.65, row: 1 },
-  { name: "Martinez", party: 4, status: "confirmed", start: 13.75, span: 2.1, row: 1 },
-  { name: "Taylor", party: 2, status: "confirmed", start: 18.55, span: 1.7, row: 1 },
-  { name: "Davis", party: 6, status: "requested", start: 0.25, span: 2.8, row: 2 },
-  { name: "Moore", party: 2, status: "confirmed", start: 4.45, span: 1.5, row: 2 },
-  { name: "Clark", party: 4, status: "confirmed", start: 7.25, span: 1.85, row: 2 },
-  { name: "Robinson", party: 3, status: "requested", start: 10.75, span: 2.15, row: 2 },
-  { name: "White", party: 4, status: "confirmed", start: 13.75, span: 2.1, row: 2 },
-  { name: "Hall", party: 2, status: "cancelled", start: 19.95, span: 1.5, row: 2 },
-  { name: "Martin", party: 2, status: "confirmed", start: 2.25, span: 1.65, row: 3 },
-  { name: "Walker", party: 4, status: "requested", start: 5.25, span: 2.35, row: 3 },
-  { name: "Young", party: 6, status: "confirmed", start: 9.45, span: 2.5, row: 3 },
-  { name: "Allen", party: 2, status: "requested", start: 14.35, span: 2.2, row: 3 },
-  { name: "King", party: 4, status: "confirmed", start: 18.85, span: 2.2, row: 3 },
-  { name: "Harris", party: 4, status: "confirmed", start: 0.25, span: 2.1, row: 4 },
-  { name: "Lewis", party: 2, status: "confirmed", start: 3.95, span: 1.55, row: 4 },
-  { name: "Lee", party: 2, status: "confirmed", start: 6.95, span: 1.7, row: 4 },
-  { name: "Perez", party: null, status: "declined", start: 11.8, span: 1.95, row: 4, note: "Declined" },
-  { name: "Adams", party: 2, status: "confirmed", start: 16.05, span: 2.15, row: 4 },
-  { name: "Baker", party: 4, status: "confirmed", start: 19.85, span: 2.15, row: 4 },
-  { name: "Zimmerman", party: 2, status: "requested", start: 1.35, span: 2.4, row: 5 },
-  { name: "Howard", party: 4, status: "confirmed", start: 5.1, span: 2.25, row: 5 },
-  { name: "Wright", party: 6, status: "requested", start: 8.4, span: 2.35, row: 5 },
-  { name: "Scott", party: 2, status: "confirmed", start: 13.35, span: 1.85, row: 5 },
-  { name: "Green", party: 2, status: "cancelled", start: 19.7, span: 1.55, row: 5, note: "Cancelled" }
-];
-
-const reservationHourlyCapacity = [
-  { time: "5:00 PM", count: "15 / 24", percent: 63, tone: "green" },
-  { time: "6:00 PM", count: "22 / 24", percent: 92, tone: "yellow" },
-  { time: "7:00 PM", count: "20 / 24", percent: 83, tone: "yellow" },
-  { time: "8:00 PM", count: "18 / 24", percent: 75, tone: "green" },
-  { time: "9:00 PM", count: "12 / 24", percent: 50, tone: "green" },
-  { time: "10:00 PM", count: "0 / 24", percent: 0, tone: "gray" }
-];
+const reservationTimezone = "America/Chicago";
+const reservationSlotMinutes = 15;
+const defaultReservationStartMinutes = 17 * 60;
+const defaultReservationEndMinutes = 22 * 60;
+const reservationMaxCoversPerSlot = 24;
+const reservationMaxPartiesPerSlot = 6;
+const reservationActiveStatuses = new Set(["requested", "confirmed", "checked_in"]);
 
 const sectionCopy = {
   onboarding: {
@@ -184,7 +122,12 @@ let portalState = {
   membership: null,
   business: null,
   section: "operations",
-  activeModule: "foodOrders"
+  activeModule: "foodOrders",
+  reservations: [],
+  reservationsLoaded: false,
+  reservationsLoading: false,
+  reservationLoadError: "",
+  reservationSelectedDateKey: null
 };
 
 function escapeHTML(value) {
@@ -253,6 +196,288 @@ async function apiRequest(path, options = {}) {
     throw error;
   }
   return payload;
+}
+
+function parseReservationDateValue(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+  if (typeof value === "object" && typeof value.iso === "string") {
+    const parsed = new Date(value.iso);
+    return Number.isFinite(parsed.getTime()) ? parsed : null;
+  }
+  return null;
+}
+
+function reservationStartDate(reservation) {
+  return parseReservationDateValue(reservation.slotStartAt) ||
+    parseReservationDateValue(reservation.requestedAt);
+}
+
+function reservationEndDate(reservation) {
+  return parseReservationDateValue(reservation.slotEndAt);
+}
+
+function datePartsInReservationTimezone(date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: reservationTimezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const valueFor = (type) => parts.find((part) => part.type === type)?.value || "00";
+  return {
+    year: valueFor("year"),
+    month: valueFor("month"),
+    day: valueFor("day"),
+    hour: Number(valueFor("hour")),
+    minute: Number(valueFor("minute"))
+  };
+}
+
+function reservationDateKey(date) {
+  const parts = datePartsInReservationTimezone(date);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function reservationMinutesOfDay(date) {
+  const parts = datePartsInReservationTimezone(date);
+  return parts.hour * 60 + parts.minute;
+}
+
+function dateKeyForToday() {
+  return reservationDateKey(new Date());
+}
+
+function offsetDateKey(dateKey, offsetDays) {
+  const [year, month, day] = String(dateKey || dateKeyForToday()).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day + offsetDays, 12, 0, 0));
+  return date.toISOString().slice(0, 10);
+}
+
+function formatReservationDateHeading(dateKey) {
+  const [year, month, day] = String(dateKey || dateKeyForToday()).split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  }).format(date);
+}
+
+function formatReservationTime(minutes) {
+  const normalized = ((minutes % 1440) + 1440) % 1440;
+  const hours24 = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  const meridiem = hours24 >= 12 ? "PM" : "AM";
+  const hour12 = hours24 % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${meridiem}`;
+}
+
+function reservationStatusClass(status) {
+  switch (status) {
+    case "confirmed":
+    case "checked_in":
+      return "confirmed";
+    case "declined":
+    case "no_show":
+      return "declined";
+    case "cancelled":
+    case "completed":
+      return "cancelled";
+    case "requested":
+    default:
+      return "requested";
+  }
+}
+
+function reservationStatusNote(reservation) {
+  const status = reservation.status || "requested";
+  if (status === "declined") {
+    return "Declined";
+  }
+  if (status === "cancelled") {
+    return "Cancelled";
+  }
+  if (status === "checked_in") {
+    return "Checked in";
+  }
+  if (status === "no_show") {
+    return "No-show";
+  }
+  if (status === "completed") {
+    return "Completed";
+  }
+  return String(reservation.partySize || 1);
+}
+
+function chooseReservationDateKey(reservations) {
+  const dated = reservations
+    .map((reservation) => reservationStartDate(reservation))
+    .filter(Boolean)
+    .sort((a, b) => a.getTime() - b.getTime());
+  const today = dateKeyForToday();
+  if (dated.some((date) => reservationDateKey(date) === today)) {
+    return today;
+  }
+  const now = new Date();
+  const upcoming = dated.find((date) => date >= now);
+  if (upcoming) {
+    return reservationDateKey(upcoming);
+  }
+  return dated.length ? reservationDateKey(dated[dated.length - 1]) : today;
+}
+
+function reservationsForSelectedDate() {
+  const dateKey = portalState.reservationSelectedDateKey || chooseReservationDateKey(portalState.reservations);
+  return portalState.reservations
+    .filter((reservation) => {
+      const start = reservationStartDate(reservation);
+      return start && reservationDateKey(start) === dateKey;
+    })
+    .sort((a, b) => {
+      const aStart = reservationStartDate(a)?.getTime() || 0;
+      const bStart = reservationStartDate(b)?.getTime() || 0;
+      return aStart - bStart;
+    });
+}
+
+function buildReservationTimelineModel() {
+  const selectedDateKey = portalState.reservationSelectedDateKey || chooseReservationDateKey(portalState.reservations);
+  const dateReservations = reservationsForSelectedDate();
+  const timedReservations = dateReservations
+    .map((reservation) => {
+      const startDate = reservationStartDate(reservation);
+      if (!startDate) {
+        return null;
+      }
+      const endDate = reservationEndDate(reservation);
+      const startMinutes = reservationMinutesOfDay(startDate);
+      const endMinutes = endDate
+        ? Math.max(startMinutes + reservationSlotMinutes, reservationMinutesOfDay(endDate))
+        : startMinutes + 45;
+      return { reservation, startDate, startMinutes, endMinutes };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+
+  const minReservationMinute = timedReservations.length
+    ? Math.min(...timedReservations.map((item) => item.startMinutes))
+    : defaultReservationStartMinutes;
+  const maxReservationMinute = timedReservations.length
+    ? Math.max(...timedReservations.map((item) => item.endMinutes))
+    : defaultReservationEndMinutes;
+  const startMinute = Math.min(defaultReservationStartMinutes, Math.floor(minReservationMinute / reservationSlotMinutes) * reservationSlotMinutes);
+  const endMinute = Math.max(defaultReservationEndMinutes, Math.ceil(maxReservationMinute / reservationSlotMinutes) * reservationSlotMinutes);
+  const slotLabels = [];
+  for (let minute = startMinute; minute <= endMinute; minute += reservationSlotMinutes) {
+    slotLabels.push(formatReservationTime(minute));
+  }
+
+  const lanes = [];
+  const events = timedReservations.map((item) => {
+    const start = (item.startMinutes - startMinute) / reservationSlotMinutes;
+    const span = Math.max(1.35, (item.endMinutes - item.startMinutes) / reservationSlotMinutes);
+    let row = lanes.findIndex((laneEnd) => laneEnd <= start);
+    if (row === -1) {
+      row = lanes.length;
+      lanes.push(start + span);
+    } else {
+      lanes[row] = start + span;
+    }
+    const reservation = item.reservation;
+    const className = reservationStatusClass(reservation.status);
+    return {
+      id: reservation.objectId || `${reservation.guestName}-${item.startDate.toISOString()}`,
+      name: reservation.guestName || "Unknown guest",
+      party: Number(reservation.partySize || 1),
+      status: className,
+      rawStatus: reservation.status || "requested",
+      start,
+      span,
+      row,
+      note: reservationStatusNote(reservation)
+    };
+  });
+
+  const activeReservations = dateReservations.filter((reservation) => reservationActiveStatuses.has(reservation.status || "requested"));
+  const coversReserved = activeReservations.reduce((sum, reservation) => sum + Number(reservation.partySize || 0), 0);
+  const hourStarts = [];
+  for (let minute = startMinute; minute <= endMinute; minute += 60) {
+    hourStarts.push(minute);
+  }
+  const hourlyCapacity = hourStarts.map((minute) => {
+    const count = activeReservations.reduce((sum, reservation) => {
+      const start = reservationStartDate(reservation);
+      if (!start) {
+        return sum;
+      }
+      const startMinutes = reservationMinutesOfDay(start);
+      return startMinutes >= minute && startMinutes < minute + 60
+        ? sum + Number(reservation.partySize || 0)
+        : sum;
+    }, 0);
+    const percent = Math.min(100, Math.round((count / reservationMaxCoversPerSlot) * 100));
+    return {
+      time: formatReservationTime(minute),
+      count: `${count} / ${reservationMaxCoversPerSlot}`,
+      percent,
+      tone: percent >= 85 ? "yellow" : percent > 0 ? "green" : "gray"
+    };
+  });
+
+  const totalCapacity = Math.max(reservationMaxCoversPerSlot, hourStarts.length * reservationMaxCoversPerSlot);
+  const totalPercent = Math.min(100, Math.round((coversReserved / totalCapacity) * 100));
+  const progressOffset = Math.round(220 - ((220 * totalPercent) / 100));
+  const now = new Date();
+  const showNow = reservationDateKey(now) === selectedDateKey;
+  const nowSlot = (reservationMinutesOfDay(now) - startMinute) / reservationSlotMinutes;
+  return {
+    selectedDateKey,
+    slotLabels,
+    events,
+    rowCount: Math.max(6, lanes.length || 1),
+    reservationsCount: dateReservations.length,
+    coversReserved,
+    totalCapacity,
+    totalPercent,
+    progressOffset,
+    hourlyCapacity,
+    showNow: showNow && nowSlot >= 0 && nowSlot <= slotLabels.length,
+    nowSlot,
+    nowLabel: formatReservationTime(reservationMinutesOfDay(now))
+  };
+}
+
+async function loadPortalReservations() {
+  if (portalState.reservationsLoading) {
+    return;
+  }
+  portalState.reservationsLoading = true;
+  portalState.reservationLoadError = "";
+  renderReservationsBook();
+  try {
+    const payload = await apiRequest("/operations/reservations?limit=200", { method: "GET" });
+    portalState.reservations = Array.isArray(payload.reservations) ? payload.reservations : [];
+    portalState.reservationsLoaded = true;
+    if (!portalState.reservationSelectedDateKey) {
+      portalState.reservationSelectedDateKey = chooseReservationDateKey(portalState.reservations);
+    }
+  } catch (error) {
+    portalState.reservationLoadError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.reservationsLoading = false;
+    renderReservationsBook();
+  }
 }
 
 async function logIn(email, password) {
@@ -350,6 +575,9 @@ function setActiveSection(section) {
   }
   if (section === "reservations") {
     renderReservationsBook();
+    if (!portalState.reservationsLoaded && !portalState.reservationsLoading) {
+      void loadPortalReservations();
+    }
     return;
   }
   renderPlaceholderSection(section);
@@ -424,26 +652,35 @@ function renderModuleDetail(module) {
 }
 
 function renderReservationPreview() {
+  const previewReservations = portalState.reservations
+    .slice()
+    .sort((a, b) => {
+      const aStart = reservationStartDate(a)?.getTime() || 0;
+      const bStart = reservationStartDate(b)?.getTime() || 0;
+      return bStart - aStart;
+    })
+    .slice(0, 4);
   return `
     <div class="reservation-preview" aria-label="Reservations timeline preview">
       <div class="reservation-preview-bar">
-        <span>Timeline</span>
-        <span>5:00 PM - 10:00 PM</span>
+        <span>Native book</span>
+        <span>${portalState.reservationsLoaded ? `${portalState.reservations.length} loaded` : "Open Reservations to load"}</span>
       </div>
-      <div class="reservation-timeline">
-        <div class="reservation-row">
-          <span class="reservation-chip">Miller · 2</span>
-          <span class="reservation-chip">Garcia · 4</span>
-          <span class="reservation-chip requested">Stewart · 4</span>
-          <span class="reservation-chip">Johnson · 6</span>
+      ${previewReservations.length ? `
+        <div class="reservation-timeline">
+          <div class="reservation-row">
+            ${previewReservations.map((reservation) => `
+              <span class="reservation-chip ${escapeHTML(reservationStatusClass(reservation.status))}">
+                ${escapeHTML(reservation.guestName || "Unknown guest")} · ${escapeHTML(reservationStatusNote(reservation))}
+              </span>
+            `).join("")}
+          </div>
         </div>
-        <div class="reservation-row">
-          <span class="reservation-chip">Davis · 6</span>
-          <span class="reservation-chip">Moore · 2</span>
-          <span class="reservation-chip declined">Perez · declined</span>
-          <span class="reservation-chip">Lee · 2</span>
+      ` : `
+        <div class="reservation-preview-empty">
+          The full Reservations page loads live Tavra reservation records for this restaurant.
         </div>
-      </div>
+      `}
     </div>
   `;
 }
@@ -454,15 +691,24 @@ function renderReservationsBook() {
   }
   pageTitle.textContent = "Reservations";
   pageKicker.textContent = "Operations";
+  const model = buildReservationTimelineModel();
+  const dateLabel = formatReservationDateHeading(model.selectedDateKey);
+  const statusMessage = portalState.reservationLoadError
+    ? `<div class="reservation-book-status error">Reservations failed to load: ${escapeHTML(portalState.reservationLoadError)}</div>`
+    : portalState.reservationsLoading
+      ? `<div class="reservation-book-status">Loading reservations from Tavra Operations...</div>`
+      : model.reservationsCount === 0
+        ? `<div class="reservation-book-status">No reservations found for ${escapeHTML(dateLabel)}.</div>`
+        : "";
   portalContent.innerHTML = `
     <section class="reservation-book" aria-labelledby="reservation-book-title">
       <div class="reservation-workspace">
         <div class="reservation-book-top">
           <h1 id="reservation-book-title">Reservations</h1>
           <div class="reservation-top-actions">
-            <button class="reservation-action dark" type="button">
+            <button class="reservation-action dark" type="button" data-reservation-refresh>
               <span aria-hidden="true">◷</span>
-              <span>Go to time</span>
+              <span>Refresh</span>
             </button>
             <button class="reservation-action blue" type="button">
               <span aria-hidden="true">+</span>
@@ -479,13 +725,14 @@ function renderReservationsBook() {
           </div>
 
           <div class="reservation-date-controls">
-            <button class="date-step" type="button" aria-label="Previous day">‹</button>
+            <button class="date-step" type="button" aria-label="Previous day" data-reservation-date-step="-1">‹</button>
             <button class="date-pill" type="button">
               <span aria-hidden="true">▣</span>
-              <span>Saturday, May 10, 2026</span>
+              <span>${escapeHTML(dateLabel)}</span>
               <span aria-hidden="true">⌄</span>
             </button>
-            <button class="today-pill" type="button">Today</button>
+            <button class="today-pill" type="button" data-reservation-today>Today</button>
+            <button class="date-step" type="button" aria-label="Next day" data-reservation-date-step="1">›</button>
           </div>
 
           <div class="reservation-status-legend" aria-label="Reservation status legend">
@@ -496,31 +743,39 @@ function renderReservationsBook() {
           </div>
         </div>
 
-        <div class="reservation-timeline-card" aria-label="Reservation timeline for Saturday, May 10, 2026">
+        ${statusMessage}
+
+        <div
+          class="reservation-timeline-card"
+          style="--timeline-slot-count: ${model.slotLabels.length}; --timeline-row-count: ${model.rowCount};"
+          aria-label="Reservation timeline for ${escapeHTML(dateLabel)}"
+        >
           <div class="reservation-head-row time-row">
             <div class="reservation-label-cell">Time</div>
             <div class="reservation-slot-head">
-              ${reservationTimeSlots.map(renderReservationTimeSlot).join("")}
+              ${model.slotLabels.map(renderReservationTimeSlot).join("")}
             </div>
           </div>
           <div class="reservation-head-row capacity-row">
             <div class="reservation-label-cell">Max Covers / Slot</div>
             <div class="reservation-capacity-cells">
-              ${reservationTimeSlots.map(() => "<span>24</span>").join("")}
+              ${model.slotLabels.map(() => `<span>${reservationMaxCoversPerSlot}</span>`).join("")}
             </div>
           </div>
           <div class="reservation-head-row capacity-row parties-row">
             <div class="reservation-label-cell">Max Parties / Slot</div>
             <div class="reservation-capacity-cells">
-              ${reservationTimeSlots.map(() => "<span>6</span>").join("")}
+              ${model.slotLabels.map(() => `<span>${reservationMaxPartiesPerSlot}</span>`).join("")}
             </div>
           </div>
 
           <div class="reservation-grid-area">
-            <div class="reservation-now-line" style="--now: 8.8;" aria-label="Current time 7:12 PM">
-              <span>7:12 PM</span>
-            </div>
-            ${reservationTimelineEvents.map(renderReservationEvent).join("")}
+            ${model.showNow ? `
+              <div class="reservation-now-line" style="--now: ${model.nowSlot};" aria-label="Current time ${escapeHTML(model.nowLabel)}">
+                <span>${escapeHTML(model.nowLabel)}</span>
+              </div>
+            ` : ""}
+            ${model.events.map(renderReservationEvent).join("")}
           </div>
         </div>
 
@@ -528,21 +783,21 @@ function renderReservationsBook() {
           <article class="reservation-night-card">
             <div>
               <h2>Night Overview</h2>
-              <strong>87 / 96</strong>
+              <strong>${model.coversReserved} / ${model.totalCapacity}</strong>
               <span>Covers Reserved</span>
             </div>
-            <div class="reservation-progress" aria-label="91 percent of total capacity">
+            <div class="reservation-progress" style="--reservation-progress-offset: ${model.progressOffset};" aria-label="${model.totalPercent} percent of total capacity">
               <svg viewBox="0 0 90 90" aria-hidden="true">
                 <circle cx="45" cy="45" r="35"></circle>
                 <circle class="progress" cx="45" cy="45" r="35"></circle>
               </svg>
-              <b>91%</b>
+              <b>${model.totalPercent}%</b>
               <span>of total capacity</span>
             </div>
           </article>
 
           <article class="reservation-hour-card" aria-label="Hourly reservation capacity">
-            ${reservationHourlyCapacity.map(renderReservationHourCapacity).join("")}
+            ${model.hourlyCapacity.map(renderReservationHourCapacity).join("")}
           </article>
 
           <article class="reservation-legend-card">
@@ -556,6 +811,20 @@ function renderReservationsBook() {
       </div>
     </section>
   `;
+  portalContent.querySelector("[data-reservation-refresh]")?.addEventListener("click", () => {
+    void loadPortalReservations();
+  });
+  portalContent.querySelectorAll("[data-reservation-date-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const offset = Number(button.dataset.reservationDateStep || 0);
+      portalState.reservationSelectedDateKey = offsetDateKey(model.selectedDateKey, offset);
+      renderReservationsBook();
+    });
+  });
+  portalContent.querySelector("[data-reservation-today]")?.addEventListener("click", () => {
+    portalState.reservationSelectedDateKey = dateKeyForToday();
+    renderReservationsBook();
+  });
 }
 
 function renderReservationTimeSlot(label) {
@@ -578,17 +847,16 @@ function renderReservationLegendItem(status, label) {
 }
 
 function renderReservationEvent(event) {
-  const note = event.note || (event.party ? String(event.party) : "");
   return `
     <article
       class="reservation-event ${escapeHTML(event.status)}"
       style="--start: ${event.start}; --span: ${event.span}; --row: ${event.row};"
-      aria-label="${escapeHTML(event.name)} ${escapeHTML(event.status)} reservation"
+      aria-label="${escapeHTML(event.name)} ${escapeHTML(event.rawStatus)} reservation"
     >
       <strong>${escapeHTML(event.name)}</strong>
       <span>
         <i aria-hidden="true">♟</i>
-        ${escapeHTML(note)}
+        ${escapeHTML(event.note)}
       </span>
     </article>
   `;

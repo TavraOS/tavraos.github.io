@@ -508,6 +508,12 @@ body.portal-authenticated .portal-app {
   background-size: 100% 52px, 76px 100%;
 }
 
+.reservation-preview-empty {
+  padding: 18px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .reservation-row {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -714,6 +720,23 @@ body.portal-reservations-page .portal-content {
   white-space: nowrap;
 }
 
+.reservation-book-status {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.055);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.reservation-book-status.error {
+  color: #ff8585;
+  border-color: rgba(255, 67, 56, 0.42);
+  background: rgba(255, 67, 56, 0.09);
+}
+
 .legend-dot {
   width: 11px;
   height: 11px;
@@ -739,6 +762,8 @@ body.portal-reservations-page .portal-content {
 .reservation-timeline-card {
   --timeline-label-width: 118px;
   --timeline-row-height: 78px;
+  --timeline-slot-count: 21;
+  --timeline-row-count: 6;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
@@ -776,7 +801,7 @@ body.portal-reservations-page .portal-content {
 .reservation-slot-head,
 .reservation-capacity-cells {
   display: grid;
-  grid-template-columns: repeat(21, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--timeline-slot-count), minmax(0, 1fr));
 }
 
 .reservation-slot-head span,
@@ -817,7 +842,7 @@ body.portal-reservations-page .portal-content {
 
 .reservation-grid-area {
   position: relative;
-  height: 496px;
+  height: calc(var(--timeline-row-count) * var(--timeline-row-height) + 28px);
   background-image:
     repeating-linear-gradient(
       to bottom,
@@ -829,9 +854,9 @@ body.portal-reservations-page .portal-content {
     repeating-linear-gradient(
       to right,
       transparent 0,
-      transparent calc((100% - var(--timeline-label-width)) / 21 - 1px),
-      rgba(255, 255, 255, 0.055) calc((100% - var(--timeline-label-width)) / 21 - 1px),
-      rgba(255, 255, 255, 0.055) calc((100% - var(--timeline-label-width)) / 21)
+      transparent calc((100% - var(--timeline-label-width)) / var(--timeline-slot-count) - 1px),
+      rgba(255, 255, 255, 0.055) calc((100% - var(--timeline-label-width)) / var(--timeline-slot-count) - 1px),
+      rgba(255, 255, 255, 0.055) calc((100% - var(--timeline-label-width)) / var(--timeline-slot-count))
     );
   background-position: 0 0, var(--timeline-label-width) 0;
   background-size: 100% var(--timeline-row-height), calc(100% - var(--timeline-label-width)) 100%;
@@ -852,7 +877,7 @@ body.portal-reservations-page .portal-content {
   z-index: 4;
   top: -160px;
   bottom: 0;
-  left: calc(var(--timeline-label-width) + ((100% - var(--timeline-label-width)) / 21) * var(--now));
+  left: calc(var(--timeline-label-width) + ((100% - var(--timeline-label-width)) / var(--timeline-slot-count)) * var(--now));
   width: 2px;
   background: #1679ff;
   box-shadow: 0 0 0 1px rgba(22, 121, 255, 0.18);
@@ -887,9 +912,9 @@ body.portal-reservations-page .portal-content {
 .reservation-event {
   position: absolute;
   z-index: 2;
-  left: calc(var(--timeline-label-width) + ((100% - var(--timeline-label-width)) / 21) * var(--start));
+  left: calc(var(--timeline-label-width) + ((100% - var(--timeline-label-width)) / var(--timeline-slot-count)) * var(--start));
   top: calc(16px + var(--row) * var(--timeline-row-height));
-  width: calc(((100% - var(--timeline-label-width)) / 21) * var(--span) - 7px);
+  width: calc(((100% - var(--timeline-label-width)) / var(--timeline-slot-count)) * var(--span) - 7px);
   min-width: 82px;
   height: 58px;
   display: grid;
@@ -1026,7 +1051,7 @@ body.portal-reservations-page .portal-content {
   stroke: #2fb764;
   stroke-linecap: round;
   stroke-dasharray: 220;
-  stroke-dashoffset: 20;
+  stroke-dashoffset: var(--reservation-progress-offset, 220);
 }
 
 .reservation-progress b {
