@@ -35,7 +35,7 @@ const operationModules = [
     icon: "⚠",
     status: "Availability",
     description:
-      "The 86 Board will let permitted team members mark unavailable ingredients or menu items and show the agent which items should not be sold."
+      "The 86 Board lets permitted team members mark unavailable ingredients or menu items and show the agent which items should not be sold."
   },
   {
     key: "callLogs",
@@ -96,6 +96,20 @@ const foodOrderFilters = [
     emptyText: "Cancelled orders will appear here.",
     className: "cancelled"
   }
+];
+
+const menu86Modes = [
+  { key: "ingredient", title: "Ingredient", backendValue: "ingredient" },
+  { key: "menuItem", title: "Menu Item", backendValue: "menu_item" }
+];
+
+const menu86DurationOptions = [
+  { hours: 1, title: "1 hour" },
+  { hours: 2, title: "2 hours" },
+  { hours: 4, title: "4 hours" },
+  { hours: 8, title: "8 hours" },
+  { hours: 24, title: "Until tomorrow" },
+  { hours: 0, title: "Until further notice" }
 ];
 
 const defaultReservationTimezone = "America/Chicago";
@@ -166,6 +180,19 @@ let portalState = {
   foodOrderFilter: "active",
   expandedFoodOrderIds: new Set(),
   foodOrderUpdatingId: null,
+  menu86Outages: [],
+  menu86MenuItems: [],
+  menu86Loaded: false,
+  menu86Loading: false,
+  menu86Error: "",
+  menu86Mode: "ingredient",
+  menu86IngredientName: "",
+  menu86MenuSearchText: "",
+  menu86SelectedMenuItemIds: new Set(),
+  menu86Note: "",
+  menu86DurationHours: 4,
+  menu86Saving: false,
+  menu86ResolvingId: null,
   reservations: [],
   reservationsLoaded: false,
   reservationsLoading: false,
@@ -678,7 +705,7 @@ function buildReservationTimelineModel() {
       time: formatReservationTime(minute),
       count: `${count} / ${settings.maxCoversPerSlot}`,
       percent,
-      tone: percent >= 85 ? "yellow" : percent > 0 ? "green" : "gray"
+      tone: reservationOccupancyTone(percent)
     };
   });
 
@@ -707,6 +734,22 @@ function buildReservationTimelineModel() {
     nowSlot,
     nowLabel: formatReservationTime(reservationMinutesOfDay(now))
   };
+}
+
+function reservationOccupancyTone(percent) {
+  if (percent >= 95) {
+    return "red";
+  }
+  if (percent >= 80) {
+    return "orange";
+  }
+  if (percent >= 50) {
+    return "yellow";
+  }
+  if (percent > 0) {
+    return "green";
+  }
+  return "gray";
 }
 
 async function loadPortalReservations() {
@@ -777,6 +820,97 @@ async function updatePortalFoodOrderStatus(orderId, status) {
   } finally {
     portalState.foodOrderUpdatingId = null;
     renderFoodOrdersInbox();
+  }
+}
+
+async function loadPortalMenu86Board() {
+  if (portalState.menu86Loading) {
+    return;
+  }
+  portalState.menu86Loading = true;
+  portalState.menu86Error = "";
+  renderMenu86Board();
+  try {
+    const payload = await apiRequest("/operations/menu-86", { method: "GET" });
+    portalState.menu86Outages = Array.isArray(payload.outages) ? payload.outages : [];
+    portalState.menu86MenuItems = Array.isArray(payload.menuItems)
+      ? payload.menuItems.slice().sort((left, right) => String(left.name || "").localeCompare(String(right.name || ""), undefined, { sensitivity: "base" }))
+      : [];
+    portalState.menu86Loaded = true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    portalState.menu86Error = message.includes("Cannot GET /operations/menu-86")
+      ? "86 Board is not available from this backend yet. Restart or deploy the voice orchestrator with the latest code."
+      : `86 Board load failed: ${message}`;
+  } finally {
+    portalState.menu86Loading = false;
+    renderMenu86Board();
+  }
+}
+
+async function createPortalMenu86Outage() {
+  if (portalState.menu86Saving || !menu86CanCreate()) {
+    portalState.menu86Error = portalState.menu86Mode === "ingredient"
+      ? "Enter an ingredient that matches menu items."
+      : "Select at least one menu item.";
+    renderMenu86Board();
+    return;
+  }
+  portalState.menu86Saving = true;
+  portalState.menu86Error = "";
+  renderMenu86Board();
+  try {
+    const mode = menu86ModeForKey(portalState.menu86Mode);
+    const affectedPreview = menu86AffectedPreview();
+    const label = portalState.menu86Mode === "ingredient"
+      ? portalState.menu86IngredientName.trim()
+      : affectedPreview.length === 1 ? affectedPreview[0].name : `${affectedPreview.length} menu items`;
+    const menuItemIds = portalState.menu86Mode === "menuItem"
+      ? affectedPreview.map((item) => item.id).filter(Boolean)
+      : [];
+    const expiresAtIso = Number(portalState.menu86DurationHours) > 0
+      ? new Date(Date.now() + Number(portalState.menu86DurationHours) * 60 * 60 * 1000).toISOString()
+      : null;
+    const payload = await apiRequest("/operations/menu-86", {
+      method: "POST",
+      body: JSON.stringify({
+        type: mode.backendValue,
+        label,
+        note: portalState.menu86Note.trim() || null,
+        expiresAtIso,
+        menuItemIds
+      })
+    });
+    if (payload.outage) {
+      portalState.menu86Outages = [payload.outage, ...portalState.menu86Outages.filter((outage) => menu86OutageId(outage) !== menu86OutageId(payload.outage))];
+    }
+    portalState.menu86IngredientName = "";
+    portalState.menu86MenuSearchText = "";
+    portalState.menu86SelectedMenuItemIds = new Set();
+    portalState.menu86Note = "";
+  } catch (error) {
+    portalState.menu86Error = `Could not save 86: ${error instanceof Error ? error.message : String(error)}`;
+  } finally {
+    portalState.menu86Saving = false;
+    renderMenu86Board();
+  }
+}
+
+async function resolvePortalMenu86Outage(outageId) {
+  if (!outageId || portalState.menu86ResolvingId) {
+    return;
+  }
+  portalState.menu86ResolvingId = outageId;
+  portalState.menu86Error = "";
+  renderMenu86Board();
+  try {
+    await apiRequest(`/operations/menu-86/${encodeURIComponent(outageId)}`, { method: "DELETE" });
+    portalState.menu86Outages = portalState.menu86Outages.filter((outage) => menu86OutageId(outage) !== outageId);
+  } catch (error) {
+    portalState.menu86Error = `Could not clear 86: ${error instanceof Error ? error.message : String(error)}`;
+  } finally {
+    portalState.menu86ResolvingId = null;
+    renderMenu86Board();
   }
 }
 
@@ -867,7 +1001,8 @@ function setActiveSection(section) {
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
   document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
-  const sidebarSection = section === "reservations" || section === "foodOrders" ? "operations" : section;
+  document.body.classList.toggle("portal-menu86-page", section === "menu86");
+  const sidebarSection = ["reservations", "foodOrders", "menu86"].includes(section) ? "operations" : section;
   sectionButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sidebarSection);
   });
@@ -879,6 +1014,13 @@ function setActiveSection(section) {
     renderFoodOrdersInbox();
     if (!portalState.foodOrdersLoaded && !portalState.foodOrdersLoading) {
       void loadPortalFoodOrders();
+    }
+    return;
+  }
+  if (section === "menu86") {
+    renderMenu86Board();
+    if (!portalState.menu86Loaded && !portalState.menu86Loading) {
+      void loadPortalMenu86Board();
     }
     return;
   }
@@ -914,6 +1056,10 @@ function renderOperations() {
       const permission = modulePermission(moduleKey);
       if (permission.read && moduleKey === "foodOrders") {
         setActiveSection("foodOrders");
+        return;
+      }
+      if (permission.read && moduleKey === "menu86") {
+        setActiveSection("menu86");
         return;
       }
       if (permission.read && moduleKey === "reservations") {
@@ -1814,10 +1960,12 @@ function renderFoodOrderExpanded(order, canWrite) {
       </div>
 
       ${canWrite && actions.length ? `
-        <div class="food-order-action-row">
+        <section class="food-order-move-panel" aria-label="Move order">
+          <h3>Move order</h3>
+          <div class="food-order-action-row">
           ${actions.map((action) => `
             <button
-              class="food-order-action ${action.role === "danger" ? "danger" : ""}"
+              class="food-order-action ${action.kind || ""} ${action.role === "danger" ? "danger" : ""}"
               type="button"
               data-food-order-id="${escapeHTML(orderId)}"
               data-food-order-status="${escapeHTML(action.status)}"
@@ -1826,7 +1974,8 @@ function renderFoodOrderExpanded(order, canWrite) {
               ${escapeHTML(portalState.foodOrderUpdatingId === orderId ? "Updating..." : action.title)}
             </button>
           `).join("")}
-        </div>
+          </div>
+        </section>
       ` : ""}
     </div>
   `;
@@ -1929,19 +2078,12 @@ function foodOrderStatusDisplay(order) {
 
 function foodOrderAvailableActions(order) {
   const kind = foodOrderStatusDisplay(order).kind;
-  if (kind === "active") {
-    return [
-      { title: "Complete", status: "completed" },
-      { title: "Cancel", status: "cancelled", role: "danger" }
-    ];
-  }
-  if (kind === "needsAttention") {
-    return [
-      { title: "Move to Active", status: "confirmed" },
-      { title: "Cancel", status: "cancelled", role: "danger" }
-    ];
-  }
-  return [];
+  return [
+    { title: "Active", status: "confirmed", kind: "active" },
+    { title: "Needs Attention", status: "needs_review", kind: "needsAttention" },
+    { title: "Completed", status: "completed", kind: "completed" },
+    { title: "Cancelled", status: "cancelled", kind: "cancelled", role: "danger" }
+  ].filter((action) => action.kind !== kind);
 }
 
 function sortFoodOrders(left, right) {
@@ -2059,6 +2201,331 @@ function statusText(raw) {
     .join(" ");
 }
 
+function renderMenu86Board() {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  pageTitle.textContent = "86 Board";
+  pageKicker.textContent = "Operations";
+
+  const permission = modulePermission("menu86");
+  if (!permission.read) {
+    portalContent.innerHTML = `
+      <section class="menu86-page">
+        <div class="menu86-shell">
+          <h1>86 Board</h1>
+          <article class="menu86-empty">This account does not currently have access to the 86 Board.</article>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  portalContent.innerHTML = `
+    <section class="menu86-page" aria-labelledby="menu86-title">
+      <div class="menu86-shell">
+        <div class="menu86-top">
+          <h1 id="menu86-title">86 Board</h1>
+          <button class="menu86-refresh" type="button" data-menu86-refresh ${portalState.menu86Loading ? "disabled" : ""}>
+            <span aria-hidden="true">↻</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+        ${renderMenu86ActiveOutages(permission.write)}
+        ${renderMenu86Editor(permission.write)}
+        ${portalState.menu86Error ? `<div class="menu86-error">${escapeHTML(portalState.menu86Error)}</div>` : ""}
+      </div>
+    </section>
+  `;
+  wireMenu86Events();
+}
+
+function renderMenu86ActiveOutages(canWrite) {
+  const activeOutages = menu86ActiveOutages();
+  return `
+    <section class="menu86-active" aria-label="Active 86 items">
+      <div class="menu86-section-head">
+        <h2>Active now</h2>
+        <span>${portalState.menu86Loading ? "Loading" : activeOutages.length}</span>
+      </div>
+      ${activeOutages.length ? activeOutages.map((outage) => renderMenu86OutageCard(outage, canWrite)).join("") : `
+        <article class="menu86-empty">Nothing is 86'ed right now.</article>
+      `}
+    </section>
+  `;
+}
+
+function renderMenu86OutageCard(outage, canWrite) {
+  const outageId = menu86OutageId(outage);
+  const affectedItems = Array.isArray(outage.affectedMenuItems) ? outage.affectedMenuItems : [];
+  const affectedCount = Array.isArray(outage.affectedMenuItemIds) ? outage.affectedMenuItemIds.length : affectedItems.length;
+  const isResolving = portalState.menu86ResolvingId === outageId;
+  return `
+    <article class="menu86-outage-card">
+      <div class="menu86-outage-head">
+        <strong>${escapeHTML(outage.label || "Unavailable")}</strong>
+        <span>${escapeHTML(outage.type === "menu_item" ? "Menu item" : "Ingredient")}</span>
+      </div>
+      <p>${affectedCount} affected item${affectedCount === 1 ? "" : "s"}</p>
+      ${affectedItems.length ? `<p class="menu86-outage-items">${escapeHTML(affectedItems.slice(0, 6).map((item) => item.name).join(", "))}</p>` : ""}
+      ${outage.note ? `<p class="menu86-outage-note">${escapeHTML(outage.note)}</p>` : ""}
+      ${canWrite ? `
+        <button class="menu86-clear" type="button" data-menu86-resolve="${escapeHTML(outageId)}" ${isResolving ? "disabled" : ""}>
+          ${escapeHTML(isResolving ? "Clearing..." : "Clear 86")}
+        </button>
+      ` : ""}
+    </article>
+  `;
+}
+
+function renderMenu86Editor(canWrite) {
+  return `
+    <section class="menu86-editor" aria-label="Add an 86">
+      <div class="menu86-section-head">
+        <h2>Add an 86</h2>
+        <span class="${canWrite ? "write" : ""}">${canWrite ? "Writable" : "Read only"}</span>
+      </div>
+
+      <div class="menu86-mode-switch" role="group" aria-label="86 type">
+        ${menu86Modes.map((mode) => `
+          <button
+            class="${portalState.menu86Mode === mode.key ? "active" : ""}"
+            type="button"
+            data-menu86-mode="${escapeHTML(mode.key)}"
+            ${canWrite ? "" : "disabled"}
+          >
+            ${escapeHTML(mode.title)}
+          </button>
+        `).join("")}
+      </div>
+
+      ${portalState.menu86Mode === "ingredient" ? renderMenu86IngredientInput(canWrite) : renderMenu86MenuItemSelector(canWrite)}
+      ${renderMenu86AffectedPreview()}
+
+      <label class="menu86-label">
+        <span>Duration</span>
+        <select data-menu86-duration ${canWrite ? "" : "disabled"}>
+          ${menu86DurationOptions.map((option) => `
+            <option value="${option.hours}" ${Number(portalState.menu86DurationHours) === option.hours ? "selected" : ""}>
+              ${escapeHTML(option.title)}
+            </option>
+          `).join("")}
+        </select>
+      </label>
+
+      <label class="menu86-label">
+        <span>Staff note</span>
+        <textarea data-menu86-note rows="3" placeholder="Optional staff note" ${canWrite ? "" : "disabled"}>${escapeHTML(portalState.menu86Note)}</textarea>
+      </label>
+
+      <button class="menu86-submit" type="button" data-menu86-create ${canWrite && menu86CanCreate() ? "" : "disabled"}>
+        ${portalState.menu86Saving ? "Saving..." : "⚠ Mark Unavailable"}
+      </button>
+    </section>
+  `;
+}
+
+function renderMenu86IngredientInput(canWrite) {
+  return `
+    <label class="menu86-label">
+      <span>Ingredient or modifier</span>
+      <input
+        data-menu86-ingredient
+        type="text"
+        value="${escapeHTML(portalState.menu86IngredientName)}"
+        placeholder="Ingredient or modifier, like salmon or cilantro"
+        ${canWrite ? "" : "disabled"}
+      >
+    </label>
+  `;
+}
+
+function renderMenu86MenuItemSelector(canWrite) {
+  const items = menu86FilteredMenuItems().slice(0, 30);
+  return `
+    <label class="menu86-label">
+      <span>Search menu items</span>
+      <input
+        data-menu86-menu-search
+        type="text"
+        value="${escapeHTML(portalState.menu86MenuSearchText)}"
+        placeholder="Search menu items"
+        ${canWrite ? "" : "disabled"}
+      >
+    </label>
+    <div class="menu86-menu-picker">
+      ${items.length ? items.map((item) => renderMenu86MenuPickerRow(item, canWrite)).join("") : `<p>No menu items matched.</p>`}
+    </div>
+  `;
+}
+
+function renderMenu86MenuPickerRow(item, canWrite) {
+  const selected = portalState.menu86SelectedMenuItemIds.has(item.id);
+  return `
+    <button class="menu86-menu-row ${selected ? "selected" : ""}" type="button" data-menu86-menu-item="${escapeHTML(item.id)}" ${canWrite ? "" : "disabled"}>
+      <span aria-hidden="true">${selected ? "☑" : "☐"}</span>
+      <span>
+        <strong>${escapeHTML(item.name || "Unnamed item")}</strong>
+        <em>${escapeHTML(menu86MenuItemSubtitle(item))}</em>
+      </span>
+    </button>
+  `;
+}
+
+function renderMenu86AffectedPreview() {
+  const affectedPreview = menu86AffectedPreview();
+  return `
+    <div class="menu86-affected">
+      <h3>Affected dishes</h3>
+      ${affectedPreview.length ? `
+        ${affectedPreview.slice(0, 12).map((item) => `
+          <div class="menu86-affected-row">
+            <span>
+              <strong>${escapeHTML(item.name || "Unnamed item")}</strong>
+              ${item.category ? `<em>${escapeHTML(item.category)}</em>` : ""}
+            </span>
+            <b>${escapeHTML(moneyOrBlank(item.priceCents))}</b>
+          </div>
+        `).join("")}
+        ${affectedPreview.length > 12 ? `<p class="menu86-more">+ ${affectedPreview.length - 12} more</p>` : ""}
+      ` : `<p>${escapeHTML(menu86AffectedEmptyText())}</p>`}
+    </div>
+  `;
+}
+
+function wireMenu86Events() {
+  portalContent.querySelector("[data-menu86-refresh]")?.addEventListener("click", () => {
+    void loadPortalMenu86Board();
+  });
+  portalContent.querySelectorAll("[data-menu86-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      portalState.menu86Mode = button.dataset.menu86Mode || "ingredient";
+      renderMenu86Board();
+    });
+  });
+  portalContent.querySelector("[data-menu86-ingredient]")?.addEventListener("input", (event) => {
+    portalState.menu86IngredientName = event.currentTarget.value;
+    renderMenu86Board();
+    portalContent.querySelector("[data-menu86-ingredient]")?.focus();
+  });
+  portalContent.querySelector("[data-menu86-menu-search]")?.addEventListener("input", (event) => {
+    portalState.menu86MenuSearchText = event.currentTarget.value;
+    renderMenu86Board();
+    portalContent.querySelector("[data-menu86-menu-search]")?.focus();
+  });
+  portalContent.querySelectorAll("[data-menu86-menu-item]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const itemId = button.dataset.menu86MenuItem || "";
+      if (portalState.menu86SelectedMenuItemIds.has(itemId)) {
+        portalState.menu86SelectedMenuItemIds.delete(itemId);
+      } else {
+        portalState.menu86SelectedMenuItemIds.add(itemId);
+      }
+      renderMenu86Board();
+    });
+  });
+  portalContent.querySelector("[data-menu86-duration]")?.addEventListener("change", (event) => {
+    portalState.menu86DurationHours = Number(event.currentTarget.value);
+  });
+  portalContent.querySelector("[data-menu86-note]")?.addEventListener("input", (event) => {
+    portalState.menu86Note = event.currentTarget.value;
+  });
+  portalContent.querySelector("[data-menu86-create]")?.addEventListener("click", () => {
+    void createPortalMenu86Outage();
+  });
+  portalContent.querySelectorAll("[data-menu86-resolve]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void resolvePortalMenu86Outage(button.dataset.menu86Resolve || "");
+    });
+  });
+}
+
+function menu86ModeForKey(key) {
+  return menu86Modes.find((mode) => mode.key === key) || menu86Modes[0];
+}
+
+function menu86OutageId(outage) {
+  return String(outage.objectId || outage.id || "");
+}
+
+function menu86ActiveOutages() {
+  return portalState.menu86Outages.filter((outage) => outage.status === "active");
+}
+
+function menu86CanCreate() {
+  if (portalState.menu86Saving) {
+    return false;
+  }
+  if (portalState.menu86Mode === "ingredient") {
+    return portalState.menu86IngredientName.trim().length > 0 && menu86AffectedPreview().length > 0;
+  }
+  return portalState.menu86SelectedMenuItemIds.size > 0;
+}
+
+function menu86FilteredMenuItems() {
+  const query = menu86Normalized(portalState.menu86MenuSearchText);
+  if (!query) {
+    return portalState.menu86MenuItems;
+  }
+  return portalState.menu86MenuItems.filter((item) => {
+    const haystack = menu86Normalized([item.name, item.category, item.description, item.matchText].filter(Boolean).join(" "));
+    return haystack.includes(query);
+  });
+}
+
+function menu86AffectedPreview() {
+  if (portalState.menu86Mode === "menuItem") {
+    return portalState.menu86MenuItems.filter((item) => portalState.menu86SelectedMenuItemIds.has(item.id));
+  }
+  const tokens = menu86SearchTokens(portalState.menu86IngredientName);
+  if (!tokens.length) {
+    return [];
+  }
+  return portalState.menu86MenuItems.filter((item) => {
+    const haystack = menu86Normalized([item.name, item.category, item.description, item.matchText].filter(Boolean).join(" "));
+    const haystackTokens = new Set(haystack.split(" ").filter(Boolean));
+    const normalizedIngredient = menu86Normalized(portalState.menu86IngredientName);
+    return haystack.includes(normalizedIngredient) || tokens.every((token) => haystackTokens.has(token));
+  });
+}
+
+function menu86AffectedEmptyText() {
+  if (portalState.menu86Mode === "menuItem") {
+    return "Select menu items to mark unavailable.";
+  }
+  if (!portalState.menu86MenuItems.length) {
+    return "Menu data has not loaded yet.";
+  }
+  if (portalState.menu86IngredientName.trim()) {
+    return "No affected dishes matched. Try an ingredient, modifier, or menu item phrase.";
+  }
+  return "Enter an ingredient to preview matching dishes.";
+}
+
+function menu86Normalized(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function menu86SearchTokens(value) {
+  const stopWords = new Set(["and", "the", "with", "without", "side", "sides", "extra", "add", "added", "fresh", "choice"]);
+  return menu86Normalized(value)
+    .split(" ")
+    .filter((token) => token && !stopWords.has(token));
+}
+
+function menu86MenuItemSubtitle(item) {
+  return [item.category, moneyOrBlank(item.priceCents)].filter(Boolean).join(" • ");
+}
+
+function moneyOrBlank(cents) {
+  return Number.isFinite(Number(cents)) ? money(Number(cents)) : "";
+}
+
 function renderPlaceholderSection(section) {
   if (!portalContent || !pageTitle || !pageKicker) {
     return;
@@ -2085,6 +2552,7 @@ function showLogin() {
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");
+  document.body.classList.remove("portal-menu86-page");
   portalState.session = null;
   portalState.membership = null;
   portalState.business = null;

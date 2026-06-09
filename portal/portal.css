@@ -528,16 +528,20 @@ body.portal-authenticated .portal-app {
   padding: 10px 12px;
   border-radius: 10px;
   color: #fff;
-  background: linear-gradient(135deg, #159135, #0d6426);
+  background: linear-gradient(135deg, #34c759, #168235);
   font-weight: 700;
 }
 
 .reservation-chip.requested {
-  background: linear-gradient(135deg, #c89a12, #826300);
+  background: linear-gradient(135deg, #ffb340, #a66b08);
 }
 
 .reservation-chip.declined {
-  background: linear-gradient(135deg, #e24636, #9b1d16);
+  background: linear-gradient(135deg, #ff453a, #a9241f);
+}
+
+.reservation-chip.cancelled {
+  background: linear-gradient(135deg, #6b7078, #3c4046);
 }
 
 .placeholder-panel {
@@ -777,11 +781,14 @@ body.portal-food-orders-page .portal-content {
 .food-order-badge {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 25px;
   padding: 0 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
+  line-height: 1;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -946,15 +953,40 @@ body.portal-food-orders-page .portal-content {
   gap: 8px;
 }
 
+.food-order-move-panel {
+  display: grid;
+  gap: 8px;
+}
+
 .food-order-action {
   min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   padding: 0 13px;
   color: #fff;
   border: 0;
   border-radius: 999px;
-  background: rgba(49, 168, 255, 0.86);
+  background: rgba(255, 255, 255, 0.1);
   font-size: 13px;
   font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.food-order-action.active {
+  color: #dff8e8;
+  background: rgba(50, 195, 115, 0.32);
+}
+
+.food-order-action.needsAttention {
+  color: #ffe0c8;
+  background: rgba(255, 108, 47, 0.32);
+}
+
+.food-order-action.completed {
+  color: #d5efff;
+  background: rgba(49, 168, 255, 0.32);
 }
 
 .food-order-action.danger {
@@ -964,6 +996,372 @@ body.portal-food-orders-page .portal-content {
 
 .food-order-action:disabled {
   opacity: 0.56;
+}
+
+body.portal-menu86-page {
+  background:
+    radial-gradient(circle at 20% 4%, rgba(255, 108, 47, 0.16), transparent 24rem),
+    radial-gradient(circle at 88% 16%, rgba(255, 225, 106, 0.08), transparent 24rem),
+    #020202;
+}
+
+body.portal-menu86-page .portal-main-shell {
+  padding: 24px 24px 42px 28px;
+  background: #000;
+}
+
+body.portal-menu86-page .portal-header {
+  display: none;
+}
+
+body.portal-menu86-page .portal-content {
+  min-height: calc(100vh - 46px);
+}
+
+.menu86-page {
+  min-height: calc(100vh - 46px);
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+.menu86-shell {
+  width: min(760px, 100%);
+  display: grid;
+  gap: 18px;
+  padding: 12px 2px 120px;
+}
+
+.menu86-top,
+.menu86-section-head,
+.menu86-outage-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.menu86-top h1 {
+  margin: 0;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.menu86-refresh {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 16px;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  font-weight: 700;
+}
+
+.menu86-refresh:disabled {
+  opacity: 0.55;
+}
+
+.menu86-active,
+.menu86-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.menu86-section-head h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.menu86-section-head span {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.menu86-section-head span.write {
+  color: #34c759;
+}
+
+.menu86-empty,
+.menu86-editor {
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.menu86-empty {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.menu86-outage-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(107, 31, 26, 0.98), rgba(242, 88, 40, 0.72));
+}
+
+.menu86-outage-head strong {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.menu86-outage-head span {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  color: #111;
+  border-radius: 999px;
+  background: #ffe16a;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.menu86-outage-card p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.menu86-outage-card .menu86-outage-items {
+  color: rgba(255, 255, 255, 0.64);
+}
+
+.menu86-outage-note {
+  padding-top: 3px;
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+
+.menu86-clear {
+  justify-self: start;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  color: #08180f;
+  border: 0;
+  border-radius: 999px;
+  background: #34c759;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.menu86-mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menu86-mode-switch button {
+  min-height: 44px;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.menu86-mode-switch button.active {
+  background: rgba(255, 255, 255, 0.26);
+}
+
+.menu86-label {
+  display: grid;
+  gap: 8px;
+}
+
+.menu86-label span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.menu86-label input,
+.menu86-label select,
+.menu86-label textarea {
+  width: 100%;
+  min-height: 52px;
+  padding: 0 14px;
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.menu86-label textarea {
+  min-height: 94px;
+  padding-top: 13px;
+  resize: vertical;
+}
+
+.menu86-label input:focus,
+.menu86-label select:focus,
+.menu86-label textarea:focus {
+  box-shadow: 0 0 0 3px rgba(255, 225, 106, 0.25);
+}
+
+.menu86-menu-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.menu86-menu-picker p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.menu86-menu-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.22);
+  text-align: left;
+}
+
+.menu86-menu-row > span:first-child {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 18px;
+}
+
+.menu86-menu-row.selected > span:first-child {
+  color: #34c759;
+}
+
+.menu86-menu-row strong,
+.menu86-menu-row em {
+  display: block;
+}
+
+.menu86-menu-row strong {
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.menu86-menu-row em {
+  margin-top: 3px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.menu86-affected {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.24);
+}
+
+.menu86-affected h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.menu86-affected p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.menu86-affected-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.menu86-affected-row strong,
+.menu86-affected-row em {
+  display: block;
+}
+
+.menu86-affected-row strong {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.menu86-affected-row em {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.menu86-affected-row b {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.menu86-more {
+  color: #ffe16a !important;
+  font-weight: 850 !important;
+}
+
+.menu86-submit {
+  min-height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+  border: 0;
+  border-radius: 16px;
+  background: #ffe16a;
+  font-size: 17px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.menu86-submit:disabled,
+.menu86-clear:disabled {
+  opacity: 0.48;
+}
+
+.menu86-error {
+  padding: 12px;
+  color: #ff6868;
+  border-radius: 14px;
+  background: rgba(255, 69, 58, 0.12);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.4;
 }
 
 body.portal-reservations-page {
@@ -1212,19 +1610,19 @@ body.portal-reservations-page .portal-content {
 }
 
 .legend-dot.confirmed {
-  background: #33ba50;
+  background: #34c759;
 }
 
 .legend-dot.requested {
-  background: #ffc629;
+  background: #ff9f0a;
 }
 
 .legend-dot.declined {
-  background: #ff4338;
+  background: #ff453a;
 }
 
 .legend-dot.cancelled {
-  background: #62666c;
+  background: #8e8e93;
 }
 
 .reservation-timeline-card {
@@ -1423,28 +1821,28 @@ body.portal-reservations-page .portal-content {
 }
 
 .reservation-event.confirmed {
-  background: linear-gradient(180deg, rgba(42, 158, 58, 0.98), rgba(17, 111, 37, 0.96));
+  background: linear-gradient(180deg, rgba(52, 199, 89, 0.92), rgba(20, 112, 45, 0.96));
 }
 
 .reservation-event.requested {
-  background: linear-gradient(180deg, rgba(188, 145, 18, 0.98), rgba(132, 96, 4, 0.96));
+  background: linear-gradient(180deg, rgba(255, 159, 10, 0.92), rgba(140, 91, 5, 0.96));
 }
 
 .reservation-event.declined {
-  background: linear-gradient(180deg, rgba(226, 55, 44, 0.98), rgba(168, 35, 29, 0.96));
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.94), rgba(156, 36, 31, 0.96));
 }
 
 .reservation-event.cancelled {
-  border: 1px solid rgba(255, 67, 56, 0.8);
+  border: 1px solid rgba(142, 142, 147, 0.72);
   background:
     repeating-linear-gradient(
       135deg,
-      rgba(255, 95, 48, 0.22) 0,
-      rgba(255, 95, 48, 0.22) 12px,
+      rgba(142, 142, 147, 0.22) 0,
+      rgba(142, 142, 147, 0.22) 12px,
       transparent 12px,
       transparent 25px
     ),
-    linear-gradient(180deg, rgba(79, 79, 79, 0.9), rgba(42, 42, 42, 0.9));
+    linear-gradient(180deg, rgba(82, 86, 94, 0.9), rgba(42, 44, 49, 0.9));
 }
 
 .reservation-event:focus-visible {
@@ -1780,7 +2178,7 @@ body.portal-reservations-page .portal-content {
 }
 
 .reservation-progress circle.progress {
-  stroke: #2fb764;
+  stroke: #34c759;
   stroke-linecap: round;
   stroke-dasharray: 220;
   stroke-dashoffset: var(--reservation-progress-offset, 220);
@@ -1853,15 +2251,23 @@ body.portal-reservations-page .portal-content {
 }
 
 .reservation-mini-bar.green i {
-  background: #31c956;
+  background: #34c759;
 }
 
 .reservation-mini-bar.yellow i {
-  background: #ffc51e;
+  background: #a3c72e;
+}
+
+.reservation-mini-bar.orange i {
+  background: #ff9f0a;
+}
+
+.reservation-mini-bar.red i {
+  background: #ff453a;
 }
 
 .reservation-mini-bar.gray i {
-  background: #777a7f;
+  background: #8e8e93;
 }
 
 .reservation-legend-card {
@@ -1999,7 +2405,16 @@ body.portal-reservations-page .portal-content {
     padding: 18px 16px 34px;
   }
 
+  body.portal-menu86-page .portal-main-shell {
+    padding: 18px 16px 34px;
+  }
+
   .food-orders-shell {
+    width: 100%;
+    padding-top: 10px;
+  }
+
+  .menu86-shell {
     width: 100%;
     padding-top: 10px;
   }
