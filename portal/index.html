@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Tavra Portal | Operations Dashboard</title>
+    <meta
+      name="description"
+      content="Log in to the Tavra portal to view restaurant operations modules for your Tavra account."
+    >
+    <link rel="icon" type="image/png" href="../assets/Tavra05_glyph_black2.png">
+    <link rel="apple-touch-icon" href="../assets/Tavra05_glyph_black2.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="portal.css">
+  </head>
+  <body>
+    <main class="portal-root">
+      <section class="login-screen" data-login-screen aria-labelledby="login-title">
+        <a class="home-link" href="../" aria-label="Back to Tavra home">
+          <img src="../assets/Tavra05_glyph_white.png" alt="" width="42" height="42">
+          <span>Tavra</span>
+        </a>
+
+        <div class="login-card">
+          <div class="login-copy">
+            <p class="eyebrow">Restaurant control plane</p>
+            <h1 id="login-title">Log in to Tavra</h1>
+            <p>
+              View phone operations, team access, and restaurant workflows from the web portal.
+            </p>
+          </div>
+
+          <form class="login-form" data-login-form>
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" autocomplete="username" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input name="password" type="password" autocomplete="current-password" required>
+            </label>
+            <button class="portal-button primary" type="submit" data-login-submit>Log In</button>
+            <p class="form-status" data-login-status role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="portal-app" data-portal-app hidden>
+        <aside class="portal-sidebar" aria-label="Portal navigation">
+          <a class="sidebar-logo" href="../" aria-label="Back to Tavra home">
+            <img src="../assets/Tavra05_glyph_white.png" alt="" width="38" height="38">
+          </a>
+          <nav class="sidebar-nav">
+            <button type="button" data-section="onboarding">
+              <span aria-hidden="true">🍴</span>
+              <span>Onboarding</span>
+            </button>
+            <button type="button" data-section="configure">
+              <span aria-hidden="true">☷</span>
+              <span>Configure</span>
+            </button>
+            <button type="button" class="active" data-section="operations">
+              <span aria-hidden="true">☎</span>
+              <span>Operations</span>
+            </button>
+            <button type="button" data-section="reservations">
+              <span aria-hidden="true">▦</span>
+              <span>Reservations</span>
+            </button>
+            <button type="button" data-section="team">
+              <span aria-hidden="true">☻</span>
+              <span>Team</span>
+            </button>
+          </nav>
+          <button class="sidebar-settings" type="button" data-section="settings">
+            <span aria-hidden="true">⚙</span>
+            <span>Settings</span>
+          </button>
+        </aside>
+
+        <div class="portal-main-shell">
+          <header class="portal-header">
+            <div>
+              <p class="eyebrow blue" data-portal-kicker>Operations</p>
+              <h1 data-page-title>Operations</h1>
+              <p data-business-summary>Loading account access...</p>
+            </div>
+            <div class="account-actions">
+              <span class="role-chip" data-role-chip>Checking access</span>
+              <button class="portal-button ghost" type="button" data-logout>Log Out</button>
+            </div>
+          </header>
+
+          <section class="portal-content" data-portal-content aria-live="polite"></section>
+        </div>
+      </section>
+    </main>
+
+    <script src="portal.js" defer></script>
+  </body>
+</html>

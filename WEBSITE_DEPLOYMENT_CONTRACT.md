@@ -78,3 +78,11 @@ Public-site SEO changes must not break the live Tavra demo modal, phone entry, v
 ### 9. Static-site simplicity rule
 
 Do not add a heavy framework or build system unless explicitly requested. Keep GitHub Pages deployment simple.
+
+## Portal Contract
+
+The `/portal/` route is an authenticated Tavra account surface hosted as static GitHub Pages files. Static portal files must never contain Parse, payment, voice, telephony, POS, or other service secrets. Login and account verification must go through Tavra backend endpoints.
+
+Portal pages must honor `BusinessMembership` module permissions returned by the backend. The backend remains the source of truth for read/write enforcement; frontend permission displays are only UI hints and must not replace server-side checks.
+
+The portal should stay `noindex` unless explicitly approved for public indexing. Marketing/SEO changes must not expose authenticated portal URLs in the sitemap as public landing pages.
