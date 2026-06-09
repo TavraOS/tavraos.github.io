@@ -188,6 +188,14 @@ let portalState = {
   callLogDetails: new Map(),
   callLogDetailLoadingId: null,
   callLogDetailError: "",
+  voicemails: [],
+  voicemailsLoaded: false,
+  voicemailsLoading: false,
+  voicemailsError: "",
+  voicemailPlayingId: null,
+  voicemailLoadingAudioId: null,
+  voicemailAudio: null,
+  voicemailAudioUrl: null,
   menu86Outages: [],
   menu86MenuItems: [],
   menu86Loaded: false,
@@ -286,6 +294,36 @@ async function apiRequest(path, options = {}) {
     throw error;
   }
   return payload;
+}
+
+async function apiBlobRequest(path, options = {}) {
+  const headers = {
+    "Cache-Control": "no-cache",
+    ...(options.headers ?? {})
+  };
+  if (portalState.session?.sessionToken) {
+    headers.Authorization = `Bearer ${portalState.session.sessionToken}`;
+  }
+
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    ...options,
+    cache: "no-store",
+    headers
+  });
+  if (!response.ok) {
+    let message = "request_failed";
+    try {
+      const text = await response.text();
+      const payload = text ? JSON.parse(text) : {};
+      message = payload?.error || message;
+    } catch {
+      // Binary endpoints may not return JSON errors.
+    }
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+  return response.blob();
 }
 
 function parseReservationDateValue(value) {
@@ -869,6 +907,84 @@ async function loadPortalCallLogDetail(callLogId) {
   }
 }
 
+async function loadPortalVoicemails() {
+  if (portalState.voicemailsLoading) {
+    return;
+  }
+  portalState.voicemailsLoading = true;
+  portalState.voicemailsError = "";
+  renderVoicemailInbox();
+  try {
+    const payload = await apiRequest("/operations/voicemails?limit=50", { method: "GET" });
+    portalState.voicemails = Array.isArray(payload.voicemails) ? payload.voicemails : [];
+    portalState.voicemailsLoaded = true;
+  } catch (error) {
+    portalState.voicemailsError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.voicemailsLoading = false;
+    renderVoicemailInbox();
+  }
+}
+
+async function playOrStopPortalVoicemail(voicemailId) {
+  if (!voicemailId) {
+    return;
+  }
+  if (portalState.voicemailPlayingId === voicemailId) {
+    stopPortalVoicemail();
+    renderVoicemailInbox();
+    return;
+  }
+
+  stopPortalVoicemail();
+  portalState.voicemailLoadingAudioId = voicemailId;
+  portalState.voicemailsError = "";
+  renderVoicemailInbox();
+
+  try {
+    const blob = await apiBlobRequest(`/operations/voicemails/${encodeURIComponent(voicemailId)}/audio`, { method: "GET" });
+    const audioUrl = URL.createObjectURL(blob);
+    const audio = new Audio(audioUrl);
+    audio.addEventListener("ended", () => {
+      if (portalState.voicemailPlayingId === voicemailId) {
+        stopPortalVoicemail();
+        renderVoicemailInbox();
+      }
+    });
+    audio.addEventListener("error", () => {
+      if (portalState.voicemailPlayingId === voicemailId || portalState.voicemailLoadingAudioId === voicemailId) {
+        portalState.voicemailsError = "Playback failed.";
+        stopPortalVoicemail();
+        renderVoicemailInbox();
+      }
+    });
+    portalState.voicemailAudio = audio;
+    portalState.voicemailAudioUrl = audioUrl;
+    portalState.voicemailPlayingId = voicemailId;
+    portalState.voicemailLoadingAudioId = null;
+    renderVoicemailInbox();
+    await audio.play();
+  } catch (error) {
+    portalState.voicemailsError = `Playback failed: ${error instanceof Error ? error.message : String(error)}`;
+    stopPortalVoicemail();
+    renderVoicemailInbox();
+  }
+}
+
+function stopPortalVoicemail() {
+  if (portalState.voicemailAudio) {
+    portalState.voicemailAudio.pause();
+    portalState.voicemailAudio.currentTime = 0;
+  }
+  if (portalState.voicemailAudioUrl) {
+    URL.revokeObjectURL(portalState.voicemailAudioUrl);
+  }
+  portalState.voicemailAudio = null;
+  portalState.voicemailAudioUrl = null;
+  portalState.voicemailPlayingId = null;
+  portalState.voicemailLoadingAudioId = null;
+}
+
 async function loadPortalMenu86Board() {
   if (portalState.menu86Loading) {
     return;
@@ -1044,12 +1160,16 @@ function roleLabel(role) {
 }
 
 function setActiveSection(section) {
+  if (portalState.section === "voicemail" && section !== "voicemail") {
+    stopPortalVoicemail();
+  }
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
   document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
   document.body.classList.toggle("portal-call-logs-page", section === "callLogs");
+  document.body.classList.toggle("portal-voicemail-page", section === "voicemail");
   document.body.classList.toggle("portal-menu86-page", section === "menu86");
-  const sidebarSection = ["reservations", "foodOrders", "callLogs", "menu86"].includes(section) ? "operations" : section;
+  const sidebarSection = ["reservations", "foodOrders", "callLogs", "voicemail", "menu86"].includes(section) ? "operations" : section;
   sectionButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sidebarSection);
   });
@@ -1068,6 +1188,13 @@ function setActiveSection(section) {
     renderCallLogsInbox();
     if (!portalState.callLogsLoaded && !portalState.callLogsLoading) {
       void loadPortalCallLogs();
+    }
+    return;
+  }
+  if (section === "voicemail") {
+    renderVoicemailInbox();
+    if (!portalState.voicemailsLoaded && !portalState.voicemailsLoading) {
+      void loadPortalVoicemails();
     }
     return;
   }
@@ -1114,6 +1241,10 @@ function renderOperations() {
       }
       if (permission.read && moduleKey === "callLogs") {
         setActiveSection("callLogs");
+        return;
+      }
+      if (permission.read && moduleKey === "voicemail") {
+        setActiveSection("voicemail");
         return;
       }
       if (permission.read && moduleKey === "menu86") {
@@ -2444,6 +2575,98 @@ function callLogOrderItems(detail) {
   });
 }
 
+function renderVoicemailInbox() {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  pageTitle.textContent = "Voicemail";
+  pageKicker.textContent = "Operations";
+
+  const permission = modulePermission("voicemail");
+  if (!permission.read) {
+    portalContent.innerHTML = `
+      <section class="voicemail-page">
+        <div class="voicemail-shell">
+          <h1>Voicemail</h1>
+          <article class="voicemail-empty">This account does not currently have access to Voicemail.</article>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  portalContent.innerHTML = `
+    <section class="voicemail-page" aria-labelledby="voicemail-title">
+      <div class="voicemail-shell">
+        <div class="voicemail-top">
+          <h1 id="voicemail-title">Voicemail</h1>
+          <button class="voicemail-refresh" type="button" data-voicemail-refresh ${portalState.voicemailsLoading ? "disabled" : ""}>
+            <span aria-hidden="true">↻</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+        ${portalState.voicemailsError ? `<div class="voicemail-status error">${escapeHTML(portalState.voicemailsError)}</div>` : ""}
+        <div class="voicemail-list">
+          ${portalState.voicemailsLoading && !portalState.voicemailsLoaded ? `<article class="voicemail-empty">Loading voicemail...</article>` : ""}
+          ${sortedVoicemails().length
+            ? sortedVoicemails().map(renderVoicemailPreviewRow).join("")
+            : !portalState.voicemailsLoading ? `<article class="voicemail-empty">No voicemail yet.</article>` : ""
+          }
+        </div>
+      </div>
+    </section>
+  `;
+  wireVoicemailEvents();
+}
+
+function renderVoicemailPreviewRow(voicemail) {
+  const id = voicemailId(voicemail);
+  const isPlaying = portalState.voicemailPlayingId === id;
+  const isLoading = portalState.voicemailLoadingAudioId === id;
+  const recordedAt = voicemail.voicemailRecordedAt || voicemail.startedAt;
+  return `
+    <article class="voicemail-row">
+      <button class="voicemail-play" type="button" data-voicemail-play="${escapeHTML(id)}" aria-label="${isPlaying ? "Pause voicemail" : "Play voicemail"}">
+        <span aria-hidden="true">${isLoading ? "…" : isPlaying ? "⏸" : "▶"}</span>
+      </button>
+      <div class="voicemail-row-body">
+        <div class="voicemail-row-head">
+          <strong>${escapeHTML(voicemail.fromNumber ? formatNorthAmericanPhone(voicemail.fromNumber) : "Unknown caller")}</strong>
+          <span>${escapeHTML(relativePortalTime(recordedAt))}</span>
+        </div>
+        <p>${escapeHTML(voicemail.reason || "Voicemail")}</p>
+        <div class="voicemail-meta">
+          <span>〰 ${escapeHTML(durationText(voicemail.voicemailDurationSeconds))}</span>
+          ${voicemail.routeLabel ? `<span>↱ ${escapeHTML(voicemail.routeLabel)}</span>` : ""}
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+function wireVoicemailEvents() {
+  portalContent.querySelector("[data-voicemail-refresh]")?.addEventListener("click", () => {
+    void loadPortalVoicemails();
+  });
+  portalContent.querySelectorAll("[data-voicemail-play]").forEach((button) => {
+    button.addEventListener("click", () => {
+      void playOrStopPortalVoicemail(button.dataset.voicemailPlay || "");
+    });
+  });
+}
+
+function sortedVoicemails() {
+  return portalState.voicemails.slice().sort((left, right) => {
+    const leftDate = parsePortalDate(left.voicemailRecordedAt || left.startedAt || left.createdAt)?.getTime() || 0;
+    const rightDate = parsePortalDate(right.voicemailRecordedAt || right.startedAt || right.createdAt)?.getTime() || 0;
+    return rightDate - leftDate;
+  });
+}
+
+function voicemailId(voicemail) {
+  return String(voicemail?.objectId || voicemail?.id || "");
+}
+
 function money(cents) {
   return `$${(Number(cents) / 100).toFixed(2)}`;
 }
@@ -2715,12 +2938,12 @@ function wireMenu86Events() {
   portalContent.querySelector("[data-menu86-ingredient]")?.addEventListener("input", (event) => {
     portalState.menu86IngredientName = event.currentTarget.value;
     renderMenu86Board();
-    portalContent.querySelector("[data-menu86-ingredient]")?.focus();
+    focusMenu86TextInput("[data-menu86-ingredient]");
   });
   portalContent.querySelector("[data-menu86-menu-search]")?.addEventListener("input", (event) => {
     portalState.menu86MenuSearchText = event.currentTarget.value;
     renderMenu86Board();
-    portalContent.querySelector("[data-menu86-menu-search]")?.focus();
+    focusMenu86TextInput("[data-menu86-menu-search]");
   });
   portalContent.querySelectorAll("[data-menu86-menu-item]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2746,6 +2969,18 @@ function wireMenu86Events() {
     button.addEventListener("click", () => {
       void resolvePortalMenu86Outage(button.dataset.menu86Resolve || "");
     });
+  });
+}
+
+function focusMenu86TextInput(selector) {
+  requestAnimationFrame(() => {
+    const input = portalContent.querySelector(selector);
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    input.focus();
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
   });
 }
 
@@ -2858,10 +3093,12 @@ function showLogin() {
   if (!loginScreen || !portalApp) {
     return;
   }
+  stopPortalVoicemail();
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");
   document.body.classList.remove("portal-call-logs-page");
+  document.body.classList.remove("portal-voicemail-page");
   document.body.classList.remove("portal-menu86-page");
   portalState.session = null;
   portalState.membership = null;
