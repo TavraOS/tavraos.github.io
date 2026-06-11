@@ -1327,8 +1327,8 @@ async function populateVoiceSelect() {
 
     voiceRecords = voices;
     voiceSelect.replaceChildren(...voices.map(buildVoiceOption));
-    const fiona = voices.find((record) => record.friendlyName.trim().toLowerCase() === "fiona");
-    voiceSelect.value = fiona?.voiceId || voices[0]?.voiceId || "";
+    const leanne = voices.find((record) => record.friendlyName.trim().toLowerCase() === "leanne");
+    voiceSelect.value = leanne?.voiceId || voices[0]?.voiceId || "";
     voiceSelect.disabled = false;
     voiceLoadState = "ready";
     renderVoiceMenu();
