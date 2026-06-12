@@ -251,6 +251,7 @@ let portalState = {
   reservationDetailId: null,
   reservationDetailEditing: false,
   reservationDetailEditDateKey: null,
+  reservationDetailDraft: null,
   reservationDetailSaving: false,
   reservationDetailError: "",
   reservationNoteModal: null
@@ -1886,6 +1887,17 @@ function reservationTimeValueForForm(reservation) {
   return start ? minutesToInputTime(reservationMinutesOfDay(start)) : "";
 }
 
+function reservationEditDraftFromReservation(reservation) {
+  return {
+    guestName: reservation?.guestName || "",
+    callerPhoneNumber: reservationPhoneDisplay(reservation) === "Not captured" ? "" : reservationPhoneDisplay(reservation),
+    dateKey: reservationDateKeyForForm(reservation),
+    timeValue: reservationTimeValueForForm(reservation),
+    partySize: String(reservation?.partySize || 1),
+    notes: reservation?.notes || ""
+  };
+}
+
 function renderAddReservationModal(model) {
   if (!portalState.reservationFormOpen) {
     return "";
@@ -1953,8 +1965,9 @@ function renderReservationDetailModal() {
   }
   const canWrite = modulePermission("reservations").write;
   const isEditing = canWrite && portalState.reservationDetailEditing;
-  const editDateKey = portalState.reservationDetailEditDateKey || reservationDateKeyForForm(reservation);
-  const editTimeValue = reservationTimeValueForForm(reservation);
+  const draft = portalState.reservationDetailDraft || reservationEditDraftFromReservation(reservation);
+  const editDateKey = draft.dateKey || portalState.reservationDetailEditDateKey || reservationDateKeyForForm(reservation);
+  const editTimeValue = draft.timeValue || reservationTimeValueForForm(reservation);
   const editTimeOptions = reservationTimeOptionsForDate(editDateKey);
   return `
     <div class="reservation-modal-backdrop" role="presentation">
@@ -1970,11 +1983,11 @@ function renderReservationDetailModal() {
           <div class="reservation-form-grid">
             <label>
               <span>Reservation name</span>
-              <input name="guestName" type="text" autocomplete="name" value="${escapeHTML(reservation.guestName || "")}" required>
+              <input name="guestName" type="text" autocomplete="name" value="${escapeHTML(draft.guestName || "")}" data-reservation-edit-input required>
             </label>
             <label>
               <span>Callback phone</span>
-              <input name="callerPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" value="${escapeHTML(reservationPhoneDisplay(reservation) === "Not captured" ? "" : reservationPhoneDisplay(reservation))}" data-reservation-phone required>
+              <input name="callerPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" value="${escapeHTML(draft.callerPhoneNumber || "")}" data-reservation-phone data-reservation-edit-input required>
             </label>
             <label>
               <span>Date</span>
@@ -1982,7 +1995,7 @@ function renderReservationDetailModal() {
             </label>
             <label>
               <span>Time</span>
-              <select name="timeValue" required ${editTimeOptions.length ? "" : "disabled"}>
+              <select name="timeValue" data-reservation-edit-input required ${editTimeOptions.length ? "" : "disabled"}>
                 ${editTimeOptions.length
                   ? editTimeOptions.map((option) => `<option value="${escapeHTML(option.value)}" ${option.value === editTimeValue ? "selected" : ""}>${escapeHTML(option.label)}</option>`).join("")
                   : `<option value="">No bookable times</option>`}
@@ -1990,11 +2003,11 @@ function renderReservationDetailModal() {
             </label>
             <label>
               <span>Party size</span>
-              <input name="partySize" type="number" min="${reservationSettings().minPartySize}" max="${reservationSettings().maxPartySize}" value="${escapeHTML(reservation.partySize || 1)}" required>
+              <input name="partySize" type="number" min="${reservationSettings().minPartySize}" max="${reservationSettings().maxPartySize}" value="${escapeHTML(draft.partySize || 1)}" data-reservation-edit-input required>
             </label>
             <label class="wide">
               <span>Notes</span>
-              <textarea name="notes" rows="5" placeholder="Occasion, allergies, seating notes, special requests...">${escapeHTML(reservation.notes || "")}</textarea>
+              <textarea name="notes" rows="5" placeholder="Occasion, allergies, seating notes, special requests..." data-reservation-edit-input>${escapeHTML(draft.notes || "")}</textarea>
             </label>
           </div>
         ` : `
@@ -2064,6 +2077,18 @@ function replaceReservation(reservation) {
   } else {
     portalState.reservations.push(reservation);
   }
+}
+
+function updateReservationEditDraftFromForm(form) {
+  const formData = new FormData(form);
+  portalState.reservationDetailDraft = {
+    guestName: String(formData.get("guestName") || ""),
+    callerPhoneNumber: String(formData.get("callerPhoneNumber") || ""),
+    dateKey: String(formData.get("dateKey") || ""),
+    timeValue: String(formData.get("timeValue") || ""),
+    partySize: String(formData.get("partySize") || ""),
+    notes: String(formData.get("notes") || "")
+  };
 }
 
 async function createPortalReservation(form) {
@@ -2142,6 +2167,7 @@ async function updatePortalReservation(form) {
     portalState.reservationSelectedServiceKey = null;
     portalState.reservationDetailEditing = false;
     portalState.reservationDetailEditDateKey = null;
+    portalState.reservationDetailDraft = null;
   } catch (error) {
     portalState.reservationDetailError = error instanceof Error ? error.message : String(error);
   } finally {
@@ -2241,6 +2267,7 @@ function wireReservationBookEvents(model) {
       portalState.reservationDetailId = button.dataset.reservationDetail || null;
       portalState.reservationDetailEditing = false;
       portalState.reservationDetailEditDateKey = null;
+      portalState.reservationDetailDraft = null;
       portalState.reservationDetailError = "";
       renderReservationsBook();
     });
@@ -2254,11 +2281,38 @@ function wireReservationBookEvents(model) {
     renderReservationsBook();
   });
   portalContent.querySelector("[data-reservation-edit-date]")?.addEventListener("change", (event) => {
-    portalState.reservationDetailEditDateKey = event.currentTarget.value || dateKeyForToday();
+    const form = event.currentTarget.closest("form");
+    if (form) {
+      updateReservationEditDraftFromForm(form);
+    }
+    const dateKey = event.currentTarget.value || dateKeyForToday();
+    const timeOptions = reservationTimeOptionsForDate(dateKey);
+    portalState.reservationDetailEditDateKey = dateKey;
+    portalState.reservationDetailDraft = {
+      ...(portalState.reservationDetailDraft || {}),
+      dateKey,
+      timeValue: timeOptions.some((option) => option.value === portalState.reservationDetailDraft?.timeValue)
+        ? portalState.reservationDetailDraft.timeValue
+        : (timeOptions[0]?.value || "")
+    };
     renderReservationsBook();
   });
   portalContent.querySelector("[data-reservation-phone]")?.addEventListener("input", (event) => {
     event.currentTarget.value = formatNorthAmericanPhoneInput(event.currentTarget.value);
+  });
+  portalContent.querySelectorAll("[data-reservation-edit-input]").forEach((input) => {
+    input.addEventListener("input", (event) => {
+      const form = event.currentTarget.closest("form");
+      if (form) {
+        updateReservationEditDraftFromForm(form);
+      }
+    });
+    input.addEventListener("change", (event) => {
+      const form = event.currentTarget.closest("form");
+      if (form) {
+        updateReservationEditDraftFromForm(form);
+      }
+    });
   });
   portalContent.querySelector("[data-reservation-edit-form]")?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -2276,6 +2330,7 @@ function wireReservationBookEvents(model) {
       portalState.reservationDetailId = null;
       portalState.reservationDetailEditing = false;
       portalState.reservationDetailEditDateKey = null;
+      portalState.reservationDetailDraft = null;
       portalState.reservationDetailError = "";
       renderReservationsBook();
     });
@@ -2284,12 +2339,14 @@ function wireReservationBookEvents(model) {
     const reservation = portalState.reservationDetailId ? findReservationById(portalState.reservationDetailId) : null;
     portalState.reservationDetailEditing = true;
     portalState.reservationDetailEditDateKey = reservation ? reservationDateKeyForForm(reservation) : dateKeyForToday();
+    portalState.reservationDetailDraft = reservation ? reservationEditDraftFromReservation(reservation) : null;
     portalState.reservationDetailError = "";
     renderReservationsBook();
   });
   portalContent.querySelector("[data-reservation-edit-cancel]")?.addEventListener("click", () => {
     portalState.reservationDetailEditing = false;
     portalState.reservationDetailEditDateKey = null;
+    portalState.reservationDetailDraft = null;
     portalState.reservationDetailError = "";
     renderReservationsBook();
   });
