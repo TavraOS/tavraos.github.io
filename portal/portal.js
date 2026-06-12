@@ -249,6 +249,8 @@ let portalState = {
   reservationFormSaving: false,
   reservationFormError: "",
   reservationDetailId: null,
+  reservationDetailEditing: false,
+  reservationDetailEditDateKey: null,
   reservationDetailSaving: false,
   reservationDetailError: "",
   reservationNoteModal: null
@@ -1874,6 +1876,16 @@ function reservationPhoneDisplay(reservation) {
   return formatNorthAmericanPhone(value) || String(value || "").trim() || "Not captured";
 }
 
+function reservationDateKeyForForm(reservation) {
+  const start = reservationStartDate(reservation);
+  return start ? reservationDateKey(start) : dateKeyForToday();
+}
+
+function reservationTimeValueForForm(reservation) {
+  const start = reservationStartDate(reservation);
+  return start ? minutesToInputTime(reservationMinutesOfDay(start)) : "";
+}
+
 function renderAddReservationModal(model) {
   if (!portalState.reservationFormOpen) {
     return "";
@@ -1940,9 +1952,13 @@ function renderReservationDetailModal() {
     return "";
   }
   const canWrite = modulePermission("reservations").write;
+  const isEditing = canWrite && portalState.reservationDetailEditing;
+  const editDateKey = portalState.reservationDetailEditDateKey || reservationDateKeyForForm(reservation);
+  const editTimeValue = reservationTimeValueForForm(reservation);
+  const editTimeOptions = reservationTimeOptionsForDate(editDateKey);
   return `
     <div class="reservation-modal-backdrop" role="presentation">
-      <article class="reservation-modal reservation-detail-modal" aria-label="Reservation details">
+      <${isEditing ? "form" : "article"} class="reservation-modal reservation-detail-modal" ${isEditing ? "data-reservation-edit-form" : ""} aria-label="Reservation details">
         <div class="reservation-modal-head">
           <div>
             <p class="eyebrow blue">${escapeHTML(reservation.status || "requested")}</p>
@@ -1950,23 +1966,64 @@ function renderReservationDetailModal() {
           </div>
           <button type="button" class="reservation-modal-close" data-reservation-detail-close aria-label="Close">×</button>
         </div>
-        <div class="reservation-detail-grid">
-          <p><span>When</span><strong>${escapeHTML(formatReservationDateTime(reservation))}</strong></p>
-          <p><span>Party</span><strong>${escapeHTML(reservation.partySize || 1)} guests</strong></p>
-          <p><span>Phone</span><strong>${escapeHTML(reservationPhoneDisplay(reservation))}</strong></p>
-          <p><span>Source</span><strong>${escapeHTML(reservation.source || "Tavra")}</strong></p>
-        </div>
-        <div class="reservation-note-box">
-          <span>Reservation notes</span>
-          <p>${escapeHTML(reservationNotesText(reservation)).replaceAll("\n", "<br>")}</p>
-        </div>
+        ${isEditing ? `
+          <div class="reservation-form-grid">
+            <label>
+              <span>Reservation name</span>
+              <input name="guestName" type="text" autocomplete="name" value="${escapeHTML(reservation.guestName || "")}" required>
+            </label>
+            <label>
+              <span>Callback phone</span>
+              <input name="callerPhoneNumber" type="tel" inputmode="tel" autocomplete="tel" value="${escapeHTML(reservationPhoneDisplay(reservation) === "Not captured" ? "" : reservationPhoneDisplay(reservation))}" data-reservation-phone required>
+            </label>
+            <label>
+              <span>Date</span>
+              <input name="dateKey" type="date" value="${escapeHTML(editDateKey)}" data-reservation-edit-date required>
+            </label>
+            <label>
+              <span>Time</span>
+              <select name="timeValue" required ${editTimeOptions.length ? "" : "disabled"}>
+                ${editTimeOptions.length
+                  ? editTimeOptions.map((option) => `<option value="${escapeHTML(option.value)}" ${option.value === editTimeValue ? "selected" : ""}>${escapeHTML(option.label)}</option>`).join("")
+                  : `<option value="">No bookable times</option>`}
+              </select>
+            </label>
+            <label>
+              <span>Party size</span>
+              <input name="partySize" type="number" min="${reservationSettings().minPartySize}" max="${reservationSettings().maxPartySize}" value="${escapeHTML(reservation.partySize || 1)}" required>
+            </label>
+            <label class="wide">
+              <span>Notes</span>
+              <textarea name="notes" rows="5" placeholder="Occasion, allergies, seating notes, special requests...">${escapeHTML(reservation.notes || "")}</textarea>
+            </label>
+          </div>
+        ` : `
+          <div class="reservation-detail-grid">
+            <p><span>When</span><strong>${escapeHTML(formatReservationDateTime(reservation))}</strong></p>
+            <p><span>Party</span><strong>${escapeHTML(reservation.partySize || 1)} guests</strong></p>
+            <p><span>Phone</span><strong>${escapeHTML(reservationPhoneDisplay(reservation))}</strong></p>
+            <p><span>Source</span><strong>${escapeHTML(reservation.source || "Tavra")}</strong></p>
+          </div>
+          <div class="reservation-note-box">
+            <span>Reservation notes</span>
+            <p>${escapeHTML(reservationNotesText(reservation)).replaceAll("\n", "<br>")}</p>
+          </div>
+        `}
         ${portalState.reservationDetailError ? `<p class="reservation-modal-error">${escapeHTML(portalState.reservationDetailError)}</p>` : ""}
         <div class="reservation-modal-actions">
-          <button type="button" class="reservation-action dark" data-reservation-detail-close>Close</button>
-          <button type="button" class="reservation-action green" data-reservation-status="checked_in" ${canWrite && !portalState.reservationDetailSaving ? "" : "disabled"}>Check in</button>
-          <button type="button" class="reservation-action danger" data-reservation-status="no_show" ${canWrite && !portalState.reservationDetailSaving ? "" : "disabled"}>No-show</button>
+          ${isEditing ? `
+            <button type="button" class="reservation-action dark" data-reservation-edit-cancel>Cancel</button>
+            <button type="submit" class="reservation-action blue" ${portalState.reservationDetailSaving || !editTimeOptions.length ? "disabled" : ""}>
+              ${portalState.reservationDetailSaving ? "Saving..." : "Save changes"}
+            </button>
+          ` : `
+            <button type="button" class="reservation-action dark" data-reservation-detail-close>Close</button>
+            <button type="button" class="reservation-action blue" data-reservation-edit ${canWrite && !portalState.reservationDetailSaving ? "" : "disabled"}>Edit</button>
+            <button type="button" class="reservation-action green" data-reservation-status="checked_in" ${canWrite && !portalState.reservationDetailSaving ? "" : "disabled"}>Check in</button>
+            <button type="button" class="reservation-action danger" data-reservation-status="no_show" ${canWrite && !portalState.reservationDetailSaving ? "" : "disabled"}>No-show</button>
+          `}
         </div>
-      </article>
+      </${isEditing ? "form" : "article"}>
     </div>
   `;
 }
@@ -2046,6 +2103,49 @@ async function createPortalReservation(form) {
     portalState.reservationFormError = error instanceof Error ? error.message : String(error);
   } finally {
     portalState.reservationFormSaving = false;
+    renderReservationsBook();
+  }
+}
+
+async function updatePortalReservation(form) {
+  const reservationId = portalState.reservationDetailId;
+  if (!reservationId) {
+    return;
+  }
+  portalState.reservationDetailSaving = true;
+  portalState.reservationDetailError = "";
+  renderReservationsBook();
+  const formData = new FormData(form);
+  const guestName = String(formData.get("guestName") || "").trim();
+  const callerPhoneNumber = phoneForSubmit(formData.get("callerPhoneNumber"));
+  const dateKey = String(formData.get("dateKey") || "").trim();
+  const timeValue = String(formData.get("timeValue") || "").trim();
+  const partySize = Number(formData.get("partySize") || 0);
+  const notes = String(formData.get("notes") || "").trim();
+  try {
+    if (!guestName || !callerPhoneNumber || !dateKey || !timeValue || !Number.isInteger(partySize)) {
+      throw new Error("Fill in the reservation name, phone, date, time, and party size.");
+    }
+    const requestedAtIso = zonedDateTimeToUtc(dateKey, timeValue).toISOString();
+    const payload = await apiRequest(`/operations/reservations/${encodeURIComponent(reservationId)}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        guestName,
+        callerPhoneNumber,
+        requestedAtIso,
+        partySize,
+        notes
+      })
+    });
+    replaceReservation(payload.reservation);
+    portalState.reservationSelectedDateKey = dateKey;
+    portalState.reservationSelectedServiceKey = null;
+    portalState.reservationDetailEditing = false;
+    portalState.reservationDetailEditDateKey = null;
+  } catch (error) {
+    portalState.reservationDetailError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.reservationDetailSaving = false;
     renderReservationsBook();
   }
 }
@@ -2139,6 +2239,8 @@ function wireReservationBookEvents(model) {
   portalContent.querySelectorAll("[data-reservation-detail]").forEach((button) => {
     button.addEventListener("click", () => {
       portalState.reservationDetailId = button.dataset.reservationDetail || null;
+      portalState.reservationDetailEditing = false;
+      portalState.reservationDetailEditDateKey = null;
       portalState.reservationDetailError = "";
       renderReservationsBook();
     });
@@ -2151,8 +2253,16 @@ function wireReservationBookEvents(model) {
     portalState.reservationFormDateKey = event.currentTarget.value || dateKeyForToday();
     renderReservationsBook();
   });
+  portalContent.querySelector("[data-reservation-edit-date]")?.addEventListener("change", (event) => {
+    portalState.reservationDetailEditDateKey = event.currentTarget.value || dateKeyForToday();
+    renderReservationsBook();
+  });
   portalContent.querySelector("[data-reservation-phone]")?.addEventListener("input", (event) => {
     event.currentTarget.value = formatNorthAmericanPhoneInput(event.currentTarget.value);
+  });
+  portalContent.querySelector("[data-reservation-edit-form]")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void updatePortalReservation(event.currentTarget);
   });
   portalContent.querySelectorAll("[data-reservation-modal-close]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -2164,9 +2274,24 @@ function wireReservationBookEvents(model) {
   portalContent.querySelectorAll("[data-reservation-detail-close]").forEach((button) => {
     button.addEventListener("click", () => {
       portalState.reservationDetailId = null;
+      portalState.reservationDetailEditing = false;
+      portalState.reservationDetailEditDateKey = null;
       portalState.reservationDetailError = "";
       renderReservationsBook();
     });
+  });
+  portalContent.querySelector("[data-reservation-edit]")?.addEventListener("click", () => {
+    const reservation = portalState.reservationDetailId ? findReservationById(portalState.reservationDetailId) : null;
+    portalState.reservationDetailEditing = true;
+    portalState.reservationDetailEditDateKey = reservation ? reservationDateKeyForForm(reservation) : dateKeyForToday();
+    portalState.reservationDetailError = "";
+    renderReservationsBook();
+  });
+  portalContent.querySelector("[data-reservation-edit-cancel]")?.addEventListener("click", () => {
+    portalState.reservationDetailEditing = false;
+    portalState.reservationDetailEditDateKey = null;
+    portalState.reservationDetailError = "";
+    renderReservationsBook();
   });
   portalContent.querySelectorAll("[data-reservation-status]").forEach((button) => {
     button.addEventListener("click", () => {
