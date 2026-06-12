@@ -631,6 +631,10 @@ function reservationStatusClass(status) {
   }
 }
 
+function reservationRawStatusClass(status) {
+  return String(status || "requested").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-") || "requested";
+}
+
 function reservationStatusNote(reservation) {
   const status = reservation.status || "requested";
   if (status === "declined") {
@@ -649,6 +653,19 @@ function reservationStatusNote(reservation) {
     return "Completed";
   }
   return String(reservation.partySize || 1);
+}
+
+function reservationSlotPressureTone(percent) {
+  if (percent >= 100) {
+    return "full";
+  }
+  if (percent >= 80) {
+    return "heavy";
+  }
+  if (percent >= 50) {
+    return "steady";
+  }
+  return "light";
 }
 
 function chooseReservationDateKey(reservations) {
@@ -727,9 +744,27 @@ function buildReservationTimelineModel() {
     slotLabels.push(formatReservationTime(minute));
   }
 
+  const slotPressure = new Map();
+  timedReservations.forEach((item) => {
+    const reservation = item.reservation;
+    if (!reservationActiveStatuses.has(reservation.status || "requested")) {
+      return;
+    }
+    const slotIndex = Math.floor((item.startMinutes - startMinute) / settings.slotMinutes);
+    const current = slotPressure.get(slotIndex) || { covers: 0, parties: 0 };
+    current.covers += Number(reservation.partySize || 0);
+    current.parties += 1;
+    slotPressure.set(slotIndex, current);
+  });
+
   const lanes = [];
   const events = timedReservations.map((item) => {
     const start = (item.startMinutes - startMinute) / settings.slotMinutes;
+    const slotIndex = Math.floor(start);
+    const pressure = slotPressure.get(slotIndex) || { covers: 0, parties: 0 };
+    const coversPercent = settings.maxCoversPerSlot > 0 ? (pressure.covers / settings.maxCoversPerSlot) * 100 : 0;
+    const partiesPercent = settings.maxPartiesPerSlot > 0 ? (pressure.parties / settings.maxPartiesPerSlot) * 100 : 0;
+    const pressurePercent = Math.round(Math.max(coversPercent, partiesPercent));
     const span = Math.max(1.35, (item.endMinutes - item.startMinutes) / settings.slotMinutes);
     let row = lanes.findIndex((laneEnd) => laneEnd <= start);
     if (row === -1) {
@@ -745,7 +780,10 @@ function buildReservationTimelineModel() {
       name: reservation.guestName || "Unknown guest",
       party: Number(reservation.partySize || 1),
       status: className,
+      rawStatusClass: reservationRawStatusClass(reservation.status),
       rawStatus: reservation.status || "requested",
+      pressureTone: reservationSlotPressureTone(pressurePercent),
+      pressurePercent,
       reservation,
       start,
       span,
@@ -1647,7 +1685,7 @@ function renderReservationEvent(event) {
   return `
     <button
       type="button"
-      class="reservation-event ${escapeHTML(event.status)}"
+      class="reservation-event ${escapeHTML(event.status)} load-${escapeHTML(event.pressureTone)} state-${escapeHTML(event.rawStatusClass)}"
       style="--start: ${event.start}; --span: ${event.span}; --row: ${event.row}; --reservation-name-size: ${nameSize}px;"
       data-reservation-detail="${escapeHTML(event.id)}"
       aria-label="${escapeHTML(event.name)} ${escapeHTML(event.rawStatus)} reservation"
@@ -1816,6 +1854,10 @@ function formatNorthAmericanPhone(value) {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+function formatNorthAmericanPhoneInput(value) {
+  return formatNorthAmericanPhone(value);
+}
+
 function phoneForSubmit(value) {
   const digits = String(value || "").replace(/\D/g, "");
   if (digits.length === 10) {
@@ -1825,6 +1867,11 @@ function phoneForSubmit(value) {
     return `+${digits}`;
   }
   return String(value || "").trim();
+}
+
+function reservationPhoneDisplay(reservation) {
+  const value = reservation?.callbackNumber || reservation?.callerPhoneNumber || "";
+  return formatNorthAmericanPhone(value) || String(value || "").trim() || "Not captured";
 }
 
 function renderAddReservationModal(model) {
@@ -1906,7 +1953,7 @@ function renderReservationDetailModal() {
         <div class="reservation-detail-grid">
           <p><span>When</span><strong>${escapeHTML(formatReservationDateTime(reservation))}</strong></p>
           <p><span>Party</span><strong>${escapeHTML(reservation.partySize || 1)} guests</strong></p>
-          <p><span>Phone</span><strong>${escapeHTML(reservation.callbackNumber || reservation.callerPhoneNumber || "Not captured")}</strong></p>
+          <p><span>Phone</span><strong>${escapeHTML(reservationPhoneDisplay(reservation))}</strong></p>
           <p><span>Source</span><strong>${escapeHTML(reservation.source || "Tavra")}</strong></p>
         </div>
         <div class="reservation-note-box">
@@ -2105,7 +2152,7 @@ function wireReservationBookEvents(model) {
     renderReservationsBook();
   });
   portalContent.querySelector("[data-reservation-phone]")?.addEventListener("input", (event) => {
-    event.currentTarget.value = formatNorthAmericanPhone(event.currentTarget.value);
+    event.currentTarget.value = formatNorthAmericanPhoneInput(event.currentTarget.value);
   });
   portalContent.querySelectorAll("[data-reservation-modal-close]").forEach((button) => {
     button.addEventListener("click", () => {

@@ -2602,6 +2602,48 @@ body.portal-reservations-page .portal-content {
   background: linear-gradient(180deg, rgba(255, 69, 58, 0.94), rgba(156, 36, 31, 0.96));
 }
 
+.reservation-event.load-light {
+  background: linear-gradient(180deg, rgba(52, 199, 89, 0.94), rgba(12, 109, 41, 0.98));
+}
+
+.reservation-event.load-steady {
+  background: linear-gradient(180deg, rgba(255, 204, 0, 0.9), rgba(157, 112, 0, 0.96));
+}
+
+.reservation-event.load-heavy {
+  background: linear-gradient(180deg, rgba(255, 159, 10, 0.95), rgba(173, 91, 2, 0.98));
+}
+
+.reservation-event.load-full {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.96), rgba(150, 23, 28, 0.98));
+}
+
+.reservation-event.state-checked_in strong {
+  color: #c9e8ff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.38);
+}
+
+.reservation-event.state-checked_in span {
+  width: fit-content;
+  padding: 3px 7px;
+  color: #dff2ff;
+  background: rgba(0, 122, 255, 0.48);
+  border-radius: 999px;
+}
+
+.reservation-event.state-no_show strong {
+  color: #eadcff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.38);
+}
+
+.reservation-event.state-no_show span {
+  width: fit-content;
+  padding: 3px 7px;
+  color: #f1e7ff;
+  background: rgba(175, 82, 222, 0.48);
+  border-radius: 999px;
+}
+
 .reservation-event.cancelled {
   border: 1px solid rgba(142, 142, 147, 0.72);
   background:
