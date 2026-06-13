@@ -33,7 +33,7 @@ This website repository should remain static and safe to deploy through GitHub P
 
 ### 1. Truthfulness rule
 
-Public pages must not claim unsupported provider-specific integrations, live POS injection, customer metrics, marketplace availability, partner approval, or customer deployments unless verified by current code/config/docs and explicitly approved. Tavra may be described as taking to-go orders and supporting configured secure payment workflows where restaurant setup supports that workflow, but public copy must not claim every third-party payment/POS/reservation path is universally live.
+Public pages must not claim unsupported provider-specific integrations, live POS injection, customer metrics, marketplace availability, partner approval, or customer deployments unless verified by current code/config/docs and explicitly approved. Tavra may be described as taking to-go orders and supporting secure checkout, but public copy must not claim every third-party payment/POS/reservation path is universally live.
 
 ### 2. Crawlability rule
 
@@ -53,7 +53,7 @@ Use `available`, `active`, `integration-ready`, `planned`, `approval-dependent`,
 
 ### 5a. Order and payment positioning rule
 
-Do not describe Tavra as merely detecting that a caller might want food. Tavra public copy should say Tavra takes to-go orders, answers menu questions, handles modifiers and corrections, reads orders back, and supports configured secure payment workflows. Use setup-specific language for POS submission, payment availability, provider approvals, and marketplace status.
+Do not describe Tavra as merely detecting that a caller might want food. Tavra public copy should say Tavra takes to-go orders, answers menu questions, handles modifiers and corrections, reads orders back, and supports secure checkout. Avoid vague public phrasing such as “collects payment when configured.” Use setup-specific language for POS submission, payment availability, provider approvals, and marketplace status only when that level of detail is needed.
 
 ### 5b. Public FAQ authority rule
 

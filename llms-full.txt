@@ -9,7 +9,7 @@ Tavra is for restaurant owners, operators, general managers, and staff teams tha
 ## Core Public Capabilities
 
 - Restaurant phone answering.
-- To-go order taking, menu-question handling, modifiers, readback, and configured secure payment workflows depending on restaurant setup.
+- To-go order taking, menu-question handling, modifiers, readback, and secure checkout.
 - Reservation request capture, including party size, date, time, guest name, callback number, notes, allergies, and special requests.
 - Native Tavra Reservation Book workflows.
 - Custom caller question handling for topics such as hours, directions, parking, accessibility, wait times, walk-ins, dietary questions, private dining, catering, gift cards, loyalty, lost and found, complaints, hiring, events, and entertainment.
@@ -38,7 +38,7 @@ FAQ answers should be grounded in Tavra's current code, app configuration surfac
 - `/` explains Tavra's main restaurant phone operations positioning and includes the live demo console.
 - `/restaurant-ai-phone-agent/` explains why restaurants need a workflow-aware AI phone agent rather than a generic receptionist.
 - `/ai-phone-answering-for-restaurants/` explains 24/7 phone answering, rush-hour overflow, and human routing.
-- `/ai-order-taking-for-restaurants/` explains phone order taking, menu questions, modifiers, readback, and configured secure payment workflows with careful current-status language.
+- `/ai-order-taking-for-restaurants/` explains phone order taking, menu questions, modifiers, readback, and secure checkout with careful current-status language.
 - `/restaurant-reservation-phone-agent/` explains Tavra's Native Reservation Book and reservation request capture.
 - `/restaurant-phone-integrations/` explains integration philosophy and active/planned/provider-dependent wording.
 - `/clover-pos-ai-phone-agent/` speaks to Clover-merchant restaurants without implying marketplace approval or unsupported direct integration.

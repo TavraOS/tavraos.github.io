@@ -98,7 +98,7 @@ const workflowPreviewContent = {
     status: "Ordering workflow",
     rows: [
       ["Workflow", "To-go order"],
-      ["Payment", "Configured checkout"],
+      ["Payment", "Secure checkout"],
       ["Output", "Kitchen ticket"]
     ],
     title: "Demo menu",
