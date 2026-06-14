@@ -234,6 +234,7 @@ let portalState = {
   callLogsLoaded: false,
   callLogsLoading: false,
   callLogsError: "",
+  callLogsPollTimer: null,
   selectedCallLogId: null,
   callLogDetails: new Map(),
   callLogDetailLoadingId: null,
@@ -1000,6 +1001,26 @@ async function refreshPortalCallLogsFromLiveQuery() {
     }
   } catch {
     // Keep the current log visible; manual refresh remains the fallback.
+  }
+}
+
+function startPortalCallLogsPolling() {
+  if (portalState.callLogsPollTimer || portalState.section !== "callLogs") {
+    return;
+  }
+  portalState.callLogsPollTimer = window.setInterval(() => {
+    if (portalState.section !== "callLogs") {
+      stopPortalCallLogsPolling();
+      return;
+    }
+    void refreshPortalCallLogsFromLiveQuery();
+  }, 10000);
+}
+
+function stopPortalCallLogsPolling() {
+  if (portalState.callLogsPollTimer) {
+    window.clearInterval(portalState.callLogsPollTimer);
+    portalState.callLogsPollTimer = null;
   }
 }
 
@@ -1976,6 +1997,7 @@ function setActiveSection(section) {
   }
   if (portalState.section === "callLogs" && section !== "callLogs") {
     stopPortalCallLogsLiveQuery();
+    stopPortalCallLogsPolling();
   }
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
@@ -2003,6 +2025,7 @@ function setActiveSection(section) {
   }
   if (section === "callLogs") {
     renderCallLogsInbox();
+    startPortalCallLogsPolling();
     if (!portalState.callLogsLoaded && !portalState.callLogsLoading) {
       void loadPortalCallLogs();
     } else {
@@ -3427,18 +3450,19 @@ function renderCallLogPreview(call) {
   const id = callLogId(call);
   const selected = portalState.selectedCallLogId === id;
   const amount = Number.isFinite(Number(call.orderAmountCents)) ? money(Number(call.orderAmountCents)) : "";
+  const live = isFreshLiveCall(call);
   return `
-    <button class="call-log-row ${selected ? "selected" : ""} ${call.status === "in_progress" ? "live" : ""}" type="button" data-call-log-select="${escapeHTML(id)}">
+    <button class="call-log-row ${selected ? "selected" : ""} ${live ? "live" : ""}" type="button" data-call-log-select="${escapeHTML(id)}">
       <span class="call-log-row-main">
         <strong>
-          ${call.status === "in_progress" ? `<span class="call-log-live-dot" aria-hidden="true"></span>` : ""}
+          ${live ? `<span class="call-log-live-dot" aria-hidden="true"></span>` : ""}
           ${escapeHTML(call.reason || "General call")}
         </strong>
         <em>${escapeHTML(call.fromNumber ? formatNorthAmericanPhone(call.fromNumber) : "Unknown caller")}</em>
       </span>
       <span class="call-log-row-metrics">
         <span class="call-log-metric blue">◷ ${escapeHTML(durationText(call.durationSeconds))}</span>
-        <span class="call-log-metric ${call.status === "in_progress" ? "green" : "mint"}">☎ ${escapeHTML(statusText(call.status || "unknown"))}</span>
+        <span class="call-log-metric ${live ? "green" : "mint"}">☎ ${escapeHTML(statusText(call.status || "unknown"))}</span>
         ${call.hasOrder ? `<span class="call-log-metric orange">▣ Order${amount ? ` · ${escapeHTML(amount)}` : ""}</span>` : ""}
       </span>
       <span class="call-log-row-foot">
@@ -3474,6 +3498,7 @@ function renderCallLogDetail(callLogId, detail, summary) {
   const order = detail?.order || {};
   const callerPhone = detail?.callerPhone || order.callerPhone || callSummary.fromNumber;
   const orderItems = callLogOrderItems(detail);
+  const live = isFreshLiveCall(callSummary);
   return `
     <article class="call-log-detail-card">
       <div class="call-log-detail-head">
@@ -3487,7 +3512,7 @@ function renderCallLogDetail(callLogId, detail, summary) {
 
       ${portalState.callLogDetailError ? `<div class="call-log-status error">${escapeHTML(portalState.callLogDetailError)}</div>` : ""}
 
-      ${callSummary.status === "in_progress" ? `
+      ${live ? `
         <section class="call-log-live-banner">
           <span class="call-log-live-dot" aria-hidden="true"></span>
           <div>
@@ -3981,6 +4006,34 @@ function statusText(raw) {
     .join(" ");
 }
 
+function normalizeCallStatus(raw) {
+  const normalized = String(raw || "").trim().toLowerCase().replace(/\s+/g, "_");
+  return normalized === "in-progress" ? "in_progress" : normalized;
+}
+
+function parsePortalDateMs(value) {
+  if (!value) {
+    return NaN;
+  }
+  const timestamp = Date.parse(String(value));
+  return Number.isFinite(timestamp) ? timestamp : NaN;
+}
+
+function isFreshLiveCall(call) {
+  if (!call || normalizeCallStatus(call.status) !== "in_progress" || call.endedAt) {
+    return false;
+  }
+  const freshnessMs = Math.max(
+    parsePortalDateMs(call.transcriptUpdatedAt),
+    parsePortalDateMs(call.updatedAt),
+    parsePortalDateMs(call.startedAt)
+  );
+  if (!Number.isFinite(freshnessMs)) {
+    return false;
+  }
+  return Date.now() - freshnessMs <= 15 * 60 * 1000;
+}
+
 function renderMenu86Board() {
   if (!portalContent || !pageTitle || !pageKicker) {
     return;
@@ -4345,6 +4398,7 @@ function showLogin() {
   resetPortalFoodOrdersLiveQuery();
   resetPortalReservationsLiveQuery();
   resetPortalCallLogsLiveQuery();
+  stopPortalCallLogsPolling();
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");
