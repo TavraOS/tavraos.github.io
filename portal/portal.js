@@ -200,6 +200,16 @@ let portalState = {
   foodOrderFilter: "active",
   expandedFoodOrderIds: new Set(),
   foodOrderUpdatingId: null,
+  foodOrdersLiveQuery: {
+    config: null,
+    socket: null,
+    requestId: 1,
+    connecting: false,
+    connected: false,
+    reconnectTimer: null,
+    refreshTimer: null,
+    disabled: false
+  },
   callLogs: [],
   callLogsLoaded: false,
   callLogsLoading: false,
@@ -353,6 +363,203 @@ async function apiBlobRequest(path, options = {}) {
     throw error;
   }
   return response.blob();
+}
+
+function foodOrdersLiveQueryState() {
+  return portalState.foodOrdersLiveQuery;
+}
+
+function resetPortalFoodOrdersLiveQuery() {
+  const live = foodOrdersLiveQueryState();
+  if (live.reconnectTimer) {
+    window.clearTimeout(live.reconnectTimer);
+  }
+  if (live.refreshTimer) {
+    window.clearTimeout(live.refreshTimer);
+  }
+  if (live.socket) {
+    try {
+      live.socket.close(1000, "closing");
+    } catch {
+      // Socket cleanup is best-effort only.
+    }
+  }
+  live.config = null;
+  live.socket = null;
+  live.requestId = 1;
+  live.connecting = false;
+  live.connected = false;
+  live.reconnectTimer = null;
+  live.refreshTimer = null;
+  live.disabled = false;
+}
+
+function stopPortalFoodOrdersLiveQuery() {
+  const live = foodOrdersLiveQueryState();
+  if (live.reconnectTimer) {
+    window.clearTimeout(live.reconnectTimer);
+    live.reconnectTimer = null;
+  }
+  if (live.socket) {
+    try {
+      live.socket.close(1000, "leaving food orders");
+    } catch {
+      // Ignore browser-specific socket close failures.
+    }
+  }
+  live.socket = null;
+  live.connecting = false;
+  live.connected = false;
+}
+
+async function startPortalFoodOrdersLiveQuery() {
+  const live = foodOrdersLiveQueryState();
+  if (
+    live.disabled ||
+    live.socket ||
+    live.connecting ||
+    !portalState.session?.sessionToken ||
+    !modulePermission("foodOrders").read ||
+    typeof WebSocket === "undefined"
+  ) {
+    return;
+  }
+
+  live.connecting = true;
+  try {
+    if (!live.config) {
+      const payload = await apiRequest("/operations/live-query-config?className=FoodOrder", { method: "GET" });
+      live.config = payload.liveQuery || null;
+    }
+    if (!live.config?.enabled || !live.config?.url) {
+      live.disabled = true;
+      return;
+    }
+
+    const socket = new WebSocket(live.config.url);
+    live.socket = socket;
+    socket.addEventListener("open", () => {
+      const connectPayload = {
+        op: "connect",
+        applicationId: live.config.applicationId,
+        sessionToken: portalState.session?.sessionToken
+      };
+      if (live.config.javascriptKey) {
+        connectPayload.javascriptKey = live.config.javascriptKey;
+        connectPayload.clientKey = live.config.javascriptKey;
+      }
+      socket.send(JSON.stringify(connectPayload));
+    });
+    socket.addEventListener("message", (event) => {
+      handlePortalFoodOrdersLiveQueryMessage(event.data);
+    });
+    socket.addEventListener("close", () => {
+      const shouldReconnect = live.socket === socket && portalState.section === "foodOrders" && portalState.session?.sessionToken;
+      live.socket = null;
+      live.connected = false;
+      live.connecting = false;
+      if (shouldReconnect) {
+        schedulePortalFoodOrdersLiveQueryReconnect();
+      }
+    });
+    socket.addEventListener("error", () => {
+      try {
+        socket.close();
+      } catch {
+        // Close failures are harmless; the browser will fire close when possible.
+      }
+    });
+  } catch {
+    live.disabled = true;
+  } finally {
+    live.connecting = false;
+  }
+}
+
+function handlePortalFoodOrdersLiveQueryMessage(rawData) {
+  let payload;
+  try {
+    payload = JSON.parse(String(rawData));
+  } catch {
+    return;
+  }
+
+  if (payload?.op === "connected") {
+    const live = foodOrdersLiveQueryState();
+    live.connected = true;
+    subscribePortalFoodOrdersLiveQuery();
+    return;
+  }
+
+  if (["create", "update", "enter", "leave", "delete"].includes(payload?.op)) {
+    schedulePortalFoodOrdersLiveRefresh();
+  }
+
+  if (payload?.op === "error") {
+    schedulePortalFoodOrdersLiveQueryReconnect();
+  }
+}
+
+function subscribePortalFoodOrdersLiveQuery() {
+  const live = foodOrdersLiveQueryState();
+  if (!live.socket || !live.config?.businessId) {
+    return;
+  }
+  const subscribePayload = {
+    op: "subscribe",
+    requestId: live.requestId++,
+    query: {
+      className: live.config.className || "FoodOrder",
+      where: {
+        business: {
+          __type: "Pointer",
+          className: "Business",
+          objectId: live.config.businessId
+        }
+      }
+    }
+  };
+  live.socket.send(JSON.stringify(subscribePayload));
+}
+
+function schedulePortalFoodOrdersLiveQueryReconnect() {
+  const live = foodOrdersLiveQueryState();
+  if (live.reconnectTimer || live.disabled || portalState.section !== "foodOrders") {
+    return;
+  }
+  stopPortalFoodOrdersLiveQuery();
+  live.reconnectTimer = window.setTimeout(() => {
+    live.reconnectTimer = null;
+    void startPortalFoodOrdersLiveQuery();
+  }, 2000);
+}
+
+function schedulePortalFoodOrdersLiveRefresh() {
+  const live = foodOrdersLiveQueryState();
+  if (live.refreshTimer) {
+    window.clearTimeout(live.refreshTimer);
+  }
+  live.refreshTimer = window.setTimeout(() => {
+    live.refreshTimer = null;
+    void refreshPortalFoodOrdersFromLiveQuery();
+  }, 350);
+}
+
+async function refreshPortalFoodOrdersFromLiveQuery() {
+  if (!portalState.session?.sessionToken || portalState.foodOrdersLoading) {
+    return;
+  }
+  try {
+    const payload = await apiRequest("/operations/food-orders?limit=100", { method: "GET" });
+    portalState.foodOrders = Array.isArray(payload.orders) ? payload.orders : [];
+    portalState.foodOrdersLoaded = true;
+    portalState.foodOrdersError = "";
+    if (portalState.section === "foodOrders") {
+      renderFoodOrdersInbox();
+    }
+  } catch {
+    // Keep the current list visible; manual refresh remains the fallback.
+  }
 }
 
 function parseReservationDateValue(value) {
@@ -902,6 +1109,7 @@ async function loadPortalFoodOrders() {
     const payload = await apiRequest("/operations/food-orders?limit=100", { method: "GET" });
     portalState.foodOrders = Array.isArray(payload.orders) ? payload.orders : [];
     portalState.foodOrdersLoaded = true;
+    void startPortalFoodOrdersLiveQuery();
   } catch (error) {
     portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
   } finally {
@@ -1315,6 +1523,9 @@ function setActiveSection(section) {
   if (portalState.section === "voicemail" && section !== "voicemail") {
     stopPortalVoicemail();
   }
+  if (portalState.section === "foodOrders" && section !== "foodOrders") {
+    stopPortalFoodOrdersLiveQuery();
+  }
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
   document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
@@ -1334,6 +1545,8 @@ function setActiveSection(section) {
     renderFoodOrdersInbox();
     if (!portalState.foodOrdersLoaded && !portalState.foodOrdersLoading) {
       void loadPortalFoodOrders();
+    } else {
+      void startPortalFoodOrdersLiveQuery();
     }
     return;
   }
@@ -3661,6 +3874,7 @@ function showLogin() {
     return;
   }
   stopPortalVoicemail();
+  resetPortalFoodOrdersLiveQuery();
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");
