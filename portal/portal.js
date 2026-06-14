@@ -41,9 +41,9 @@ const operationModules = [
     key: "callLogs",
     label: "Call Logs",
     icon: "☎",
-    status: "Transcripts",
+    status: "Live transcripts",
     description:
-      "Call Logs will show completed calls, transcripts, workflow outcomes, caller details, and the records Tavra created during the conversation."
+      "Call Logs shows live and completed calls, transcripts, workflow outcomes, caller details, and the records Tavra created during the conversation."
   },
   {
     key: "voicemail",
@@ -211,6 +211,16 @@ let portalState = {
     disabled: false
   },
   reservationsLiveQuery: {
+    config: null,
+    socket: null,
+    requestId: 1,
+    connecting: false,
+    connected: false,
+    reconnectTimer: null,
+    refreshTimer: null,
+    disabled: false
+  },
+  callLogsLiveQuery: {
     config: null,
     socket: null,
     requestId: 1,
@@ -777,6 +787,219 @@ async function refreshPortalReservationsFromLiveQuery() {
     }
   } catch {
     // Keep the current book visible; manual refresh remains the fallback.
+  }
+}
+
+function callLogsLiveQueryState() {
+  return portalState.callLogsLiveQuery;
+}
+
+function resetPortalCallLogsLiveQuery() {
+  const live = callLogsLiveQueryState();
+  if (live.reconnectTimer) {
+    window.clearTimeout(live.reconnectTimer);
+  }
+  if (live.refreshTimer) {
+    window.clearTimeout(live.refreshTimer);
+  }
+  if (live.socket) {
+    try {
+      live.socket.close(1000, "closing");
+    } catch {
+      // Socket cleanup is best-effort only.
+    }
+  }
+  live.config = null;
+  live.socket = null;
+  live.requestId = 1;
+  live.connecting = false;
+  live.connected = false;
+  live.reconnectTimer = null;
+  live.refreshTimer = null;
+  live.disabled = false;
+}
+
+function stopPortalCallLogsLiveQuery() {
+  const live = callLogsLiveQueryState();
+  if (live.reconnectTimer) {
+    window.clearTimeout(live.reconnectTimer);
+    live.reconnectTimer = null;
+  }
+  if (live.socket) {
+    try {
+      live.socket.close(1000, "leaving call logs");
+    } catch {
+      // Ignore browser-specific socket close failures.
+    }
+  }
+  live.socket = null;
+  live.connecting = false;
+  live.connected = false;
+}
+
+async function startPortalCallLogsLiveQuery() {
+  const live = callLogsLiveQueryState();
+  if (
+    live.disabled ||
+    live.socket ||
+    live.connecting ||
+    !portalState.session?.sessionToken ||
+    !modulePermission("callLogs").read ||
+    typeof WebSocket === "undefined"
+  ) {
+    return;
+  }
+
+  live.connecting = true;
+  try {
+    if (!live.config) {
+      const payload = await apiRequest("/operations/live-query-config?className=CallLog", { method: "GET" });
+      live.config = payload.liveQuery || null;
+    }
+    if (!live.config?.enabled || !live.config?.url) {
+      live.disabled = true;
+      return;
+    }
+
+    const socket = new WebSocket(live.config.url);
+    live.socket = socket;
+    socket.addEventListener("open", () => {
+      const connectPayload = {
+        op: "connect",
+        applicationId: live.config.applicationId,
+        sessionToken: portalState.session?.sessionToken
+      };
+      if (live.config.javascriptKey) {
+        connectPayload.javascriptKey = live.config.javascriptKey;
+        connectPayload.clientKey = live.config.javascriptKey;
+      }
+      socket.send(JSON.stringify(connectPayload));
+    });
+    socket.addEventListener("message", (event) => {
+      handlePortalCallLogsLiveQueryMessage(event.data);
+    });
+    socket.addEventListener("close", () => {
+      const shouldReconnect = live.socket === socket && portalState.section === "callLogs" && portalState.session?.sessionToken;
+      live.socket = null;
+      live.connected = false;
+      live.connecting = false;
+      if (shouldReconnect) {
+        schedulePortalCallLogsLiveQueryReconnect();
+      }
+    });
+    socket.addEventListener("error", () => {
+      try {
+        socket.close();
+      } catch {
+        // Close failures are harmless; the browser will fire close when possible.
+      }
+    });
+  } catch {
+    live.disabled = true;
+  } finally {
+    live.connecting = false;
+  }
+}
+
+function handlePortalCallLogsLiveQueryMessage(rawData) {
+  let payload;
+  try {
+    payload = JSON.parse(String(rawData));
+  } catch {
+    return;
+  }
+
+  if (payload?.op === "connected") {
+    const live = callLogsLiveQueryState();
+    live.connected = true;
+    subscribePortalCallLogsLiveQuery();
+    return;
+  }
+
+  if (["create", "update", "enter", "leave", "delete"].includes(payload?.op)) {
+    schedulePortalCallLogsLiveRefresh();
+  }
+
+  if (payload?.op === "error") {
+    schedulePortalCallLogsLiveQueryReconnect();
+  }
+}
+
+function subscribePortalCallLogsLiveQuery() {
+  const live = callLogsLiveQueryState();
+  if (!live.socket || !live.config?.businessId) {
+    return;
+  }
+  const subscribePayload = {
+    op: "subscribe",
+    requestId: live.requestId++,
+    query: {
+      className: live.config.className || "CallLog",
+      where: {
+        $or: [
+          {
+            business: {
+              __type: "Pointer",
+              className: "Business",
+              objectId: live.config.businessId
+            }
+          },
+          { businessId: live.config.businessId }
+        ]
+      }
+    }
+  };
+  live.socket.send(JSON.stringify(subscribePayload));
+}
+
+function schedulePortalCallLogsLiveQueryReconnect() {
+  const live = callLogsLiveQueryState();
+  if (live.reconnectTimer || live.disabled || portalState.section !== "callLogs") {
+    return;
+  }
+  stopPortalCallLogsLiveQuery();
+  live.reconnectTimer = window.setTimeout(() => {
+    live.reconnectTimer = null;
+    void startPortalCallLogsLiveQuery();
+  }, 2000);
+}
+
+function schedulePortalCallLogsLiveRefresh() {
+  const live = callLogsLiveQueryState();
+  if (live.refreshTimer) {
+    window.clearTimeout(live.refreshTimer);
+  }
+  live.refreshTimer = window.setTimeout(() => {
+    live.refreshTimer = null;
+    void refreshPortalCallLogsFromLiveQuery();
+  }, 350);
+}
+
+async function refreshPortalCallLogsFromLiveQuery() {
+  if (!portalState.session?.sessionToken || portalState.callLogsLoading) {
+    return;
+  }
+  try {
+    const payload = await apiRequest("/operations/call-logs?limit=100", { method: "GET" });
+    portalState.callLogs = Array.isArray(payload.calls) ? payload.calls : [];
+    portalState.callLogsLoaded = true;
+    portalState.callLogsError = "";
+    const selectedId = portalState.selectedCallLogId;
+    if (selectedId) {
+      try {
+        const detailPayload = await apiRequest(`/operations/call-logs/${encodeURIComponent(selectedId)}`, { method: "GET" });
+        const detail = detailPayload.call || detailPayload;
+        portalState.callLogDetails.set(selectedId, detail);
+        portalState.callLogDetailError = "";
+      } catch (error) {
+        portalState.callLogDetailError = error instanceof Error ? error.message : String(error);
+      }
+    }
+    if (portalState.section === "callLogs") {
+      renderCallLogsInbox();
+    }
+  } catch {
+    // Keep the current log visible; manual refresh remains the fallback.
   }
 }
 
@@ -1374,6 +1597,9 @@ async function loadPortalCallLogs() {
     const payload = await apiRequest("/operations/call-logs?limit=100", { method: "GET" });
     portalState.callLogs = Array.isArray(payload.calls) ? payload.calls : [];
     portalState.callLogsLoaded = true;
+    if (portalState.section === "callLogs") {
+      void startPortalCallLogsLiveQuery();
+    }
   } catch (error) {
     portalState.callLogsError = error instanceof Error ? error.message : String(error);
   } finally {
@@ -1748,6 +1974,9 @@ function setActiveSection(section) {
   if (portalState.section === "reservations" && section !== "reservations") {
     stopPortalReservationsLiveQuery();
   }
+  if (portalState.section === "callLogs" && section !== "callLogs") {
+    stopPortalCallLogsLiveQuery();
+  }
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
   document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
@@ -1776,6 +2005,8 @@ function setActiveSection(section) {
     renderCallLogsInbox();
     if (!portalState.callLogsLoaded && !portalState.callLogsLoading) {
       void loadPortalCallLogs();
+    } else {
+      void startPortalCallLogsLiveQuery();
     }
     return;
   }
@@ -3161,7 +3392,7 @@ function renderCallLogsInbox() {
         <div class="call-logs-top">
           <div>
             <h1 id="call-logs-title">Call Logs</h1>
-            <p>Completed phone work, caller details, workflow outcomes, and full transcripts.</p>
+            <p>Live and completed phone work, caller details, workflow outcomes, and full transcripts.</p>
           </div>
           <button class="call-log-refresh" type="button" data-call-log-refresh ${portalState.callLogsLoading ? "disabled" : ""}>
             <span aria-hidden="true">↻</span>
@@ -3197,9 +3428,12 @@ function renderCallLogPreview(call) {
   const selected = portalState.selectedCallLogId === id;
   const amount = Number.isFinite(Number(call.orderAmountCents)) ? money(Number(call.orderAmountCents)) : "";
   return `
-    <button class="call-log-row ${selected ? "selected" : ""}" type="button" data-call-log-select="${escapeHTML(id)}">
+    <button class="call-log-row ${selected ? "selected" : ""} ${call.status === "in_progress" ? "live" : ""}" type="button" data-call-log-select="${escapeHTML(id)}">
       <span class="call-log-row-main">
-        <strong>${escapeHTML(call.reason || "General call")}</strong>
+        <strong>
+          ${call.status === "in_progress" ? `<span class="call-log-live-dot" aria-hidden="true"></span>` : ""}
+          ${escapeHTML(call.reason || "General call")}
+        </strong>
         <em>${escapeHTML(call.fromNumber ? formatNorthAmericanPhone(call.fromNumber) : "Unknown caller")}</em>
       </span>
       <span class="call-log-row-metrics">
@@ -3252,6 +3486,16 @@ function renderCallLogDetail(callLogId, detail, summary) {
       </div>
 
       ${portalState.callLogDetailError ? `<div class="call-log-status error">${escapeHTML(portalState.callLogDetailError)}</div>` : ""}
+
+      ${callSummary.status === "in_progress" ? `
+        <section class="call-log-live-banner">
+          <span class="call-log-live-dot" aria-hidden="true"></span>
+          <div>
+            <strong>Live call</strong>
+            <p>Transcript updates as Tavra captures each turn.</p>
+          </div>
+        </section>
+      ` : ""}
 
       <section class="call-log-section">
         <h3>Call</h3>
@@ -4100,6 +4344,7 @@ function showLogin() {
   stopPortalVoicemail();
   resetPortalFoodOrdersLiveQuery();
   resetPortalReservationsLiveQuery();
+  resetPortalCallLogsLiveQuery();
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");

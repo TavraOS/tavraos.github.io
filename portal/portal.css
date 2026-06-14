@@ -1102,12 +1102,20 @@ body.portal-call-logs-page .portal-content {
   box-shadow: 0 0 0 2px rgba(255, 108, 47, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
+.call-log-row.live {
+  border-color: rgba(52, 211, 108, 0.55);
+  box-shadow: 0 0 0 2px rgba(52, 211, 108, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
 .call-log-row-main {
   display: grid;
   gap: 3px;
 }
 
 .call-log-row-main strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   color: #fff;
   font-size: 18px;
   font-weight: 850;
@@ -1162,6 +1170,30 @@ body.portal-call-logs-page .portal-content {
   color: rgba(255, 255, 255, 0.45);
   font-size: 12px;
   font-weight: 760;
+}
+
+.call-log-live-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #34d36c;
+  box-shadow: 0 0 0 0 rgba(52, 211, 108, 0.55);
+  animation: callLogPulse 1.6s ease-out infinite;
+}
+
+@keyframes callLogPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 108, 0.55);
+  }
+
+  70% {
+    box-shadow: 0 0 0 9px rgba(52, 211, 108, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 108, 0);
+  }
 }
 
 .call-log-detail-panel {
@@ -1222,6 +1254,30 @@ body.portal-call-logs-page .portal-content {
 .call-log-section {
   display: grid;
   gap: 10px;
+}
+
+.call-log-live-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(52, 211, 108, 0.24);
+  border-radius: 18px;
+  background: rgba(52, 211, 108, 0.11);
+}
+
+.call-log-live-banner strong {
+  display: block;
+  color: #86f7ae;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.call-log-live-banner p {
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 13px;
+  font-weight: 720;
 }
 
 .call-log-section h3 {
