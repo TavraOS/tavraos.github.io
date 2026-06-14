@@ -210,6 +210,16 @@ let portalState = {
     refreshTimer: null,
     disabled: false
   },
+  reservationsLiveQuery: {
+    config: null,
+    socket: null,
+    requestId: 1,
+    connecting: false,
+    connected: false,
+    reconnectTimer: null,
+    refreshTimer: null,
+    disabled: false
+  },
   callLogs: [],
   callLogsLoaded: false,
   callLogsLoading: false,
@@ -511,11 +521,16 @@ function subscribePortalFoodOrdersLiveQuery() {
     query: {
       className: live.config.className || "FoodOrder",
       where: {
-        business: {
-          __type: "Pointer",
-          className: "Business",
-          objectId: live.config.businessId
-        }
+        $or: [
+          {
+            business: {
+              __type: "Pointer",
+              className: "Business",
+              objectId: live.config.businessId
+            }
+          },
+          { businessId: live.config.businessId }
+        ]
       }
     }
   };
@@ -559,6 +574,209 @@ async function refreshPortalFoodOrdersFromLiveQuery() {
     }
   } catch {
     // Keep the current list visible; manual refresh remains the fallback.
+  }
+}
+
+function reservationsLiveQueryState() {
+  return portalState.reservationsLiveQuery;
+}
+
+function resetPortalReservationsLiveQuery() {
+  const live = reservationsLiveQueryState();
+  if (live.reconnectTimer) {
+    window.clearTimeout(live.reconnectTimer);
+  }
+  if (live.refreshTimer) {
+    window.clearTimeout(live.refreshTimer);
+  }
+  if (live.socket) {
+    try {
+      live.socket.close(1000, "closing");
+    } catch {
+      // Socket cleanup is best-effort only.
+    }
+  }
+  live.config = null;
+  live.socket = null;
+  live.requestId = 1;
+  live.connecting = false;
+  live.connected = false;
+  live.reconnectTimer = null;
+  live.refreshTimer = null;
+  live.disabled = false;
+}
+
+function stopPortalReservationsLiveQuery() {
+  const live = reservationsLiveQueryState();
+  if (live.reconnectTimer) {
+    window.clearTimeout(live.reconnectTimer);
+    live.reconnectTimer = null;
+  }
+  if (live.socket) {
+    try {
+      live.socket.close(1000, "leaving reservations");
+    } catch {
+      // Ignore browser-specific socket close failures.
+    }
+  }
+  live.socket = null;
+  live.connecting = false;
+  live.connected = false;
+}
+
+async function startPortalReservationsLiveQuery() {
+  const live = reservationsLiveQueryState();
+  if (
+    live.disabled ||
+    live.socket ||
+    live.connecting ||
+    !portalState.session?.sessionToken ||
+    !modulePermission("reservations").read ||
+    typeof WebSocket === "undefined"
+  ) {
+    return;
+  }
+
+  live.connecting = true;
+  try {
+    if (!live.config) {
+      const payload = await apiRequest("/operations/live-query-config?className=TavraReservation", { method: "GET" });
+      live.config = payload.liveQuery || null;
+    }
+    if (!live.config?.enabled || !live.config?.url) {
+      live.disabled = true;
+      return;
+    }
+
+    const socket = new WebSocket(live.config.url);
+    live.socket = socket;
+    socket.addEventListener("open", () => {
+      const connectPayload = {
+        op: "connect",
+        applicationId: live.config.applicationId,
+        sessionToken: portalState.session?.sessionToken
+      };
+      if (live.config.javascriptKey) {
+        connectPayload.javascriptKey = live.config.javascriptKey;
+        connectPayload.clientKey = live.config.javascriptKey;
+      }
+      socket.send(JSON.stringify(connectPayload));
+    });
+    socket.addEventListener("message", (event) => {
+      handlePortalReservationsLiveQueryMessage(event.data);
+    });
+    socket.addEventListener("close", () => {
+      const shouldReconnect = live.socket === socket && portalState.section === "reservations" && portalState.session?.sessionToken;
+      live.socket = null;
+      live.connected = false;
+      live.connecting = false;
+      if (shouldReconnect) {
+        schedulePortalReservationsLiveQueryReconnect();
+      }
+    });
+    socket.addEventListener("error", () => {
+      try {
+        socket.close();
+      } catch {
+        // Close failures are harmless; the browser will fire close when possible.
+      }
+    });
+  } catch {
+    live.disabled = true;
+  } finally {
+    live.connecting = false;
+  }
+}
+
+function handlePortalReservationsLiveQueryMessage(rawData) {
+  let payload;
+  try {
+    payload = JSON.parse(String(rawData));
+  } catch {
+    return;
+  }
+
+  if (payload?.op === "connected") {
+    const live = reservationsLiveQueryState();
+    live.connected = true;
+    subscribePortalReservationsLiveQuery();
+    return;
+  }
+
+  if (["create", "update", "enter", "leave", "delete"].includes(payload?.op)) {
+    schedulePortalReservationsLiveRefresh();
+  }
+
+  if (payload?.op === "error") {
+    schedulePortalReservationsLiveQueryReconnect();
+  }
+}
+
+function subscribePortalReservationsLiveQuery() {
+  const live = reservationsLiveQueryState();
+  if (!live.socket || !live.config?.businessId) {
+    return;
+  }
+  const subscribePayload = {
+    op: "subscribe",
+    requestId: live.requestId++,
+    query: {
+      className: live.config.className || "TavraReservation",
+      where: {
+        $or: [
+          {
+            business: {
+              __type: "Pointer",
+              className: "Business",
+              objectId: live.config.businessId
+            }
+          },
+          { businessId: live.config.businessId }
+        ]
+      }
+    }
+  };
+  live.socket.send(JSON.stringify(subscribePayload));
+}
+
+function schedulePortalReservationsLiveQueryReconnect() {
+  const live = reservationsLiveQueryState();
+  if (live.reconnectTimer || live.disabled || portalState.section !== "reservations") {
+    return;
+  }
+  stopPortalReservationsLiveQuery();
+  live.reconnectTimer = window.setTimeout(() => {
+    live.reconnectTimer = null;
+    void startPortalReservationsLiveQuery();
+  }, 2000);
+}
+
+function schedulePortalReservationsLiveRefresh() {
+  const live = reservationsLiveQueryState();
+  if (live.refreshTimer) {
+    window.clearTimeout(live.refreshTimer);
+  }
+  live.refreshTimer = window.setTimeout(() => {
+    live.refreshTimer = null;
+    void refreshPortalReservationsFromLiveQuery();
+  }, 350);
+}
+
+async function refreshPortalReservationsFromLiveQuery() {
+  if (!portalState.session?.sessionToken || portalState.reservationsLoading) {
+    return;
+  }
+  try {
+    const payload = await apiRequest("/operations/reservations?limit=200", { method: "GET" });
+    portalState.reservations = Array.isArray(payload.reservations) ? payload.reservations : [];
+    portalState.reservationConfig = payload.reservationConfig || portalState.reservationConfig;
+    portalState.reservationsLoaded = true;
+    portalState.reservationLoadError = "";
+    if (portalState.section === "reservations") {
+      renderReservationsBook();
+    }
+  } catch {
+    // Keep the current book visible; manual refresh remains the fallback.
   }
 }
 
@@ -1090,6 +1308,7 @@ async function loadPortalReservations() {
     if (!portalState.reservationCalendarMonthKey) {
       portalState.reservationCalendarMonthKey = portalState.reservationSelectedDateKey.slice(0, 7);
     }
+    void startPortalReservationsLiveQuery();
   } catch (error) {
     portalState.reservationLoadError = error instanceof Error ? error.message : String(error);
   } finally {
@@ -1526,6 +1745,9 @@ function setActiveSection(section) {
   if (portalState.section === "foodOrders" && section !== "foodOrders") {
     stopPortalFoodOrdersLiveQuery();
   }
+  if (portalState.section === "reservations" && section !== "reservations") {
+    stopPortalReservationsLiveQuery();
+  }
   portalState.section = section;
   document.body.classList.toggle("portal-reservations-page", section === "reservations");
   document.body.classList.toggle("portal-food-orders-page", section === "foodOrders");
@@ -1582,6 +1804,8 @@ function setActiveSection(section) {
     renderReservationsBook();
     if (!portalState.reservationsLoaded && !portalState.reservationsLoading) {
       void loadPortalReservations();
+    } else {
+      void startPortalReservationsLiveQuery();
     }
     return;
   }
@@ -3875,6 +4099,7 @@ function showLogin() {
   }
   stopPortalVoicemail();
   resetPortalFoodOrdersLiveQuery();
+  resetPortalReservationsLiveQuery();
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");
