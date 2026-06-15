@@ -285,7 +285,7 @@ let portalState = {
   reservationDetailDraft: null,
   reservationDetailSaving: false,
   reservationDetailError: "",
-  reservationNoteModal: null
+  reservationCheckInPrompt: null
 };
 
 function escapeHTML(value) {
@@ -1460,7 +1460,8 @@ function buildReservationTimelineModel() {
       start,
       span,
       row,
-      note: reservationStatusNote(reservation)
+      note: reservationStatusNote(reservation),
+      flags: reservationArrivalFlags(reservation)
     };
   });
 
@@ -2291,7 +2292,7 @@ function renderReservationsBook() {
       </div>
       ${renderAddReservationModal(model)}
       ${renderReservationDetailModal(model)}
-      ${renderReservationNoteModal()}
+      ${renderReservationCheckInModal()}
     </section>
   `;
   wireReservationBookEvents(model);
@@ -2376,10 +2377,13 @@ function renderReservationLegendItem(status, label) {
 
 function renderReservationEvent(event) {
   const nameSize = reservationNameFontSize(event.name);
+  const flags = Array.isArray(event.flags) && event.flags.length
+    ? `<em class="reservation-event-flags">${event.flags.slice(0, 3).map((flag) => `<b>${escapeHTML(flag)}</b>`).join("")}</em>`
+    : "";
   return `
     <button
       type="button"
-      class="reservation-event ${escapeHTML(event.status)} load-${escapeHTML(event.pressureTone)} state-${escapeHTML(event.rawStatusClass)}"
+      class="reservation-event ${escapeHTML(event.status)} load-${escapeHTML(event.pressureTone)} state-${escapeHTML(event.rawStatusClass)} ${flags ? "has-arrival-notes" : ""}"
       style="--start: ${event.start}; --span: ${event.span}; --row: ${event.row}; --reservation-name-size: ${nameSize}px;"
       data-reservation-detail="${escapeHTML(event.id)}"
       aria-label="${escapeHTML(event.name)} ${escapeHTML(event.rawStatus)} reservation"
@@ -2389,6 +2393,7 @@ function renderReservationEvent(event) {
         <i aria-hidden="true">♟</i>
         ${escapeHTML(event.note)}
       </span>
+      ${flags}
     </button>
   `;
 }
@@ -2519,14 +2524,36 @@ function formatReservationDateTime(reservation) {
   return `${formatReservationDateHeading(dateKey)} at ${formatReservationTime(reservationMinutesOfDay(start))}`;
 }
 
+function reservationArrivalNoteEntries(reservation) {
+  return [
+    reservation.allergies ? `Allergy: ${reservation.allergies}` : "",
+    reservation.highChairRequest ? "Setup: High chair requested" : "",
+    reservation.boosterSeatRequest ? "Setup: Booster seat requested" : "",
+    reservation.specialRequests ? `Seating: ${reservation.specialRequests}` : "",
+    reservation.occasion ? `Occasion: ${reservation.occasion}` : "",
+    reservation.notes ? `Notes: ${reservation.notes}` : ""
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+}
+
+function reservationArrivalNotesText(reservation) {
+  return reservationArrivalNoteEntries(reservation).join("\n");
+}
+
+function reservationArrivalFlags(reservation) {
+  return [
+    reservation.allergies ? "Allergy" : "",
+    reservation.highChairRequest || reservation.boosterSeatRequest ? "Setup" : "",
+    reservation.specialRequests ? "Seating" : "",
+    reservation.occasion ? "Occasion" : "",
+    reservation.notes ? "Notes" : ""
+  ].filter(Boolean);
+}
+
 function reservationNotesText(reservation) {
   const notes = [
-    reservation.notes,
-    reservation.specialRequests ? `Special requests: ${reservation.specialRequests}` : "",
-    reservation.allergies ? `Allergies: ${reservation.allergies}` : "",
-    reservation.occasion ? `Occasion: ${reservation.occasion}` : "",
-    reservation.highChairRequest ? "High chair requested." : "",
-    reservation.boosterSeatRequest ? "Booster seat requested." : "",
+    ...reservationArrivalNoteEntries(reservation),
     reservation.internalStaffNote ? `Staff note: ${reservation.internalStaffNote}` : ""
   ]
     .map((value) => String(value || "").trim())
@@ -2709,7 +2736,7 @@ function renderReservationDetailModal() {
             <p><span>Source</span><strong>${escapeHTML(reservation.source || "Tavra")}</strong></p>
           </div>
           <div class="reservation-note-box">
-            <span>Reservation notes</span>
+            <span>Arrival notes</span>
             <p>${escapeHTML(reservationNotesText(reservation)).replaceAll("\n", "<br>")}</p>
           </div>
         `}
@@ -2732,26 +2759,30 @@ function renderReservationDetailModal() {
   `;
 }
 
-function renderReservationNoteModal() {
-  if (!portalState.reservationNoteModal) {
+function renderReservationCheckInModal() {
+  if (!portalState.reservationCheckInPrompt) {
     return "";
   }
+  const prompt = portalState.reservationCheckInPrompt;
   return `
     <div class="reservation-modal-backdrop" role="presentation">
-      <article class="reservation-modal reservation-note-modal" aria-label="Reservation notes">
+      <article class="reservation-modal reservation-note-modal" aria-label="Arrival notes">
         <div class="reservation-modal-head">
           <div>
-            <p class="eyebrow blue">Checked in</p>
-            <h2>${escapeHTML(portalState.reservationNoteModal.guestName)}</h2>
+            <p class="eyebrow blue">Arrival notes</p>
+            <h2>${escapeHTML(prompt.guestName)}</h2>
           </div>
-          <button type="button" class="reservation-modal-close" data-reservation-note-close aria-label="Close">×</button>
+          <button type="button" class="reservation-modal-close" data-reservation-checkin-cancel aria-label="Close">×</button>
         </div>
-        <div class="reservation-note-box large">
-          <span>Surface these notes for the host stand</span>
-          <p>${escapeHTML(portalState.reservationNoteModal.notes).replaceAll("\n", "<br>")}</p>
+        <div class="reservation-note-box large arrival">
+          <span>Review before check-in</span>
+          <p>${escapeHTML(prompt.notes).replaceAll("\n", "<br>")}</p>
         </div>
         <div class="reservation-modal-actions">
-          <button type="button" class="reservation-action blue" data-reservation-note-close>Done</button>
+          <button type="button" class="reservation-action dark" data-reservation-checkin-cancel>Cancel</button>
+          <button type="button" class="reservation-action green" data-reservation-checkin-confirm ${portalState.reservationDetailSaving ? "disabled" : ""}>
+            ${portalState.reservationDetailSaving ? "Checking in..." : "Check in"}
+          </button>
         </div>
       </article>
     </div>
@@ -2867,9 +2898,21 @@ async function updatePortalReservation(form) {
   }
 }
 
-async function updatePortalReservationStatus(status) {
+async function updatePortalReservationStatus(status, options = {}) {
   const reservationId = portalState.reservationDetailId;
   if (!reservationId) {
+    return;
+  }
+  const reservation = findReservationById(reservationId);
+  const arrivalNotes = reservation ? reservationArrivalNotesText(reservation) : "";
+  if (status === "checked_in" && arrivalNotes && !options.skipArrivalPrompt) {
+    portalState.reservationCheckInPrompt = {
+      reservationId,
+      guestName: reservation?.guestName || "Guest",
+      notes: arrivalNotes
+    };
+    portalState.reservationDetailError = "";
+    renderReservationsBook();
     return;
   }
   portalState.reservationDetailSaving = true;
@@ -2881,12 +2924,7 @@ async function updatePortalReservationStatus(status) {
       body: JSON.stringify({ status })
     });
     replaceReservation(payload.reservation);
-    if (status === "checked_in") {
-      portalState.reservationNoteModal = {
-        guestName: payload.reservation?.guestName || "Guest",
-        notes: reservationNotesText(payload.reservation || {})
-      };
-    }
+    portalState.reservationCheckInPrompt = null;
     portalState.reservationDetailId = null;
   } catch (error) {
     portalState.reservationDetailError = error instanceof Error ? error.message : String(error);
@@ -3046,11 +3084,20 @@ function wireReservationBookEvents(model) {
       void updatePortalReservationStatus(button.dataset.reservationStatus || "requested");
     });
   });
-  portalContent.querySelectorAll("[data-reservation-note-close]").forEach((button) => {
+  portalContent.querySelectorAll("[data-reservation-checkin-cancel]").forEach((button) => {
     button.addEventListener("click", () => {
-      portalState.reservationNoteModal = null;
+      portalState.reservationCheckInPrompt = null;
+      portalState.reservationDetailError = "";
       renderReservationsBook();
     });
+  });
+  portalContent.querySelector("[data-reservation-checkin-confirm]")?.addEventListener("click", () => {
+    const prompt = portalState.reservationCheckInPrompt;
+    if (!prompt?.reservationId) {
+      return;
+    }
+    portalState.reservationDetailId = prompt.reservationId;
+    void updatePortalReservationStatus("checked_in", { skipArrivalPrompt: true });
   });
 }
 
