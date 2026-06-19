@@ -1823,6 +1823,39 @@ textarea {
   max-height: 245px;
 }
 
+.operation-transcript p {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.78rem;
+  line-height: 1.32;
+}
+
+.operation-transcript p:last-child {
+  border-bottom: 0;
+}
+
+.operation-transcript span {
+  line-height: 1.15;
+}
+
+.operation-detail-link {
+  justify-self: start;
+  border: 2px solid rgba(44, 168, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(44, 168, 255, 0.12);
+  color: #9ed7ff;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 900;
+  padding: 9px 12px;
+  text-decoration: none;
+}
+
 .operations-tabbar {
   justify-self: center;
   width: min(100%, 300px);

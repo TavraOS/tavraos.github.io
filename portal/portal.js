@@ -1973,7 +1973,14 @@ function renderShell() {
       ? `${roleLabel(role)} · active`
       : "No active access";
   }
-  setActiveSection(portalState.section);
+  setActiveSection(requestedPortalSection() || portalState.section);
+}
+
+function requestedPortalSection() {
+  const section = new URLSearchParams(window.location.search).get("section") || window.location.hash.replace(/^#/, "");
+  return ["operations", "reservations", "foodOrders", "callLogs", "voicemail", "waitList", "menu86"].includes(section)
+    ? section
+    : null;
 }
 
 function roleLabel(role) {

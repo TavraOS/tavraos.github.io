@@ -692,9 +692,11 @@ function operationState() {
   const order = firstObject(operations.order, operations.foodOrder, operations.latestOrder, state.order, state.foodOrder, state.latestOrder);
   const reservation = firstObject(
     operations.reservation,
+    operations.reservationBook,
     operations.latestReservation,
     state.reservation,
-    state.latestReservation
+    state.latestReservation,
+    state.reservationBook
   );
   const callLog = firstObject(operations.callLog, operations.latestCallLog, state.callLog, state.latestCallLog);
   const voicemail = firstObject(operations.voicemail, state.voicemail);
@@ -713,8 +715,12 @@ function hasReservationRecord(reservation) {
     reservation?.submitted ||
     reservation?.id ||
     reservation?.objectId ||
+    reservation?.reservationId ||
     reservation?.guestName ||
-    reservation?.partySize
+    reservation?.partySize ||
+    reservation?.requestedAtIso ||
+    reservation?.requestedDate ||
+    reservation?.requestedTime
   );
 }
 
@@ -809,23 +815,36 @@ function renderOrderOperationDetail(order) {
 }
 
 function renderReservationOperationDetail(reservation) {
+  const guestName = reservation?.guestName || reservation?.name || [reservation?.firstName, reservation?.lastName].filter(Boolean).join(" ");
+  const dateValue = reservation?.requestedDateIso || reservation?.requestedDate || reservation?.dateIso || reservation?.date;
+  const timeValue = reservation?.requestedTime || reservation?.time;
+  const notes = [
+    reservation?.notes,
+    reservation?.allergies ? `Allergies: ${reservation.allergies}` : "",
+    reservation?.specialRequests,
+    reservation?.occasion ? `Occasion: ${reservation.occasion}` : "",
+    reservation?.highChairRequest ? "High chair" : "",
+    reservation?.boosterSeatRequest ? "Booster seat" : ""
+  ].filter(Boolean).join(" · ");
+  const created = hasReservationRecord(reservation);
   return `
     <div class="operation-detail-card">
       <div class="operation-detail-heading">
         <p class="note-title">Reservation record</p>
-        <span>${reservation?.submitted ? "Created by call" : "No reservation yet"}</span>
+        <span>${created ? "Created by call" : "No reservation yet"}</span>
       </div>
       <ul class="live-state-list reservation-card">
         ${renderStateRows([
           ["Party", reservation?.partySize ? `${reservation.partySize} guests` : "Waiting"],
-          ["Date", formatReservationDate(reservation?.requestedDateIso || reservation?.dateIso || reservation?.date)],
-          ["Time", formatReservationTime(reservation?.requestedTime || reservation?.time)],
-          ["Guest", reservation?.guestName || [reservation?.firstName, reservation?.lastName].filter(Boolean).join(" ") || "Waiting"],
+          ["Date", formatReservationDate(dateValue)],
+          ["Time", formatReservationTime(timeValue)],
+          ["Guest", guestName || "Waiting"],
           ["Phone", reservation?.callerPhoneNumber || reservation?.phoneNumber ? "Captured" : "Waiting"],
-          ["Notes", reservation?.notes || reservation?.specialRequests || "None"],
-          ["Status", reservation?.status || (reservation?.submitted ? "Submitted" : "Waiting")]
+          ["Notes", notes || "None"],
+          ["Status", reservation?.status || (created ? "Submitted" : "Waiting")]
         ])}
       </ul>
+      <a class="operation-detail-link" href="portal/?section=reservations" target="_blank" rel="noopener">Open reservation book</a>
     </div>
   `;
 }
@@ -882,7 +901,7 @@ function renderOperationDetail() {
 
 function renderOperationsPanel() {
   const badges = operationBadges();
-  const selectableEmptyTiles = new Set(["callLogs", "menu86", "voicemail", "waitList"]);
+  const selectableEmptyTiles = new Set(["callLogs", "reservations", "menu86", "voicemail", "waitList"]);
   if (!badges[activeOperationsTile] && !selectableEmptyTiles.has(activeOperationsTile)) {
     activeOperationsTile = badges.foodOrders ? "foodOrders" : badges.reservations ? "reservations" : "callLogs";
   }
