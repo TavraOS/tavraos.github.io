@@ -265,6 +265,12 @@ let portalState = {
   adminProfileDraft: null,
   adminBusinessHoursDraft: null,
   adminMenuVisibilityDraft: null,
+  adminOnboardingOpenModules: {
+    restaurantProfile: true,
+    businessHours: true,
+    menuKnowledge: false,
+    status: true
+  },
   adminMenuKnowledgeOpen: false,
   adminMenuOpenCategories: new Set(),
   adminMenuOpenItems: new Set(),
@@ -4675,6 +4681,53 @@ function pruneAdminMenuDisclosureState(settings) {
   );
 }
 
+function defaultOnboardingOpenModules() {
+  return {
+    restaurantProfile: true,
+    businessHours: true,
+    menuKnowledge: false,
+    status: true
+  };
+}
+
+function setOnboardingModuleOpen(moduleKey, isOpen) {
+  portalState.adminOnboardingOpenModules = {
+    ...defaultOnboardingOpenModules(),
+    ...(portalState.adminOnboardingOpenModules || {}),
+    [moduleKey]: isOpen === true
+  };
+  if (moduleKey === "menuKnowledge") {
+    portalState.adminMenuKnowledgeOpen = isOpen === true;
+  }
+}
+
+function isOnboardingModuleOpen(moduleKey) {
+  const modules = {
+    ...defaultOnboardingOpenModules(),
+    ...(portalState.adminOnboardingOpenModules || {})
+  };
+  return modules[moduleKey] === true;
+}
+
+function syncAdminOnboardingModuleStateFromDom() {
+  const next = {
+    ...defaultOnboardingOpenModules(),
+    ...(portalState.adminOnboardingOpenModules || {})
+  };
+  portalContent?.querySelectorAll("[data-admin-onboarding-module]").forEach((details) => {
+    if (!(details instanceof HTMLDetailsElement)) {
+      return;
+    }
+    const moduleKey = details.dataset.adminOnboardingModule || "";
+    if (!moduleKey) {
+      return;
+    }
+    next[moduleKey] = details.open;
+  });
+  portalState.adminOnboardingOpenModules = next;
+  portalState.adminMenuKnowledgeOpen = next.menuKnowledge === true;
+}
+
 function syncAdminMenuDisclosureStateFromDom() {
   const menuDetails = portalContent?.querySelector("[data-admin-menu-knowledge-details]");
   if (menuDetails instanceof HTMLDetailsElement) {
@@ -4793,6 +4846,7 @@ async function savePortalAdminBusinessHours() {
 async function savePortalAdminMenuVisibility() {
   syncAdminProfileDraftFromDom();
   syncAdminBusinessHoursDraftFromDom();
+  syncAdminOnboardingModuleStateFromDom();
   syncAdminMenuDisclosureStateFromDom();
   ensureAdminDrafts();
   const menuItems = currentAdminMenuItems()
@@ -4907,7 +4961,9 @@ function removeBusinessHourWindow(dayIndex, windowIndex) {
 function updateMenuVisibilityDraft(itemIds, hiddenFromAgent) {
   syncAdminProfileDraftFromDom();
   syncAdminBusinessHoursDraftFromDom();
+  syncAdminOnboardingModuleStateFromDom();
   syncAdminMenuDisclosureStateFromDom();
+  setOnboardingModuleOpen("menuKnowledge", true);
   ensureAdminDrafts();
   const draft = {
     ...(portalState.adminMenuVisibilityDraft || {})
@@ -4993,10 +5049,22 @@ function wireOnboardingAdminEvents() {
   portalContent?.querySelector("[data-admin-menu-save]")?.addEventListener("click", () => {
     void savePortalAdminMenuVisibility();
   });
+  portalContent?.querySelectorAll("[data-admin-onboarding-module]").forEach((details) => {
+    details.addEventListener("toggle", (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLDetailsElement) || event.target !== target) {
+        return;
+      }
+      const moduleKey = target.dataset.adminOnboardingModule || "";
+      if (moduleKey) {
+        setOnboardingModuleOpen(moduleKey, target.open);
+      }
+    });
+  });
   portalContent?.querySelector("[data-admin-menu-knowledge-details]")?.addEventListener("toggle", (event) => {
     const details = event.currentTarget;
     if (details instanceof HTMLDetailsElement && event.target === details) {
-      portalState.adminMenuKnowledgeOpen = details.open;
+      setOnboardingModuleOpen("menuKnowledge", details.open);
     }
   });
   portalContent?.querySelectorAll("[data-admin-menu-category-details]").forEach((details) => {
@@ -5123,7 +5191,8 @@ function renderOnboardingAdmin() {
       ${renderIosModule({
         title: "Status",
         icon: "checkmark.circle",
-        open: true,
+        open: isOnboardingModuleOpen("status"),
+        detailsAttributes: `data-admin-onboarding-module="status"`,
         content: `
           <p class="ios-status-text ok">Loaded restaurant settings from Parse.</p>
           ${menuItems.length ? `<p class="ios-footnote">Menu items: ${menuItems.length}, Upsell candidates: ${upsellItems.length}</p>` : ""}
@@ -5400,7 +5469,8 @@ function renderRestaurantProfileModule() {
   return renderIosModule({
     title: "Restaurant Profile",
     icon: "fork.knife",
-    open: true,
+    open: isOnboardingModuleOpen("restaurantProfile"),
+    detailsAttributes: `data-admin-onboarding-module="restaurantProfile"`,
     content: `
       <form data-admin-profile-form>
         ${renderEditableInputRow("Restaurant Name", "name", draft.name || "", { required: true })}
@@ -5424,7 +5494,8 @@ function renderBusinessHoursModule() {
   return renderIosModule({
     title: "Business Hours",
     icon: "clock",
-    open: true,
+    open: isOnboardingModuleOpen("businessHours"),
+    detailsAttributes: `data-admin-onboarding-module="businessHours"`,
     content: `
       <form data-admin-hours-form>
         <p class="ios-footnote">Synced from the POS when available. If the POS does not provide hours, configure them here so Tavra knows when the restaurant is open.</p>
@@ -5492,9 +5563,9 @@ function renderMenuKnowledgeModule(menuItems) {
   return renderIosModule({
     title: "Menu Knowledge",
     icon: "list.bullet.rectangle",
-    open: portalState.adminMenuKnowledgeOpen,
+    open: isOnboardingModuleOpen("menuKnowledge"),
     meta: `${menuItems.length} items`,
-    detailsAttributes: "data-admin-menu-knowledge-details",
+    detailsAttributes: `data-admin-onboarding-module="menuKnowledge" data-admin-menu-knowledge-details`,
     content: `
       <p class="ios-footnote">Provider-synced menus keep prices and item IDs in sync. Hide items or categories here to keep them out of the agent without changing the POS.</p>
       ${adminSaveStatusMarkup("menuKnowledge")}
@@ -6045,6 +6116,7 @@ function showLogin() {
   portalState.adminProfileDraft = null;
   portalState.adminBusinessHoursDraft = null;
   portalState.adminMenuVisibilityDraft = null;
+  portalState.adminOnboardingOpenModules = defaultOnboardingOpenModules();
   portalState.adminMenuKnowledgeOpen = false;
   portalState.adminMenuOpenCategories = new Set();
   portalState.adminMenuOpenItems = new Set();
