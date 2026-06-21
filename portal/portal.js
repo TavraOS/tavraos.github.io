@@ -5241,22 +5241,6 @@ function cleanModifierOptionDisplayNames(optionDisplayNames) {
   return cleaned;
 }
 
-function refreshModifierAskBehaviorPreview(select) {
-  const askBehavior = normalizedModifierAskBehavior(select.value);
-  const editor = select.closest(".menu-modifier-editor");
-  if (!editor) {
-    return;
-  }
-  const help = editor.querySelector("[data-admin-modifier-help]");
-  if (help) {
-    help.textContent = modifierDefaultHandlingHelpText(askBehavior);
-  }
-  const askExample = editor.querySelector("[data-admin-modifier-ask-example]");
-  if (askExample instanceof HTMLElement) {
-    askExample.hidden = askBehavior === "apply_default_silently";
-  }
-}
-
 function addBusinessHourWindow(dayIndex) {
   syncAdminBusinessHoursDraftFromDom();
   const draft = portalState.adminBusinessHoursDraft;
@@ -5393,7 +5377,9 @@ function wireOnboardingAdminEvents() {
       syncMenuKnowledgeAndClearStatus();
       const target = event.target;
       if (target instanceof HTMLSelectElement && target.dataset.adminModifierField === "askBehavior") {
-        refreshModifierAskBehaviorPreview(target);
+        syncAdminOnboardingModuleStateFromDom();
+        syncAdminMenuDisclosureStateFromDom();
+        renderOnboardingAdmin();
       }
     });
   }
@@ -6060,13 +6046,14 @@ function renderModifierPresentationEditor(item, group, itemName) {
   const optionsSummary = modifierOptionsSummary(effectiveGroup);
   const sampleOption = modifierSampleOption(effectiveGroup);
   const askBehavior = modifierAskBehavior(effectiveGroup);
+  const shouldShowAskExample = modifierShouldAskForPreview(item, effectiveGroup);
   const questionExample = renderModifierTemplate(
     presentation.questionTemplate,
     itemName,
     displayGroupName,
-    sampleOption,
+    modifierQuestionTemplateOptionName(item, effectiveGroup),
     optionsSummary,
-    `Do you want ${itemName} with ${optionsSummary}?`
+    `What kind of ${displayGroupName.toLowerCase()} would you like, ${optionsSummary}?`
   );
   const confirmationExample = renderModifierTemplate(
     presentation.confirmationTemplate,
@@ -6138,7 +6125,7 @@ function renderModifierPresentationEditor(item, group, itemName) {
 
       <div class="menu-modifier-examples">
         <h5>What the caller will hear</h5>
-        ${renderModifierExampleLine("Agent will ask", questionExample, "ask", "data-admin-modifier-ask-example", askBehavior === "apply_default_silently")}
+        ${renderModifierExampleLine("Agent will ask", questionExample, "ask", "data-admin-modifier-ask-example", !shouldShowAskExample)}
         ${renderModifierExampleLine("Agent will confirm", confirmationExample, "confirm")}
         ${renderModifierExampleLine("Agent will read back", readbackExample, "readback")}
       </div>
@@ -6147,7 +6134,7 @@ function renderModifierPresentationEditor(item, group, itemName) {
         <summary>Custom wording (optional)</summary>
         <div>
           <p class="menu-modifier-muted">Only fill these in if you want to override the automatic wording.</p>
-          ${renderModifierCustomValue("Custom question the agent asks", presentation.questionTemplate, itemId, groupId, "questionTemplate", "Do you want {item} with {options}?")}
+          ${renderModifierCustomValue("Custom question the agent asks", presentation.questionTemplate, itemId, groupId, "questionTemplate", "What kind of {group} would you like, {options}?")}
           ${renderModifierCustomValue("Custom confirmation after selection", presentation.confirmationTemplate, itemId, groupId, "confirmationTemplate", "Got it. {item} with {option}.")}
           ${renderModifierCustomValue("Custom wording when reading the order back", presentation.readbackTemplate, itemId, groupId, "readbackTemplate", "{item} with {option}")}
           <p class="menu-modifier-hint">You can use: {item}, {group}, {option}, {options}.</p>
@@ -6243,9 +6230,71 @@ function modifierDefaultHandlingHelpText(askBehavior) {
   return "The agent will use the Clover default unless the caller asks for something different.";
 }
 
+function modifierShouldAskForPreview(item, group) {
+  const askBehavior = modifierAskBehavior(group);
+  if (askBehavior === "always_ask") {
+    return true;
+  }
+  const hasDefaultSelection = modifierHasDefaultSelection(item, group);
+  if (askBehavior === "ask_if_no_default") {
+    return !hasDefaultSelection;
+  }
+  return Number(group?.minRequired || group?.minSelections || 0) > 0 && !hasDefaultSelection;
+}
+
+function modifierHasDefaultSelection(item, group) {
+  if (isIngredientModifierGroup(group)) {
+    return defaultIngredientModifierOptions(item, group).length > 0;
+  }
+  return Boolean(defaultModifierOption(group));
+}
+
+function defaultModifierOption(group) {
+  const options = Array.isArray(group?.options) ? group.options : [];
+  const defaultId = typeof group?.defaultOptionId === "string" ? group.defaultOptionId : "";
+  return (defaultId ? options.find((option) => option.id === defaultId) : null) ||
+    options.find((option) => option.isDefault === true || option.defaultSelected === true) ||
+    null;
+}
+
+function defaultIngredientModifierOptions(item, group) {
+  if (!isIngredientModifierGroup(group)) {
+    return [];
+  }
+  const description = descriptionWithoutDietaryContains(item?.description || "");
+  const normalizedDescription = normalizedMenuKnowledgeText(description);
+  if (!normalizedDescription) {
+    return [];
+  }
+  return (Array.isArray(group?.options) ? group.options : []).filter((option) =>
+    modifierAliasesForPreview(group, option).some((alias) =>
+      containsNormalizedMenuKnowledgePhrase(normalizedDescription, normalizedMenuKnowledgeText(alias))
+    )
+  );
+}
+
+function modifierQuestionTemplateOptionName(item, group) {
+  if (modifierAskBehavior(group) === "always_ask" && isIngredientModifierGroup(group)) {
+    const defaultIngredientOption = defaultIngredientModifierOptions(item, group)[0] || null;
+    if (defaultIngredientOption) {
+      return modifierOptionDisplayName(group, defaultIngredientOption);
+    }
+  }
+  return "";
+}
+
+function isIngredientModifierGroup(group) {
+  const values = [
+    normalizedMenuKnowledgeText(group?.kind || ""),
+    normalizedMenuKnowledgeText(group?.name || ""),
+    normalizedMenuKnowledgeText(modifierGroupDisplayName(group))
+  ];
+  return values.some((value) => ["toppings", "sauces", "sides"].includes(value));
+}
+
 function modifierGroupDisplayName(group) {
   const displayName = typeof group?.presentation?.displayName === "string" ? group.presentation.displayName.trim() : "";
-  return displayName || group?.name || "Modifier group";
+  return displayName || fallbackModifierGroupName(group?.name || "Modifier group");
 }
 
 function modifierOptionDisplayName(group, option) {
@@ -6257,9 +6306,7 @@ function modifierOptionDisplayName(group, option) {
 
 function modifierSampleOption(group) {
   const options = Array.isArray(group?.options) ? group.options : [];
-  const defaultId = typeof group?.defaultOptionId === "string" ? group.defaultOptionId : "";
-  const defaultOption = defaultId ? options.find((option) => option.id === defaultId) : null;
-  return modifierOptionDisplayName(group, defaultOption || options[0] || null);
+  return modifierOptionDisplayName(group, defaultModifierOption(group) || options[0] || null);
 }
 
 function modifierOptionsSummary(group) {
@@ -6267,7 +6314,7 @@ function modifierOptionsSummary(group) {
   if (!options.length) {
     return "the available options";
   }
-  return options.map((option) => modifierOptionDisplayName(group, option)).join(" or ");
+  return joinChoicePhrases(options.map((option) => modifierOptionDisplayName(group, option)));
 }
 
 function renderModifierTemplate(template, itemName, groupName, optionName, optionsSummary, fallback) {
@@ -6277,6 +6324,65 @@ function renderModifierTemplate(template, itemName, groupName, optionName, optio
     .replaceAll("{group}", groupName)
     .replaceAll("{option}", optionName)
     .replaceAll("{options}", optionsSummary);
+}
+
+function joinChoicePhrases(items) {
+  if (items.length <= 1) {
+    return items[0] || "";
+  }
+  if (items.length === 2) {
+    return `${items[0]} or ${items[1]}`;
+  }
+  return `${items.slice(0, -1).join(", ")}, or ${items[items.length - 1]}`;
+}
+
+function fallbackModifierGroupName(groupName) {
+  const trimmed = String(groupName || "").trim();
+  if (!trimmed) {
+    return groupName || "";
+  }
+  return trimmed
+    .replace(/\s*-\s*.+?\s+default$/i, "")
+    .replace(/\s*-\s*default$/i, "")
+    .replace(/\s+default$/i, "")
+    .trim() || trimmed;
+}
+
+function modifierAliasesForPreview(group, option) {
+  const aliases = [
+    option?.name || "",
+    modifierOptionDisplayName(group, option),
+    ...(Array.isArray(option?.aliases) ? option.aliases : [])
+  ];
+  const seen = new Set();
+  return aliases
+    .map((alias) => String(alias || "").trim())
+    .filter(Boolean)
+    .filter((alias) => {
+      const key = normalizedMenuKnowledgeText(alias);
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
+
+function descriptionWithoutDietaryContains(value) {
+  return String(value || "").replace(/<<\s*contains\s*:[^>]*>>/gi, "");
+}
+
+function normalizedMenuKnowledgeText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function containsNormalizedMenuKnowledgePhrase(haystack, phrase) {
+  return Boolean(haystack && phrase && ` ${haystack} `.includes(` ${phrase} `));
 }
 
 function renderTeamAccessModule() {
