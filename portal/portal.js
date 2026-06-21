@@ -4675,6 +4675,37 @@ function pruneAdminMenuDisclosureState(settings) {
   );
 }
 
+function syncAdminMenuDisclosureStateFromDom() {
+  const menuDetails = portalContent?.querySelector("[data-admin-menu-knowledge-details]");
+  if (menuDetails instanceof HTMLDetailsElement) {
+    portalState.adminMenuKnowledgeOpen = menuDetails.open;
+  }
+
+  const openCategories = new Set();
+  portalContent?.querySelectorAll("[data-admin-menu-category-details]").forEach((details) => {
+    if (!(details instanceof HTMLDetailsElement) || !details.open) {
+      return;
+    }
+    const categoryTitle = details.dataset.adminMenuCategoryDetails || "";
+    if (categoryTitle) {
+      openCategories.add(categoryTitle);
+    }
+  });
+  portalState.adminMenuOpenCategories = openCategories;
+
+  const openItems = new Set();
+  portalContent?.querySelectorAll("[data-admin-menu-item-details]").forEach((details) => {
+    if (!(details instanceof HTMLDetailsElement) || !details.open) {
+      return;
+    }
+    const itemId = details.dataset.adminMenuItemDetails || "";
+    if (itemId) {
+      openItems.add(itemId);
+    }
+  });
+  portalState.adminMenuOpenItems = openItems;
+}
+
 function normalizedAdminTime(value) {
   const text = String(value || "");
   const match = text.match(/^(\d{1,2}):(\d{2})$/);
@@ -4762,6 +4793,7 @@ async function savePortalAdminBusinessHours() {
 async function savePortalAdminMenuVisibility() {
   syncAdminProfileDraftFromDom();
   syncAdminBusinessHoursDraftFromDom();
+  syncAdminMenuDisclosureStateFromDom();
   ensureAdminDrafts();
   const menuItems = currentAdminMenuItems()
     .filter((item) => typeof item?.id === "string" && item.id.trim())
@@ -4875,6 +4907,7 @@ function removeBusinessHourWindow(dayIndex, windowIndex) {
 function updateMenuVisibilityDraft(itemIds, hiddenFromAgent) {
   syncAdminProfileDraftFromDom();
   syncAdminBusinessHoursDraftFromDom();
+  syncAdminMenuDisclosureStateFromDom();
   ensureAdminDrafts();
   const draft = {
     ...(portalState.adminMenuVisibilityDraft || {})
@@ -4962,14 +4995,14 @@ function wireOnboardingAdminEvents() {
   });
   portalContent?.querySelector("[data-admin-menu-knowledge-details]")?.addEventListener("toggle", (event) => {
     const details = event.currentTarget;
-    if (details instanceof HTMLDetailsElement) {
+    if (details instanceof HTMLDetailsElement && event.target === details) {
       portalState.adminMenuKnowledgeOpen = details.open;
     }
   });
   portalContent?.querySelectorAll("[data-admin-menu-category-details]").forEach((details) => {
     details.addEventListener("toggle", (event) => {
       const target = event.currentTarget;
-      if (!(target instanceof HTMLDetailsElement)) {
+      if (!(target instanceof HTMLDetailsElement) || event.target !== target) {
         return;
       }
       const categoryTitle = target.dataset.adminMenuCategoryDetails || "";
@@ -4986,7 +5019,7 @@ function wireOnboardingAdminEvents() {
   portalContent?.querySelectorAll("[data-admin-menu-item-details]").forEach((details) => {
     details.addEventListener("toggle", (event) => {
       const target = event.currentTarget;
-      if (!(target instanceof HTMLDetailsElement)) {
+      if (!(target instanceof HTMLDetailsElement) || event.target !== target) {
         return;
       }
       const itemId = target.dataset.adminMenuItemDetails || "";
