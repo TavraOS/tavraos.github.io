@@ -99,8 +99,8 @@ const foodOrderFilters = [
 ];
 
 const menu86Modes = [
-  { key: "ingredient", title: "Ingredient", backendValue: "ingredient" },
-  { key: "menuItem", title: "Menu Item", backendValue: "menu_item" }
+  { key: "menuItem", title: "Menu Item", backendValue: "menu_item" },
+  { key: "ingredient", title: "Ingredient", backendValue: "ingredient" }
 ];
 
 const menu86DurationOptions = [
@@ -258,12 +258,12 @@ let portalState = {
   menu86Loaded: false,
   menu86Loading: false,
   menu86Error: "",
-  menu86Mode: "ingredient",
+  menu86Mode: "menuItem",
   menu86IngredientName: "",
   menu86MenuSearchText: "",
   menu86SelectedMenuItemIds: new Set(),
   menu86Note: "",
-  menu86DurationHours: 4,
+  menu86DurationHours: 0,
   menu86Saving: false,
   menu86ResolvingId: null,
   reservations: [],
@@ -1942,16 +1942,6 @@ function modulePermission(moduleKey) {
   };
 }
 
-function permissionLabel(permission) {
-  if (permission.write) {
-    return "Writable";
-  }
-  if (permission.read) {
-    return "Read only";
-  }
-  return "No access";
-}
-
 function renderShell() {
   if (!loginScreen || !portalApp) {
     throw new Error("portal_shell_missing");
@@ -2136,11 +2126,9 @@ function renderOperationTile(module) {
     >
       <span class="tile-meta">
         <span>${escapeHTML(module.status)}</span>
-        <span>${permissionLabel(permission)}</span>
       </span>
       <span class="tile-icon" aria-hidden="true">${module.icon}</span>
       <strong>${escapeHTML(module.label)}</strong>
-      <span class="tile-status">${permission.write ? "RW" : permission.read ? "R" : "–"}</span>
     </button>
   `;
 }
@@ -4286,7 +4274,7 @@ function wireMenu86Events() {
   });
   portalContent.querySelectorAll("[data-menu86-mode]").forEach((button) => {
     button.addEventListener("click", () => {
-      portalState.menu86Mode = button.dataset.menu86Mode || "ingredient";
+      portalState.menu86Mode = button.dataset.menu86Mode || "menuItem";
       renderMenu86Board();
     });
   });

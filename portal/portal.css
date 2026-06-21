@@ -417,22 +417,6 @@ body.portal-authenticated .portal-app {
   letter-spacing: 0;
 }
 
-.tile-status {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  z-index: 1;
-  min-width: 34px;
-  min-height: 34px;
-  display: grid;
-  place-items: center;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.22);
-  font-family: var(--mono);
-  font-weight: 700;
-}
-
 .detail-panel,
 .placeholder-panel {
   border: 1px solid var(--line);
