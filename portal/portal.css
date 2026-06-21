@@ -1164,6 +1164,13 @@ body.portal-admin-page .portal-main-shell {
   line-height: 1.35;
 }
 
+.menu-knowledge-field small {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
 .menu-knowledge-field input,
 .menu-knowledge-field textarea,
 .menu-modifier-input {

@@ -6031,6 +6031,7 @@ function renderMenuItemKnowledgeDetail(item) {
             autocomplete="off"
             ${portalState.adminSaving ? "disabled" : ""}
           >
+          <small>Use commas to add multiple nicknames.</small>
         </label>
       </div>
       ${renderModifierGroups(item, item.modifierGroups || [], item.name || "this item")}
