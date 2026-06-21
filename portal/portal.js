@@ -266,6 +266,7 @@ let portalState = {
   adminProfileDraft: null,
   adminBusinessHoursDraft: null,
   adminMenuVisibilityDraft: null,
+  adminMenuKnowledgeDraft: null,
   adminOnboardingOpenModules: {
     restaurantProfile: true,
     businessHours: true,
@@ -4617,6 +4618,7 @@ function applyPortalAdminSettingsPayload(payload) {
   portalState.adminProfileDraft = profileDraftFromSettings(settings);
   portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
   portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
+  portalState.adminMenuKnowledgeDraft = menuKnowledgeDraftFromSettings(settings);
   portalState.adminOnboardingOpenModules = readStoredAdminOnboardingOpenModules();
   portalState.adminMenuKnowledgeOpen = portalState.adminOnboardingOpenModules.menuKnowledge === true;
   pruneAdminMenuDisclosureState(settings);
@@ -4677,6 +4679,9 @@ function ensureAdminDrafts() {
   if (!portalState.adminMenuVisibilityDraft) {
     portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
   }
+  if (!portalState.adminMenuKnowledgeDraft) {
+    portalState.adminMenuKnowledgeDraft = menuKnowledgeDraftFromSettings(settings);
+  }
 }
 
 function menuVisibilityDraftFromSettings(settings) {
@@ -4688,6 +4693,85 @@ function menuVisibilityDraftFromSettings(settings) {
     }
   });
   return draft;
+}
+
+function menuKnowledgeDraftFromSettings(settings) {
+  const draft = { items: {} };
+  const menuItems = Array.isArray(settings?.profile?.menuItems) ? settings.profile.menuItems : [];
+  menuItems.forEach((item) => {
+    const itemId = typeof item?.id === "string" ? item.id.trim() : "";
+    if (!itemId) {
+      return;
+    }
+    draft.items[itemId] = menuKnowledgeItemDraftFromItem(item);
+  });
+  return draft;
+}
+
+function menuKnowledgeItemDraftFromItem(item) {
+  const modifierGroups = {};
+  (Array.isArray(item?.modifierGroups) ? item.modifierGroups : []).forEach((group) => {
+    const groupId = typeof group?.id === "string" ? group.id.trim() : "";
+    if (!groupId) {
+      return;
+    }
+    modifierGroups[groupId] = modifierPresentationDraftFromGroup(group);
+  });
+  return {
+    id: typeof item?.id === "string" ? item.id.trim() : "",
+    description: typeof item?.description === "string" ? item.description : "",
+    aliasesText: Array.isArray(item?.aliases) ? item.aliases.join(", ") : "",
+    hiddenFromAgent: item?.hiddenFromAgent === true,
+    modifierGroups
+  };
+}
+
+function modifierPresentationDraftFromGroup(group) {
+  const presentation = group?.presentation || {};
+  const optionDisplayNames = {};
+  const rawOptionDisplayNames = presentation.optionDisplayNames || {};
+  if (typeof rawOptionDisplayNames === "object" && rawOptionDisplayNames !== null) {
+    Object.entries(rawOptionDisplayNames).forEach(([optionId, displayName]) => {
+      if (typeof displayName === "string") {
+        optionDisplayNames[optionId] = displayName;
+      }
+    });
+  }
+  return {
+    displayName: typeof presentation.displayName === "string" ? presentation.displayName : "",
+    askBehavior: normalizedModifierAskBehavior(presentation.askBehavior),
+    questionTemplate: typeof presentation.questionTemplate === "string" ? presentation.questionTemplate : "",
+    confirmationTemplate: typeof presentation.confirmationTemplate === "string" ? presentation.confirmationTemplate : "",
+    readbackTemplate: typeof presentation.readbackTemplate === "string" ? presentation.readbackTemplate : "",
+    optionDisplayNames
+  };
+}
+
+function ensureMenuKnowledgeItemDraft(item) {
+  ensureAdminDrafts();
+  if (!portalState.adminMenuKnowledgeDraft?.items) {
+    portalState.adminMenuKnowledgeDraft = menuKnowledgeDraftFromSettings(adminSettingsSnapshot());
+  }
+  const itemId = typeof item?.id === "string" ? item.id.trim() : "";
+  if (!itemId) {
+    return menuKnowledgeItemDraftFromItem(item);
+  }
+  if (!portalState.adminMenuKnowledgeDraft.items[itemId]) {
+    portalState.adminMenuKnowledgeDraft.items[itemId] = menuKnowledgeItemDraftFromItem(item);
+  }
+  return portalState.adminMenuKnowledgeDraft.items[itemId];
+}
+
+function ensureMenuKnowledgeModifierDraft(item, group) {
+  const itemDraft = ensureMenuKnowledgeItemDraft(item);
+  const groupId = typeof group?.id === "string" ? group.id.trim() : "";
+  if (!groupId) {
+    return modifierPresentationDraftFromGroup(group);
+  }
+  if (!itemDraft.modifierGroups[groupId]) {
+    itemDraft.modifierGroups[groupId] = modifierPresentationDraftFromGroup(group);
+  }
+  return itemDraft.modifierGroups[groupId];
 }
 
 function currentAdminMenuItems() {
@@ -4944,18 +5028,45 @@ async function savePortalAdminBusinessHours() {
   }
 }
 
-async function savePortalAdminMenuVisibility() {
+async function savePortalAdminMenuKnowledge() {
   syncAdminProfileDraftFromDom();
   syncAdminBusinessHoursDraftFromDom();
   syncAdminOnboardingModuleStateFromDom();
   syncAdminMenuDisclosureStateFromDom();
+  syncAdminMenuKnowledgeDraftFromDom();
   ensureAdminDrafts();
   const menuItems = currentAdminMenuItems()
     .filter((item) => typeof item?.id === "string" && item.id.trim())
     .map((item) => ({
       id: item.id.trim(),
+      description: menuKnowledgeDraftForItem(item).description || "",
+      aliases: parseMenuKnowledgeAliases(menuKnowledgeDraftForItem(item).aliasesText),
       hiddenFromAgent: menuItemHiddenForAgent(item)
     }));
+  const modifierGroups = currentAdminMenuItems()
+    .flatMap((item) => {
+      const itemId = typeof item?.id === "string" ? item.id.trim() : "";
+      if (!itemId) {
+        return [];
+      }
+      return (Array.isArray(item.modifierGroups) ? item.modifierGroups : [])
+        .filter((group) => typeof group?.id === "string" && group.id.trim())
+        .map((group) => {
+          const draft = menuKnowledgeDraftForModifierGroup(item, group);
+          return {
+            itemId,
+            groupId: group.id.trim(),
+            presentation: {
+              displayName: draft.displayName || "",
+              askBehavior: normalizedModifierAskBehavior(draft.askBehavior),
+              questionTemplate: draft.questionTemplate || "",
+              confirmationTemplate: draft.confirmationTemplate || "",
+              readbackTemplate: draft.readbackTemplate || "",
+              optionDisplayNames: cleanModifierOptionDisplayNames(draft.optionDisplayNames || {})
+            }
+          };
+        });
+    });
 
   if (!menuItems.length) {
     setAdminSaveStatus("menuKnowledge", "No menu items are available to save.", true);
@@ -4965,17 +5076,17 @@ async function savePortalAdminMenuVisibility() {
 
   portalState.adminSavingTarget = "menuKnowledge";
   portalState.adminSaving = true;
-  portalState.adminSaveMessage = "Saving menu visibility...";
+  portalState.adminSaveMessage = "Saving menu knowledge...";
   portalState.adminSaveIsError = false;
   renderOnboardingAdmin();
   try {
-    const payload = await apiRequest("/operations/admin/menu-knowledge/visibility", {
+    const payload = await apiRequest("/operations/admin/menu-knowledge", {
       method: "PUT",
-      body: JSON.stringify({ items: menuItems })
+      body: JSON.stringify({ items: menuItems, modifierGroups })
     });
     applyPortalAdminSettingsPayload(payload);
     portalState.adminSettingsLoaded = true;
-    setAdminSaveStatus("menuKnowledge", "Saved menu visibility.");
+    setAdminSaveStatus("menuKnowledge", "Saved menu knowledge.");
   } catch (error) {
     setAdminSaveStatus("menuKnowledge", adminSaveErrorMessage(error), true);
   } finally {
@@ -4991,6 +5102,7 @@ function adminSaveErrorMessage(error) {
     twilioNumberE164_invalid: "Agent number must be a valid phone number.",
     phoneNumberE164_invalid: "Business phone must be a valid phone number.",
     business_hours_invalid_windows: "Business hours must end after they start.",
+    menu_knowledge_updates_required: "Choose at least one menu knowledge change.",
     menu_visibility_updates_required: "Choose at least one menu visibility change.",
     menu_items_not_found: "The synced menu changed. Reload and try again."
   };
@@ -5034,6 +5146,117 @@ function syncAdminBusinessHoursDraftFromDom() {
   };
 }
 
+function syncAdminMenuKnowledgeDraftFromDom() {
+  ensureAdminDrafts();
+  const draft = portalState.adminMenuKnowledgeDraft;
+  if (!draft?.items) {
+    return;
+  }
+
+  portalContent?.querySelectorAll("[data-admin-menu-item-id][data-admin-menu-item-field]").forEach((field) => {
+    const itemId = field.dataset.adminMenuItemId || "";
+    const fieldName = field.dataset.adminMenuItemField || "";
+    const item = currentAdminMenuItems().find((candidate) => candidate?.id === itemId);
+    if (!itemId || !item) {
+      return;
+    }
+    const itemDraft = ensureMenuKnowledgeItemDraft(item);
+    const value = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement ? field.value : "";
+    if (fieldName === "description") {
+      itemDraft.description = value;
+    } else if (fieldName === "aliases") {
+      itemDraft.aliasesText = value;
+    }
+  });
+
+  portalContent?.querySelectorAll("[data-admin-modifier-field][data-admin-modifier-item-id][data-admin-modifier-group-id]").forEach((field) => {
+    const itemId = field.dataset.adminModifierItemId || "";
+    const groupId = field.dataset.adminModifierGroupId || "";
+    const fieldName = field.dataset.adminModifierField || "";
+    const item = currentAdminMenuItems().find((candidate) => candidate?.id === itemId);
+    const group = (Array.isArray(item?.modifierGroups) ? item.modifierGroups : []).find((candidate) => candidate?.id === groupId);
+    if (!item || !group) {
+      return;
+    }
+    const groupDraft = ensureMenuKnowledgeModifierDraft(item, group);
+    const value = field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement || field instanceof HTMLSelectElement
+      ? field.value
+      : "";
+    if (fieldName === "displayName") {
+      groupDraft.displayName = value;
+    } else if (fieldName === "askBehavior") {
+      groupDraft.askBehavior = normalizedModifierAskBehavior(value);
+    } else if (fieldName === "questionTemplate") {
+      groupDraft.questionTemplate = value;
+    } else if (fieldName === "confirmationTemplate") {
+      groupDraft.confirmationTemplate = value;
+    } else if (fieldName === "readbackTemplate") {
+      groupDraft.readbackTemplate = value;
+    } else if (fieldName === "optionDisplayName") {
+      const optionId = field.dataset.adminModifierOptionId || "";
+      if (optionId) {
+        groupDraft.optionDisplayNames[optionId] = value;
+      }
+    }
+  });
+}
+
+function menuKnowledgeDraftForItem(item) {
+  return ensureMenuKnowledgeItemDraft(item);
+}
+
+function menuKnowledgeDraftForModifierGroup(item, group) {
+  return ensureMenuKnowledgeModifierDraft(item, group);
+}
+
+function parseMenuKnowledgeAliases(value) {
+  const seen = new Set();
+  const aliases = [];
+  String(value || "")
+    .split(/[,;\n]+/)
+    .map((alias) => alias.trim())
+    .filter(Boolean)
+    .forEach((alias) => {
+      const key = alias.toLowerCase();
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      aliases.push(alias);
+    });
+  return aliases;
+}
+
+function cleanModifierOptionDisplayNames(optionDisplayNames) {
+  const cleaned = {};
+  if (typeof optionDisplayNames !== "object" || optionDisplayNames === null) {
+    return cleaned;
+  }
+  Object.entries(optionDisplayNames).forEach(([optionId, displayName]) => {
+    const text = String(displayName || "").trim();
+    if (optionId && text) {
+      cleaned[optionId] = text;
+    }
+  });
+  return cleaned;
+}
+
+function refreshModifierAskBehaviorPreview(select) {
+  const askBehavior = normalizedModifierAskBehavior(select.value);
+  const editor = select.closest(".menu-modifier-editor");
+  if (!editor) {
+    return;
+  }
+  const help = editor.querySelector("[data-admin-modifier-help]");
+  if (help) {
+    help.textContent = modifierDefaultHandlingHelpText(askBehavior);
+  }
+  const askExample = editor.querySelector("[data-admin-modifier-ask-example]");
+  if (askExample instanceof HTMLElement) {
+    askExample.hidden = askBehavior === "apply_default_silently";
+  }
+}
+
 function addBusinessHourWindow(dayIndex) {
   syncAdminBusinessHoursDraftFromDom();
   const draft = portalState.adminBusinessHoursDraft;
@@ -5062,6 +5285,7 @@ function removeBusinessHourWindow(dayIndex, windowIndex) {
 function updateMenuVisibilityDraft(itemIds, hiddenFromAgent) {
   syncAdminProfileDraftFromDom();
   syncAdminBusinessHoursDraftFromDom();
+  syncAdminMenuKnowledgeDraftFromDom();
   syncAdminOnboardingModuleStateFromDom();
   syncAdminMenuDisclosureStateFromDom();
   setOnboardingModuleOpen("menuKnowledge", true);
@@ -5071,7 +5295,11 @@ function updateMenuVisibilityDraft(itemIds, hiddenFromAgent) {
   };
   itemIds.forEach((itemId) => {
     if (typeof itemId === "string" && itemId.trim()) {
-      draft[itemId.trim()] = hiddenFromAgent === true;
+      const normalizedItemId = itemId.trim();
+      draft[normalizedItemId] = hiddenFromAgent === true;
+      if (portalState.adminMenuKnowledgeDraft?.items?.[normalizedItemId]) {
+        portalState.adminMenuKnowledgeDraft.items[normalizedItemId].hiddenFromAgent = hiddenFromAgent === true;
+      }
     }
   });
   portalState.adminMenuVisibilityDraft = draft;
@@ -5149,8 +5377,26 @@ function wireOnboardingAdminEvents() {
   });
 
   portalContent?.querySelector("[data-admin-menu-save]")?.addEventListener("click", () => {
-    void savePortalAdminMenuVisibility();
+    void savePortalAdminMenuKnowledge();
   });
+  const menuKnowledgeDetails = portalContent?.querySelector("[data-admin-menu-knowledge-details]");
+  if (menuKnowledgeDetails instanceof HTMLDetailsElement) {
+    const syncMenuKnowledgeAndClearStatus = () => {
+      syncAdminMenuKnowledgeDraftFromDom();
+      if (portalState.adminSavingTarget === "menuKnowledge" && portalState.adminSaveMessage) {
+        clearAdminSaveStatus();
+        clearAdminSaveStatusElement("menuKnowledge");
+      }
+    };
+    menuKnowledgeDetails.addEventListener("input", syncMenuKnowledgeAndClearStatus);
+    menuKnowledgeDetails.addEventListener("change", (event) => {
+      syncMenuKnowledgeAndClearStatus();
+      const target = event.target;
+      if (target instanceof HTMLSelectElement && target.dataset.adminModifierField === "askBehavior") {
+        refreshModifierAskBehaviorPreview(target);
+      }
+    });
+  }
   portalContent?.querySelectorAll("[data-admin-onboarding-module]").forEach((details) => {
     details.addEventListener("toggle", (event) => {
       const target = event.currentTarget;
@@ -5674,7 +5920,7 @@ function renderMenuKnowledgeModule(menuItems) {
       ${groups.map((group) => renderMenuCategoryDisclosure(group)).join("")}
       <div class="menu-knowledge-save-row">
         <button class="ios-action-button primary" type="button" data-admin-menu-save ${portalState.adminSaving ? "disabled" : ""}>
-          ${saving ? "Saving..." : "Save Menu Visibility"}
+          ${saving ? "Saving..." : "Save Menu Knowledge"}
         </button>
       </div>
     `
@@ -5758,38 +6004,61 @@ function renderMenuItemDisclosure(item) {
 }
 
 function renderMenuItemKnowledgeDetail(item) {
+  const itemId = typeof item?.id === "string" ? item.id.trim() : "";
+  const draft = menuKnowledgeDraftForItem(item);
   return `
     <div class="menu-item-knowledge-detail">
       <div class="menu-item-copy-block">
         <h3>${escapeHTML(item.name || "Unnamed item")}</h3>
-        <p class="${item.description ? "" : "empty"}">${escapeHTML(item.description || "No item description yet.")}</p>
-        ${Array.isArray(item.aliases) && item.aliases.length ? `
-          <p class="menu-item-aliases">Customer nicknames: ${escapeHTML(item.aliases.join(", "))}</p>
-        ` : ""}
+        <label class="menu-knowledge-field">
+          <span>Agent description</span>
+          <textarea
+            rows="4"
+            data-admin-menu-item-id="${escapeHTML(itemId)}"
+            data-admin-menu-item-field="description"
+            placeholder="Description the voice agent can use for this menu item."
+            ${portalState.adminSaving ? "disabled" : ""}
+          >${escapeHTML(draft.description || "")}</textarea>
+        </label>
+        <label class="menu-knowledge-field">
+          <span>Alias / nicknames</span>
+          <input
+            type="text"
+            value="${escapeHTML(draft.aliasesText || "")}"
+            data-admin-menu-item-id="${escapeHTML(itemId)}"
+            data-admin-menu-item-field="aliases"
+            placeholder="Brushfire, spicy jerk taco"
+            autocomplete="off"
+            ${portalState.adminSaving ? "disabled" : ""}
+          >
+        </label>
       </div>
-      ${renderModifierGroups(item.modifierGroups || [], item.name || "this item")}
+      ${renderModifierGroups(item, item.modifierGroups || [], item.name || "this item")}
     </div>
   `;
 }
 
-function renderModifierGroups(groups, itemName) {
+function renderModifierGroups(item, groups, itemName) {
   if (!Array.isArray(groups) || !groups.length) {
     return `<p class="menu-modifier-empty">No modifier groups synced for this item.</p>`;
   }
   return `
     <div class="menu-modifier-presentation-list">
-      ${groups.map((group) => renderModifierPresentationEditor(group, itemName)).join("")}
+      ${groups.map((group) => renderModifierPresentationEditor(item, group, itemName)).join("")}
     </div>
   `;
 }
 
-function renderModifierPresentationEditor(group, itemName) {
+function renderModifierPresentationEditor(item, group, itemName) {
+  const itemId = typeof item?.id === "string" ? item.id.trim() : "";
+  const groupId = typeof group?.id === "string" ? group.id.trim() : "";
   const options = Array.isArray(group.options) ? group.options : [];
-  const presentation = group.presentation || {};
-  const displayGroupName = modifierGroupDisplayName(group);
-  const optionsSummary = modifierOptionsSummary(group);
-  const sampleOption = modifierSampleOption(group);
-  const askBehavior = modifierAskBehavior(group);
+  const presentation = menuKnowledgeDraftForModifierGroup(item, group);
+  const effectiveGroup = { ...group, presentation };
+  const displayGroupName = modifierGroupDisplayName(effectiveGroup);
+  const optionsSummary = modifierOptionsSummary(effectiveGroup);
+  const sampleOption = modifierSampleOption(effectiveGroup);
+  const askBehavior = modifierAskBehavior(effectiveGroup);
   const questionExample = renderModifierTemplate(
     presentation.questionTemplate,
     itemName,
@@ -5824,7 +6093,17 @@ function renderModifierPresentationEditor(group, itemName) {
 
       <div class="menu-modifier-field">
         <h5>What should the agent call this choice?</h5>
-        <p class="menu-modifier-value">${escapeHTML(displayGroupName)}</p>
+        <input
+          class="menu-modifier-input"
+          type="text"
+          value="${escapeHTML(presentation.displayName || "")}"
+          data-admin-modifier-item-id="${escapeHTML(itemId)}"
+          data-admin-modifier-group-id="${escapeHTML(groupId)}"
+          data-admin-modifier-field="displayName"
+          placeholder="${escapeHTML(group.name || "Modifier group")}"
+          autocomplete="off"
+          ${portalState.adminSaving ? "disabled" : ""}
+        >
         <p class="menu-modifier-hint">Leave blank to use the Clover modifier group name.</p>
       </div>
 
@@ -5832,7 +6111,7 @@ function renderModifierPresentationEditor(group, itemName) {
         <div class="menu-modifier-field">
           <h5>What should the agent call each option?</h5>
           <div class="menu-modifier-options">
-            ${options.map((option) => renderModifierOptionDisplay(option, presentation.optionDisplayNames || {})).join("")}
+            ${options.map((option) => renderModifierOptionDisplay(itemId, groupId, option, presentation.optionDisplayNames || {})).join("")}
           </div>
           <p class="menu-modifier-hint">Leave blank to use the Clover modifier name.</p>
         </div>
@@ -5840,13 +6119,25 @@ function renderModifierPresentationEditor(group, itemName) {
 
       <div class="menu-modifier-default-row">
         <span>When the caller does not specify</span>
-        <strong>${escapeHTML(modifierAskBehaviorTitle(askBehavior))}<b aria-hidden="true">⌄</b></strong>
+        <label>
+          <select
+            data-admin-modifier-item-id="${escapeHTML(itemId)}"
+            data-admin-modifier-group-id="${escapeHTML(groupId)}"
+            data-admin-modifier-field="askBehavior"
+            ${portalState.adminSaving ? "disabled" : ""}
+          >
+            ${modifierAskBehaviorOptions().map((option) => `
+              <option value="${escapeHTML(option.value)}" ${option.value === askBehavior ? "selected" : ""}>${escapeHTML(option.label)}</option>
+            `).join("")}
+          </select>
+          <b aria-hidden="true">⌄</b>
+        </label>
       </div>
-      <p class="menu-modifier-muted">${escapeHTML(modifierDefaultHandlingHelpText(askBehavior))}</p>
+      <p class="menu-modifier-muted" data-admin-modifier-help>${escapeHTML(modifierDefaultHandlingHelpText(askBehavior))}</p>
 
       <div class="menu-modifier-examples">
         <h5>What the caller will hear</h5>
-        ${askBehavior !== "apply_default_silently" ? renderModifierExampleLine("Agent will ask", questionExample, "ask") : ""}
+        ${renderModifierExampleLine("Agent will ask", questionExample, "ask", "data-admin-modifier-ask-example", askBehavior === "apply_default_silently")}
         ${renderModifierExampleLine("Agent will confirm", confirmationExample, "confirm")}
         ${renderModifierExampleLine("Agent will read back", readbackExample, "readback")}
       </div>
@@ -5855,9 +6146,9 @@ function renderModifierPresentationEditor(group, itemName) {
         <summary>Custom wording (optional)</summary>
         <div>
           <p class="menu-modifier-muted">Only fill these in if you want to override the automatic wording.</p>
-          ${renderModifierCustomValue("Custom question the agent asks", presentation.questionTemplate)}
-          ${renderModifierCustomValue("Custom confirmation after selection", presentation.confirmationTemplate)}
-          ${renderModifierCustomValue("Custom wording when reading the order back", presentation.readbackTemplate)}
+          ${renderModifierCustomValue("Custom question the agent asks", presentation.questionTemplate, itemId, groupId, "questionTemplate", "Do you want {item} with {options}?")}
+          ${renderModifierCustomValue("Custom confirmation after selection", presentation.confirmationTemplate, itemId, groupId, "confirmationTemplate", "Got it. {item} with {option}.")}
+          ${renderModifierCustomValue("Custom wording when reading the order back", presentation.readbackTemplate, itemId, groupId, "readbackTemplate", "{item} with {option}")}
           <p class="menu-modifier-hint">You can use: {item}, {group}, {option}, {options}.</p>
         </div>
       </details>
@@ -5865,39 +6156,70 @@ function renderModifierPresentationEditor(group, itemName) {
   `;
 }
 
-function renderModifierOptionDisplay(option, optionDisplayNames) {
+function renderModifierOptionDisplay(itemId, groupId, option, optionDisplayNames) {
   const optionId = typeof option?.id === "string" ? option.id : "";
   const displayName = typeof optionDisplayNames?.[optionId] === "string" ? optionDisplayNames[optionId].trim() : "";
   return `
     <div class="menu-modifier-option-row">
       <span>${escapeHTML(option?.name || "Option")}</span>
-      <strong class="${displayName ? "" : "placeholder"}">${escapeHTML(displayName || "Optional spoken name")}</strong>
+      <input
+        class="menu-modifier-input compact"
+        type="text"
+        value="${escapeHTML(displayName)}"
+        data-admin-modifier-item-id="${escapeHTML(itemId)}"
+        data-admin-modifier-group-id="${escapeHTML(groupId)}"
+        data-admin-modifier-option-id="${escapeHTML(optionId)}"
+        data-admin-modifier-field="optionDisplayName"
+        placeholder="Optional spoken name"
+        autocomplete="off"
+        ${portalState.adminSaving ? "disabled" : ""}
+      >
     </div>
   `;
 }
 
-function renderModifierExampleLine(title, text, tone) {
+function renderModifierExampleLine(title, text, tone, attributes = "", hidden = false) {
   return `
-    <div class="menu-modifier-example ${escapeHTML(tone)}">
+    <div class="menu-modifier-example ${escapeHTML(tone)}" ${attributes} ${hidden ? "hidden" : ""}>
       <span>${escapeHTML(title)}</span>
       <strong>“${escapeHTML(text)}”</strong>
     </div>
   `;
 }
 
-function renderModifierCustomValue(label, value) {
+function renderModifierCustomValue(label, value, itemId, groupId, fieldName, placeholder) {
   const text = typeof value === "string" && value.trim() ? value.trim() : "";
   return `
-    <div class="menu-modifier-custom-value">
+    <label class="menu-modifier-custom-value">
       <span>${escapeHTML(label)}</span>
-      <strong class="${text ? "" : "placeholder"}">${escapeHTML(text || "Not customized")}</strong>
-    </div>
+      <textarea
+        class="menu-modifier-input"
+        rows="2"
+        data-admin-modifier-item-id="${escapeHTML(itemId)}"
+        data-admin-modifier-group-id="${escapeHTML(groupId)}"
+        data-admin-modifier-field="${escapeHTML(fieldName)}"
+        placeholder="${escapeHTML(placeholder)}"
+        ${portalState.adminSaving ? "disabled" : ""}
+      >${escapeHTML(text)}</textarea>
+    </label>
   `;
 }
 
 function modifierAskBehavior(group) {
   const value = group?.presentation?.askBehavior;
+  return normalizedModifierAskBehavior(value);
+}
+
+function normalizedModifierAskBehavior(value) {
   return value === "always_ask" || value === "ask_if_no_default" ? value : "apply_default_silently";
+}
+
+function modifierAskBehaviorOptions() {
+  return [
+    { value: "apply_default_silently", label: "Use the restaurant default" },
+    { value: "always_ask", label: "Always ask" },
+    { value: "ask_if_no_default", label: "Ask only if no default exists" }
+  ];
 }
 
 function modifierAskBehaviorTitle(askBehavior) {
@@ -6395,6 +6717,7 @@ function showLogin() {
   portalState.adminProfileDraft = null;
   portalState.adminBusinessHoursDraft = null;
   portalState.adminMenuVisibilityDraft = null;
+  portalState.adminMenuKnowledgeDraft = null;
   portalState.adminOnboardingOpenModules = defaultOnboardingOpenModules();
   portalState.adminMenuKnowledgeOpen = false;
   portalState.adminMenuOpenCategories = new Set();

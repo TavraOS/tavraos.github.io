@@ -1145,24 +1145,57 @@ body.portal-admin-page .portal-main-shell {
   line-height: 1.25;
 }
 
-.menu-item-copy-block p {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 18px;
-  font-weight: 450;
-  line-height: 1.55;
-}
-
-.menu-item-copy-block p.empty,
-.menu-item-copy-block .menu-item-aliases,
 .menu-modifier-muted,
 .menu-modifier-hint {
   color: rgba(255, 255, 255, 0.48);
 }
 
-.menu-item-copy-block .menu-item-aliases {
-  font-size: 14px;
-  font-weight: 650;
+.menu-knowledge-field,
+.menu-modifier-custom-value {
+  display: grid;
+  gap: 7px;
+}
+
+.menu-knowledge-field span,
+.menu-modifier-custom-value span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.menu-knowledge-field input,
+.menu-knowledge-field textarea,
+.menu-modifier-input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  resize: vertical;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.menu-knowledge-field textarea,
+.menu-modifier-input:is(textarea) {
+  min-height: 76px;
+}
+
+.menu-knowledge-field input::placeholder,
+.menu-knowledge-field textarea::placeholder,
+.menu-modifier-input::placeholder {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.menu-knowledge-field input:focus,
+.menu-knowledge-field textarea:focus,
+.menu-modifier-input:focus {
+  color: #fff;
 }
 
 .menu-modifier-empty {
@@ -1253,21 +1286,15 @@ body.portal-admin-page .portal-main-shell {
   font-weight: 620;
 }
 
-.menu-modifier-option-row strong,
-.menu-modifier-custom-value strong {
-  color: rgba(255, 255, 255, 0.78);
+.menu-modifier-input.compact {
+  color: rgba(255, 255, 255, 0.72);
   font-size: 17px;
   font-weight: 520;
 }
 
-.menu-modifier-option-row strong.placeholder,
-.menu-modifier-custom-value strong.placeholder {
-  color: rgba(255, 255, 255, 0.34);
-}
-
 .menu-modifier-default-row {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
 }
@@ -1278,18 +1305,31 @@ body.portal-admin-page .portal-main-shell {
   font-weight: 540;
 }
 
-.menu-modifier-default-row strong {
+.menu-modifier-default-row label {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.menu-modifier-default-row select {
+  max-width: min(290px, 44vw);
+  border: 0;
+  outline: 0;
+  appearance: none;
+  background: transparent;
   color: #2da8ff;
+  font: inherit;
   font-size: 16px;
   font-weight: 820;
   text-align: right;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: pointer;
 }
 
 .menu-modifier-default-row b {
+  color: #2da8ff;
   font-size: 13px;
   line-height: 1;
 }
