@@ -264,6 +264,7 @@ let portalState = {
   adminSettingsError: "",
   adminProfileDraft: null,
   adminBusinessHoursDraft: null,
+  adminMenuVisibilityDraft: null,
   adminSavingTarget: null,
   adminSaving: false,
   adminSaveMessage: "",
@@ -4569,6 +4570,7 @@ function applyPortalAdminSettingsPayload(payload) {
   portalState.adminTeamMembers = Array.isArray(payload?.teamMembers) ? payload.teamMembers : portalState.adminTeamMembers;
   portalState.adminProfileDraft = profileDraftFromSettings(settings);
   portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
+  portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
 }
 
 function rerenderActiveAdminSection() {
@@ -4623,6 +4625,34 @@ function ensureAdminDrafts() {
   if (!portalState.adminBusinessHoursDraft) {
     portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
   }
+  if (!portalState.adminMenuVisibilityDraft) {
+    portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
+  }
+}
+
+function menuVisibilityDraftFromSettings(settings) {
+  const draft = {};
+  const menuItems = Array.isArray(settings?.profile?.menuItems) ? settings.profile.menuItems : [];
+  menuItems.forEach((item) => {
+    if (typeof item?.id === "string" && item.id.trim()) {
+      draft[item.id.trim()] = item.hiddenFromAgent === true;
+    }
+  });
+  return draft;
+}
+
+function currentAdminMenuItems() {
+  const profile = adminSettingsSnapshot()?.profile || {};
+  return Array.isArray(profile.menuItems) ? profile.menuItems : [];
+}
+
+function menuItemHiddenForAgent(item) {
+  const id = typeof item?.id === "string" ? item.id.trim() : "";
+  const draft = portalState.adminMenuVisibilityDraft || {};
+  if (id && Object.prototype.hasOwnProperty.call(draft, id)) {
+    return draft[id] === true;
+  }
+  return item?.hiddenFromAgent === true;
 }
 
 function normalizedAdminTime(value) {
@@ -4709,13 +4739,53 @@ async function savePortalAdminBusinessHours() {
   }
 }
 
+async function savePortalAdminMenuVisibility() {
+  syncAdminProfileDraftFromDom();
+  syncAdminBusinessHoursDraftFromDom();
+  ensureAdminDrafts();
+  const menuItems = currentAdminMenuItems()
+    .filter((item) => typeof item?.id === "string" && item.id.trim())
+    .map((item) => ({
+      id: item.id.trim(),
+      hiddenFromAgent: menuItemHiddenForAgent(item)
+    }));
+
+  if (!menuItems.length) {
+    setAdminSaveStatus("menuKnowledge", "No menu items are available to save.", true);
+    renderOnboardingAdmin();
+    return;
+  }
+
+  portalState.adminSavingTarget = "menuKnowledge";
+  portalState.adminSaving = true;
+  portalState.adminSaveMessage = "Saving menu visibility...";
+  portalState.adminSaveIsError = false;
+  renderOnboardingAdmin();
+  try {
+    const payload = await apiRequest("/operations/admin/menu-knowledge/visibility", {
+      method: "PUT",
+      body: JSON.stringify({ items: menuItems })
+    });
+    applyPortalAdminSettingsPayload(payload);
+    portalState.adminSettingsLoaded = true;
+    setAdminSaveStatus("menuKnowledge", "Saved menu visibility.");
+  } catch (error) {
+    setAdminSaveStatus("menuKnowledge", adminSaveErrorMessage(error), true);
+  } finally {
+    portalState.adminSaving = false;
+    renderOnboardingAdmin();
+  }
+}
+
 function adminSaveErrorMessage(error) {
   const message = error instanceof Error ? error.message : String(error || "");
   const labels = {
     restaurant_name_required: "Restaurant name is required.",
     twilioNumberE164_invalid: "Agent number must be a valid phone number.",
     phoneNumberE164_invalid: "Business phone must be a valid phone number.",
-    business_hours_invalid_windows: "Business hours must end after they start."
+    business_hours_invalid_windows: "Business hours must end after they start.",
+    menu_visibility_updates_required: "Choose at least one menu visibility change.",
+    menu_items_not_found: "The synced menu changed. Reload and try again."
   };
   return labels[message] || "Save failed. Check the fields and try again.";
 }
@@ -4782,6 +4852,38 @@ function removeBusinessHourWindow(dayIndex, windowIndex) {
   renderOnboardingAdmin();
 }
 
+function updateMenuVisibilityDraft(itemIds, hiddenFromAgent) {
+  syncAdminProfileDraftFromDom();
+  syncAdminBusinessHoursDraftFromDom();
+  ensureAdminDrafts();
+  const draft = {
+    ...(portalState.adminMenuVisibilityDraft || {})
+  };
+  itemIds.forEach((itemId) => {
+    if (typeof itemId === "string" && itemId.trim()) {
+      draft[itemId.trim()] = hiddenFromAgent === true;
+    }
+  });
+  portalState.adminMenuVisibilityDraft = draft;
+  if (portalState.adminSavingTarget === "menuKnowledge" && portalState.adminSaveMessage) {
+    clearAdminSaveStatus();
+  }
+  renderOnboardingAdmin();
+}
+
+function setMenuItemHidden(itemId, hiddenFromAgent) {
+  updateMenuVisibilityDraft([itemId], hiddenFromAgent);
+}
+
+function setMenuCategoryHidden(categoryTitle, hiddenFromAgent) {
+  const group = groupMenuItemsByCategory(currentAdminMenuItems())
+    .find((candidate) => candidate.title === categoryTitle);
+  if (!group) {
+    return;
+  }
+  updateMenuVisibilityDraft(group.items.map((item) => item.id), hiddenFromAgent);
+}
+
 function wireOnboardingAdminEvents() {
   const profileForm = portalContent?.querySelector("[data-admin-profile-form]");
   if (profileForm instanceof HTMLFormElement) {
@@ -4832,6 +4934,32 @@ function wireOnboardingAdminEvents() {
         Number(button.dataset.adminHoursRemoveDay),
         Number(button.dataset.adminHoursRemoveWindow)
       );
+    });
+  });
+
+  portalContent?.querySelector("[data-admin-menu-save]")?.addEventListener("click", () => {
+    void savePortalAdminMenuVisibility();
+  });
+  portalContent?.querySelectorAll("[data-admin-menu-item-visibility]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemId = button.dataset.adminMenuItemVisibility || "";
+      const item = currentAdminMenuItems().find((candidate) => candidate?.id === itemId);
+      setMenuItemHidden(itemId, !menuItemHiddenForAgent(item));
+    });
+  });
+  portalContent?.querySelectorAll("[data-admin-menu-category-visibility]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const categoryTitle = button.dataset.adminMenuCategoryVisibility || "";
+      const group = groupMenuItemsByCategory(currentAdminMenuItems())
+        .find((candidate) => candidate.title === categoryTitle);
+      if (!group) {
+        return;
+      }
+      setMenuCategoryHidden(categoryTitle, group.visibleCount > 0);
     });
   });
 }
@@ -5075,6 +5203,21 @@ function renderActionButton(label, icon = "") {
   `;
 }
 
+function renderAgentVisibilityButton(hiddenFromAgent, label, attributes = "") {
+  return `
+    <button
+      class="agent-visibility-button ${hiddenFromAgent ? "hidden" : ""}"
+      type="button"
+      aria-label="${escapeHTML(label)}"
+      title="${escapeHTML(label)}"
+      ${attributes}
+      ${portalState.adminSaving ? "disabled" : ""}
+    >
+      <span class="visibility-eye" aria-hidden="true"></span>
+    </button>
+  `;
+}
+
 function adminSymbolGlyph(icon) {
   const glyphs = {
     "fork.knife": "🍴",
@@ -5252,6 +5395,7 @@ function formatBusinessWindow(window) {
 
 function renderMenuKnowledgeModule(menuItems) {
   const groups = groupMenuItemsByCategory(menuItems);
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "menuKnowledge";
   return renderIosModule({
     title: "Menu Knowledge",
     icon: "list.bullet.rectangle",
@@ -5259,7 +5403,13 @@ function renderMenuKnowledgeModule(menuItems) {
     meta: `${menuItems.length} items`,
     content: `
       <p class="ios-footnote">Provider-synced menus keep prices and item IDs in sync. Hide items or categories here to keep them out of the agent without changing the POS.</p>
+      ${adminSaveStatusMarkup("menuKnowledge")}
       ${groups.map((group) => renderMenuCategoryDisclosure(group)).join("")}
+      <div class="menu-knowledge-save-row">
+        <button class="ios-action-button primary" type="button" data-admin-menu-save ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save Menu Visibility"}
+        </button>
+      </div>
     `
   });
 }
@@ -5278,34 +5428,59 @@ function groupMenuItemsByCategory(menuItems) {
     .map(([title, items]) => ({
       title,
       items: items.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
-      visibleCount: items.filter((item) => item.hiddenFromAgent !== true).length
+      visibleCount: items.filter((item) => !menuItemHiddenForAgent(item)).length
     }));
 }
 
 function renderMenuCategoryDisclosure(group) {
-  return renderNestedDisclosure(
-    group.title,
-    group.items.map(renderMenuItemDisclosure).join(""),
-    false,
-    `${group.visibleCount}/${group.items.length}`
-  );
+  const hiddenFromAgent = group.visibleCount === 0;
+  const visibilityLabel = hiddenFromAgent
+    ? `Show ${group.title} to the agent`
+    : `Hide ${group.title} from the agent`;
+  return `
+    <details class="ios-nested-disclosure menu-category-disclosure">
+      <summary>
+        <span>${escapeHTML(group.title)}</span>
+        <em>${escapeHTML(`${group.visibleCount}/${group.items.length} visible`)}</em>
+        ${renderAgentVisibilityButton(
+          hiddenFromAgent,
+          visibilityLabel,
+          `data-admin-menu-category-visibility="${escapeHTML(group.title)}"`
+        )}
+      </summary>
+      <div class="ios-nested-body">
+        ${group.items.map(renderMenuItemDisclosure).join("")}
+      </div>
+    </details>
+  `;
 }
 
 function renderMenuItemDisclosure(item) {
+  const hiddenFromAgent = menuItemHiddenForAgent(item);
   const title = `${item.name || "Unnamed item"}${Number.isFinite(Number(item.priceCents)) ? ` - ${money(Number(item.priceCents))}` : ""}`;
-  return renderNestedDisclosure(
-    title,
-    `
-      ${renderValueRow("Agent visibility", item.hiddenFromAgent === true ? "Hidden from agent" : "Visible to agent")}
+  const visibilityLabel = hiddenFromAgent
+    ? `Show ${item.name || "menu item"} to the agent`
+    : `Hide ${item.name || "menu item"} from the agent`;
+  return `
+    <details class="ios-nested-disclosure menu-item-disclosure">
+      <summary>
+        <span>${escapeHTML(title)}</span>
+        <em>${escapeHTML(hiddenFromAgent ? "Hidden" : "Visible")}</em>
+        ${renderAgentVisibilityButton(
+          hiddenFromAgent,
+          visibilityLabel,
+          `data-admin-menu-item-visibility="${escapeHTML(item.id || "")}"`
+        )}
+      </summary>
+      <div class="ios-nested-body">
       ${renderValueRow("Category", item.category || "Uncategorized")}
       ${renderValueRow("Price", Number.isFinite(Number(item.priceCents)) ? money(Number(item.priceCents)) : "Not set")}
       ${renderReadOnlyInputRow("Description", item.description || "", true)}
       ${renderValueRow("Aliases", Array.isArray(item.aliases) && item.aliases.length ? item.aliases.join(", ") : "None")}
       ${renderModifierGroups(item.modifierGroups || [])}
-    `,
-    false,
-    item.hiddenFromAgent === true ? "Hidden" : "Visible"
-  );
+      </div>
+    </details>
+  `;
 }
 
 function renderModifierGroups(groups) {
@@ -5764,6 +5939,7 @@ function showLogin() {
   portalState.adminSettingsError = "";
   portalState.adminProfileDraft = null;
   portalState.adminBusinessHoursDraft = null;
+  portalState.adminMenuVisibilityDraft = null;
   portalState.adminSavingTarget = null;
   portalState.adminSaving = false;
   portalState.adminSaveMessage = "";
