@@ -19,6 +19,7 @@ const apiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   ? "http://127.0.0.1:8787"
   : `https://${productionApiHost}`;
 const sessionKey = "tavra.portal.session.v1";
+const adminOnboardingModulesStoragePrefix = "tavra.portal.adminOnboardingModules.v1";
 
 const operationModules = [
   {
@@ -414,6 +415,42 @@ function clearStoredSession() {
     sessionStorage.removeItem(sessionKey);
   } catch {
     // Ignore storage cleanup failures and keep the visible login state authoritative.
+  }
+}
+
+function adminOnboardingModulesStorageKey() {
+  const businessId = portalState.business?.objectId || portalState.adminSettings?.business?.objectId || "default";
+  return `${adminOnboardingModulesStoragePrefix}.${businessId}`;
+}
+
+function readStoredAdminOnboardingOpenModules() {
+  const defaults = defaultOnboardingOpenModules();
+  try {
+    const raw = localStorage.getItem(adminOnboardingModulesStorageKey());
+    if (!raw) {
+      return defaults;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") {
+      return defaults;
+    }
+    return Object.fromEntries(
+      Object.keys(defaults).map((key) => [key, typeof parsed[key] === "boolean" ? parsed[key] : defaults[key]])
+    );
+  } catch {
+    return defaults;
+  }
+}
+
+function storeAdminOnboardingOpenModules() {
+  try {
+    const modules = {
+      ...defaultOnboardingOpenModules(),
+      ...(portalState.adminOnboardingOpenModules || {})
+    };
+    localStorage.setItem(adminOnboardingModulesStorageKey(), JSON.stringify(modules));
+  } catch {
+    // Some browsers can reject local storage. The in-memory state still works for the current page.
   }
 }
 
@@ -4580,6 +4617,8 @@ function applyPortalAdminSettingsPayload(payload) {
   portalState.adminProfileDraft = profileDraftFromSettings(settings);
   portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
   portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
+  portalState.adminOnboardingOpenModules = readStoredAdminOnboardingOpenModules();
+  portalState.adminMenuKnowledgeOpen = portalState.adminOnboardingOpenModules.menuKnowledge === true;
   pruneAdminMenuDisclosureState(settings);
 }
 
@@ -4699,6 +4738,7 @@ function setOnboardingModuleOpen(moduleKey, isOpen) {
   if (moduleKey === "menuKnowledge") {
     portalState.adminMenuKnowledgeOpen = isOpen === true;
   }
+  storeAdminOnboardingOpenModules();
 }
 
 function isOnboardingModuleOpen(moduleKey) {
@@ -4726,6 +4766,7 @@ function syncAdminOnboardingModuleStateFromDom() {
   });
   portalState.adminOnboardingOpenModules = next;
   portalState.adminMenuKnowledgeOpen = next.menuKnowledge === true;
+  storeAdminOnboardingOpenModules();
 }
 
 function syncAdminMenuDisclosureStateFromDom() {
@@ -4759,6 +4800,66 @@ function syncAdminMenuDisclosureStateFromDom() {
   portalState.adminMenuOpenItems = openItems;
 }
 
+function findAdminMenuCategoryDetails(categoryTitle) {
+  return Array.from(portalContent?.querySelectorAll("[data-admin-menu-category-details]") || [])
+    .find((details) => details instanceof HTMLDetailsElement && details.dataset.adminMenuCategoryDetails === categoryTitle) || null;
+}
+
+function findAdminMenuItemDetails(itemId) {
+  return Array.from(portalContent?.querySelectorAll("[data-admin-menu-item-details]") || [])
+    .find((details) => details instanceof HTMLDetailsElement && details.dataset.adminMenuItemDetails === itemId) || null;
+}
+
+function updateAgentVisibilityButtonElement(button, hiddenFromAgent, label) {
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  button.classList.toggle("hidden", hiddenFromAgent === true);
+  button.setAttribute("aria-label", label);
+  button.setAttribute("title", label);
+}
+
+function clearAdminSaveStatusElement(target) {
+  portalContent?.querySelector(`[data-admin-save-status="${target}"]`)?.remove();
+}
+
+function refreshMenuKnowledgeVisibilityDom() {
+  const groups = groupMenuItemsByCategory(currentAdminMenuItems());
+  groups.forEach((group) => {
+    const categoryDetails = findAdminMenuCategoryDetails(group.title);
+    if (categoryDetails instanceof HTMLDetailsElement) {
+      const categoryHidden = group.visibleCount === 0;
+      const categoryStatus = categoryDetails.querySelector("[data-admin-menu-category-count]");
+      if (categoryStatus) {
+        categoryStatus.textContent = `${group.visibleCount}/${group.items.length} visible`;
+      }
+      updateAgentVisibilityButtonElement(
+        categoryDetails.querySelector("[data-admin-menu-category-visibility]"),
+        categoryHidden,
+        categoryHidden ? `Show ${group.title} to the agent` : `Hide ${group.title} from the agent`
+      );
+    }
+
+    group.items.forEach((item) => {
+      const itemId = typeof item.id === "string" ? item.id.trim() : "";
+      const itemDetails = itemId ? findAdminMenuItemDetails(itemId) : null;
+      if (!(itemDetails instanceof HTMLDetailsElement)) {
+        return;
+      }
+      const hiddenFromAgent = menuItemHiddenForAgent(item);
+      const itemStatus = itemDetails.querySelector("[data-admin-menu-item-state]");
+      if (itemStatus) {
+        itemStatus.textContent = hiddenFromAgent ? "Hidden" : "Visible";
+      }
+      updateAgentVisibilityButtonElement(
+        itemDetails.querySelector("[data-admin-menu-item-visibility]"),
+        hiddenFromAgent,
+        hiddenFromAgent ? `Show ${item.name || "menu item"} to the agent` : `Hide ${item.name || "menu item"} from the agent`
+      );
+    });
+  });
+}
+
 function normalizedAdminTime(value) {
   const text = String(value || "");
   const match = text.match(/^(\d{1,2}):(\d{2})$/);
@@ -4777,7 +4878,7 @@ function adminSaveStatusMarkup(target) {
   if (!portalState.adminSaveMessage || portalState.adminSavingTarget !== target) {
     return "";
   }
-  return `<p class="ios-save-status ${portalState.adminSaveIsError ? "error" : "ok"}">${escapeHTML(portalState.adminSaveMessage)}</p>`;
+  return `<p class="ios-save-status ${portalState.adminSaveIsError ? "error" : "ok"}" data-admin-save-status="${escapeHTML(target)}">${escapeHTML(portalState.adminSaveMessage)}</p>`;
 }
 
 function setAdminSaveStatus(target, message, isError = false) {
@@ -4976,8 +5077,9 @@ function updateMenuVisibilityDraft(itemIds, hiddenFromAgent) {
   portalState.adminMenuVisibilityDraft = draft;
   if (portalState.adminSavingTarget === "menuKnowledge" && portalState.adminSaveMessage) {
     clearAdminSaveStatus();
+    clearAdminSaveStatusElement("menuKnowledge");
   }
-  renderOnboardingAdmin();
+  refreshMenuKnowledgeVisibilityDom();
 }
 
 function setMenuItemHidden(itemId, hiddenFromAgent) {
@@ -5611,7 +5713,7 @@ function renderMenuCategoryDisclosure(group) {
     >
       <summary>
         <span>${escapeHTML(group.title)}</span>
-        <em>${escapeHTML(`${group.visibleCount}/${group.items.length} visible`)}</em>
+        <em data-admin-menu-category-count>${escapeHTML(`${group.visibleCount}/${group.items.length} visible`)}</em>
       </summary>
       ${renderAgentVisibilityButton(
         hiddenFromAgent,
@@ -5641,7 +5743,7 @@ function renderMenuItemDisclosure(item) {
     >
       <summary>
         <span>${escapeHTML(title)}</span>
-        <em>${escapeHTML(hiddenFromAgent ? "Hidden" : "Visible")}</em>
+        <em data-admin-menu-item-state>${escapeHTML(hiddenFromAgent ? "Hidden" : "Visible")}</em>
       </summary>
       ${renderAgentVisibilityButton(
         hiddenFromAgent,
