@@ -330,7 +330,7 @@ body.portal-authenticated .portal-app {
 .operations-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  gap: 22px;
 }
 
 .glass-tile {
@@ -340,7 +340,7 @@ body.portal-authenticated .portal-app {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  padding: 24px;
+  padding: 26px 28px 28px;
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 25px;
@@ -351,11 +351,22 @@ body.portal-authenticated .portal-app {
     0 16px 36px rgba(0, 0, 0, 0.24);
 }
 
+.glass-tile::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  background:
+    linear-gradient(140deg, rgba(255, 255, 255, 0.2), transparent 32%),
+    linear-gradient(320deg, rgba(0, 0, 0, 0.18), transparent 44%);
+  pointer-events: none;
+}
+
 .glass-tile::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.25), transparent 8rem);
+  background: radial-gradient(circle at 86% 14%, rgba(255, 255, 255, 0.28), transparent 7.5rem);
   pointer-events: none;
 }
 
@@ -391,30 +402,44 @@ body.portal-authenticated .portal-app {
   position: relative;
   z-index: 1;
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
+  max-width: calc(100% - 112px);
   color: rgba(255, 255, 255, 0.92);
   font-family: var(--mono);
   font-weight: 700;
   font-size: 0.78rem;
+  line-height: 1.1;
   text-transform: uppercase;
 }
 
 .tile-icon {
   position: absolute;
-  top: 36px;
-  right: 34px;
-  font-size: 3.8rem;
-  opacity: 0.78;
+  top: 22px;
+  right: 22px;
+  z-index: 1;
+  width: 74px;
+  height: 74px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -12px 22px rgba(0, 0, 0, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 2.9rem;
+  line-height: 1;
+  opacity: 0.92;
+  text-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
 }
 
 .glass-tile strong {
   position: relative;
   z-index: 1;
   font-family: var(--mono);
-  font-size: clamp(1.55rem, 3vw, 2.45rem);
+  font-size: clamp(1.75rem, 3.25vw, 2.7rem);
   line-height: 1.05;
   letter-spacing: 0;
+  text-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
 }
 
 .detail-panel,
@@ -3245,12 +3270,12 @@ body.portal-reservations-page .portal-content {
   }
 
   .operations-grid {
-    gap: 12px;
+    gap: 14px;
   }
 
   .glass-tile {
     min-height: 136px;
-    padding: 16px;
+    padding: 17px;
     border-radius: 20px;
   }
 
@@ -3259,12 +3284,16 @@ body.portal-reservations-page .portal-content {
   }
 
   .tile-icon {
-    top: 26px;
-    right: 18px;
-    font-size: 2.4rem;
+    top: 14px;
+    right: 14px;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    font-size: 2rem;
   }
 
   .tile-meta {
+    max-width: calc(100% - 66px);
     font-size: 0.64rem;
   }
 
