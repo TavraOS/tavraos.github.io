@@ -265,6 +265,9 @@ let portalState = {
   adminProfileDraft: null,
   adminBusinessHoursDraft: null,
   adminMenuVisibilityDraft: null,
+  adminMenuKnowledgeOpen: false,
+  adminMenuOpenCategories: new Set(),
+  adminMenuOpenItems: new Set(),
   adminSavingTarget: null,
   adminSaving: false,
   adminSaveMessage: "",
@@ -4571,6 +4574,7 @@ function applyPortalAdminSettingsPayload(payload) {
   portalState.adminProfileDraft = profileDraftFromSettings(settings);
   portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
   portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
+  pruneAdminMenuDisclosureState(settings);
 }
 
 function rerenderActiveAdminSection() {
@@ -4653,6 +4657,22 @@ function menuItemHiddenForAgent(item) {
     return draft[id] === true;
   }
   return item?.hiddenFromAgent === true;
+}
+
+function pruneAdminMenuDisclosureState(settings) {
+  const menuItems = Array.isArray(settings?.profile?.menuItems) ? settings.profile.menuItems : [];
+  const categoryTitles = new Set(menuItems.map((item) => item?.category || "Uncategorized"));
+  const itemIds = new Set(
+    menuItems
+      .map((item) => (typeof item?.id === "string" ? item.id.trim() : ""))
+      .filter(Boolean)
+  );
+  portalState.adminMenuOpenCategories = new Set(
+    Array.from(portalState.adminMenuOpenCategories || []).filter((title) => categoryTitles.has(title))
+  );
+  portalState.adminMenuOpenItems = new Set(
+    Array.from(portalState.adminMenuOpenItems || []).filter((id) => itemIds.has(id))
+  );
 }
 
 function normalizedAdminTime(value) {
@@ -4940,6 +4960,46 @@ function wireOnboardingAdminEvents() {
   portalContent?.querySelector("[data-admin-menu-save]")?.addEventListener("click", () => {
     void savePortalAdminMenuVisibility();
   });
+  portalContent?.querySelector("[data-admin-menu-knowledge-details]")?.addEventListener("toggle", (event) => {
+    const details = event.currentTarget;
+    if (details instanceof HTMLDetailsElement) {
+      portalState.adminMenuKnowledgeOpen = details.open;
+    }
+  });
+  portalContent?.querySelectorAll("[data-admin-menu-category-details]").forEach((details) => {
+    details.addEventListener("toggle", (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLDetailsElement)) {
+        return;
+      }
+      const categoryTitle = target.dataset.adminMenuCategoryDetails || "";
+      if (!categoryTitle) {
+        return;
+      }
+      if (target.open) {
+        portalState.adminMenuOpenCategories.add(categoryTitle);
+      } else {
+        portalState.adminMenuOpenCategories.delete(categoryTitle);
+      }
+    });
+  });
+  portalContent?.querySelectorAll("[data-admin-menu-item-details]").forEach((details) => {
+    details.addEventListener("toggle", (event) => {
+      const target = event.currentTarget;
+      if (!(target instanceof HTMLDetailsElement)) {
+        return;
+      }
+      const itemId = target.dataset.adminMenuItemDetails || "";
+      if (!itemId) {
+        return;
+      }
+      if (target.open) {
+        portalState.adminMenuOpenItems.add(itemId);
+      } else {
+        portalState.adminMenuOpenItems.delete(itemId);
+      }
+    });
+  });
   portalContent?.querySelectorAll("[data-admin-menu-item-visibility]").forEach((button) => {
     button.addEventListener("click", (event) => {
       event.preventDefault();
@@ -5089,10 +5149,10 @@ function renderConfigureAdmin() {
   `;
 }
 
-function renderIosModule({ title, icon, content, open = false, meta = "" }) {
+function renderIosModule({ title, icon, content, open = false, meta = "", detailsAttributes = "" }) {
   return `
     <section class="ios-module">
-      <details class="ios-disclosure" ${open ? "open" : ""}>
+      <details class="ios-disclosure" ${open ? "open" : ""} ${detailsAttributes}>
         <summary>
           <span class="ios-module-label">
             <span class="ios-symbol" aria-hidden="true">${escapeHTML(adminSymbolGlyph(icon))}</span>
@@ -5399,8 +5459,9 @@ function renderMenuKnowledgeModule(menuItems) {
   return renderIosModule({
     title: "Menu Knowledge",
     icon: "list.bullet.rectangle",
-    open: false,
+    open: portalState.adminMenuKnowledgeOpen,
     meta: `${menuItems.length} items`,
+    detailsAttributes: "data-admin-menu-knowledge-details",
     content: `
       <p class="ios-footnote">Provider-synced menus keep prices and item IDs in sync. Hide items or categories here to keep them out of the agent without changing the POS.</p>
       ${adminSaveStatusMarkup("menuKnowledge")}
@@ -5437,17 +5498,22 @@ function renderMenuCategoryDisclosure(group) {
   const visibilityLabel = hiddenFromAgent
     ? `Show ${group.title} to the agent`
     : `Hide ${group.title} from the agent`;
+  const isOpen = portalState.adminMenuOpenCategories.has(group.title);
   return `
-    <details class="ios-nested-disclosure menu-category-disclosure">
+    <details
+      class="ios-nested-disclosure menu-category-disclosure"
+      data-admin-menu-category-details="${escapeHTML(group.title)}"
+      ${isOpen ? "open" : ""}
+    >
       <summary>
         <span>${escapeHTML(group.title)}</span>
         <em>${escapeHTML(`${group.visibleCount}/${group.items.length} visible`)}</em>
-        ${renderAgentVisibilityButton(
-          hiddenFromAgent,
-          visibilityLabel,
-          `data-admin-menu-category-visibility="${escapeHTML(group.title)}"`
-        )}
       </summary>
+      ${renderAgentVisibilityButton(
+        hiddenFromAgent,
+        visibilityLabel,
+        `data-admin-menu-category-visibility="${escapeHTML(group.title)}"`
+      )}
       <div class="ios-nested-body">
         ${group.items.map(renderMenuItemDisclosure).join("")}
       </div>
@@ -5461,17 +5527,23 @@ function renderMenuItemDisclosure(item) {
   const visibilityLabel = hiddenFromAgent
     ? `Show ${item.name || "menu item"} to the agent`
     : `Hide ${item.name || "menu item"} from the agent`;
+  const itemId = typeof item.id === "string" ? item.id.trim() : "";
+  const isOpen = itemId ? portalState.adminMenuOpenItems.has(itemId) : false;
   return `
-    <details class="ios-nested-disclosure menu-item-disclosure">
+    <details
+      class="ios-nested-disclosure menu-item-disclosure"
+      data-admin-menu-item-details="${escapeHTML(itemId)}"
+      ${isOpen ? "open" : ""}
+    >
       <summary>
         <span>${escapeHTML(title)}</span>
         <em>${escapeHTML(hiddenFromAgent ? "Hidden" : "Visible")}</em>
-        ${renderAgentVisibilityButton(
-          hiddenFromAgent,
-          visibilityLabel,
-          `data-admin-menu-item-visibility="${escapeHTML(item.id || "")}"`
-        )}
       </summary>
+      ${renderAgentVisibilityButton(
+        hiddenFromAgent,
+        visibilityLabel,
+        `data-admin-menu-item-visibility="${escapeHTML(itemId)}"`
+      )}
       <div class="ios-nested-body">
       ${renderValueRow("Category", item.category || "Uncategorized")}
       ${renderValueRow("Price", Number.isFinite(Number(item.priceCents)) ? money(Number(item.priceCents)) : "Not set")}
@@ -5940,6 +6012,9 @@ function showLogin() {
   portalState.adminProfileDraft = null;
   portalState.adminBusinessHoursDraft = null;
   portalState.adminMenuVisibilityDraft = null;
+  portalState.adminMenuKnowledgeOpen = false;
+  portalState.adminMenuOpenCategories = new Set();
+  portalState.adminMenuOpenItems = new Set();
   portalState.adminSavingTarget = null;
   portalState.adminSaving = false;
   portalState.adminSaveMessage = "";
