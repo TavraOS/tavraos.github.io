@@ -1125,6 +1125,254 @@ body.portal-admin-page .portal-main-shell {
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.menu-item-knowledge-detail {
+  padding: 24px 18px 18px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.menu-item-copy-block {
+  display: grid;
+  gap: 12px;
+  padding: 0 2px 22px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.menu-item-copy-block h3 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 20px;
+  font-weight: 620;
+  line-height: 1.25;
+}
+
+.menu-item-copy-block p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 18px;
+  font-weight: 450;
+  line-height: 1.55;
+}
+
+.menu-item-copy-block p.empty,
+.menu-item-copy-block .menu-item-aliases,
+.menu-modifier-muted,
+.menu-modifier-hint {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.menu-item-copy-block .menu-item-aliases {
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.menu-modifier-empty {
+  margin: 16px 2px 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.menu-modifier-presentation-list {
+  display: grid;
+  gap: 28px;
+  padding-top: 22px;
+}
+
+.menu-modifier-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.menu-modifier-editor + .menu-modifier-editor {
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.menu-modifier-editor h4,
+.menu-modifier-field h5,
+.menu-modifier-examples h5 {
+  margin: 0;
+}
+
+.menu-modifier-editor h4 {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 17px;
+  font-weight: 820;
+  line-height: 1.3;
+}
+
+.menu-modifier-muted {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 570;
+  line-height: 1.45;
+}
+
+.menu-modifier-field {
+  display: grid;
+  gap: 7px;
+}
+
+.menu-modifier-field h5,
+.menu-modifier-examples h5 {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 14px;
+  font-weight: 820;
+  line-height: 1.35;
+}
+
+.menu-modifier-value {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.menu-modifier-hint {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 620;
+  line-height: 1.4;
+}
+
+.menu-modifier-options {
+  display: grid;
+  gap: 10px;
+}
+
+.menu-modifier-option-row {
+  display: grid;
+  grid-template-columns: minmax(96px, 0.42fr) minmax(140px, 1fr);
+  gap: 14px;
+  align-items: baseline;
+}
+
+.menu-modifier-option-row span {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 15px;
+  font-weight: 620;
+}
+
+.menu-modifier-option-row strong,
+.menu-modifier-custom-value strong {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 17px;
+  font-weight: 520;
+}
+
+.menu-modifier-option-row strong.placeholder,
+.menu-modifier-custom-value strong.placeholder {
+  color: rgba(255, 255, 255, 0.34);
+}
+
+.menu-modifier-default-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.menu-modifier-default-row span {
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 17px;
+  font-weight: 540;
+}
+
+.menu-modifier-default-row strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #2da8ff;
+  font-size: 16px;
+  font-weight: 820;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.menu-modifier-default-row b {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.menu-modifier-examples {
+  display: grid;
+  gap: 9px;
+}
+
+.menu-modifier-example {
+  display: grid;
+  gap: 3px;
+}
+
+.menu-modifier-example span,
+.menu-modifier-custom-value span {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.menu-modifier-example strong {
+  font-size: 18px;
+  font-weight: 560;
+  line-height: 1.35;
+}
+
+.menu-modifier-example.ask strong {
+  color: #40ec82;
+}
+
+.menu-modifier-example.confirm strong {
+  color: #48a8ff;
+}
+
+.menu-modifier-example.readback strong {
+  color: #ff8f55;
+}
+
+.menu-modifier-custom {
+  border: 0;
+}
+
+.menu-modifier-custom summary {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 17px;
+  font-weight: 820;
+  cursor: pointer;
+  list-style: none;
+}
+
+.menu-modifier-custom summary::-webkit-details-marker {
+  display: none;
+}
+
+.menu-modifier-custom summary::after {
+  content: "›";
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 31px;
+  font-weight: 300;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.menu-modifier-custom[open] summary::after {
+  transform: rotate(90deg);
+}
+
+.menu-modifier-custom > div {
+  display: grid;
+  gap: 11px;
+  padding-top: 9px;
+}
+
+.menu-modifier-custom-value {
+  display: grid;
+  gap: 4px;
+}
+
 .ios-subgroup {
   padding: 12px 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.065);

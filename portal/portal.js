@@ -5751,32 +5751,209 @@ function renderMenuItemDisclosure(item) {
         `data-admin-menu-item-visibility="${escapeHTML(itemId)}"`
       )}
       <div class="ios-nested-body">
-      ${renderValueRow("Category", item.category || "Uncategorized")}
-      ${renderValueRow("Price", Number.isFinite(Number(item.priceCents)) ? money(Number(item.priceCents)) : "Not set")}
-      ${renderReadOnlyInputRow("Description", item.description || "", true)}
-      ${renderValueRow("Aliases", Array.isArray(item.aliases) && item.aliases.length ? item.aliases.join(", ") : "None")}
-      ${renderModifierGroups(item.modifierGroups || [])}
+        ${renderMenuItemKnowledgeDetail(item)}
       </div>
     </details>
   `;
 }
 
-function renderModifierGroups(groups) {
-  if (!Array.isArray(groups) || !groups.length) {
-    return renderValueRow("Modifier groups", "None");
-  }
+function renderMenuItemKnowledgeDetail(item) {
   return `
-    <div class="ios-subgroup">
-      <h4>Modifier groups</h4>
-      ${groups.map((group) => `
-        <div class="ios-mini-card">
-          <strong>${escapeHTML(group.name || "Modifier group")}</strong>
-          <span>${escapeHTML(Array.isArray(group.options) ? `${group.options.length} options` : "No options")}</span>
-          ${group.presentation?.displayName ? `<p>${escapeHTML(group.presentation.displayName)}</p>` : ""}
-        </div>
-      `).join("")}
+    <div class="menu-item-knowledge-detail">
+      <div class="menu-item-copy-block">
+        <h3>${escapeHTML(item.name || "Unnamed item")}</h3>
+        <p class="${item.description ? "" : "empty"}">${escapeHTML(item.description || "No item description yet.")}</p>
+        ${Array.isArray(item.aliases) && item.aliases.length ? `
+          <p class="menu-item-aliases">Customer nicknames: ${escapeHTML(item.aliases.join(", "))}</p>
+        ` : ""}
+      </div>
+      ${renderModifierGroups(item.modifierGroups || [], item.name || "this item")}
     </div>
   `;
+}
+
+function renderModifierGroups(groups, itemName) {
+  if (!Array.isArray(groups) || !groups.length) {
+    return `<p class="menu-modifier-empty">No modifier groups synced for this item.</p>`;
+  }
+  return `
+    <div class="menu-modifier-presentation-list">
+      ${groups.map((group) => renderModifierPresentationEditor(group, itemName)).join("")}
+    </div>
+  `;
+}
+
+function renderModifierPresentationEditor(group, itemName) {
+  const options = Array.isArray(group.options) ? group.options : [];
+  const presentation = group.presentation || {};
+  const displayGroupName = modifierGroupDisplayName(group);
+  const optionsSummary = modifierOptionsSummary(group);
+  const sampleOption = modifierSampleOption(group);
+  const askBehavior = modifierAskBehavior(group);
+  const questionExample = renderModifierTemplate(
+    presentation.questionTemplate,
+    itemName,
+    displayGroupName,
+    sampleOption,
+    optionsSummary,
+    `Do you want ${itemName} with ${optionsSummary}?`
+  );
+  const confirmationExample = renderModifierTemplate(
+    presentation.confirmationTemplate,
+    itemName,
+    displayGroupName,
+    sampleOption,
+    optionsSummary,
+    `Got it. ${itemName} with ${sampleOption}.`
+  );
+  const readbackExample = renderModifierTemplate(
+    presentation.readbackTemplate,
+    itemName,
+    displayGroupName,
+    sampleOption,
+    optionsSummary,
+    `${itemName} with ${sampleOption}`
+  );
+
+  return `
+    <section class="menu-modifier-editor">
+      <h4>${escapeHTML(group.name || "Modifier group")}</h4>
+      ${options.length ? `
+        <p class="menu-modifier-muted">Choices the caller can pick: ${escapeHTML(options.map((option) => option.name || "Option").join(", "))}</p>
+      ` : ""}
+
+      <div class="menu-modifier-field">
+        <h5>What should the agent call this choice?</h5>
+        <p class="menu-modifier-value">${escapeHTML(displayGroupName)}</p>
+        <p class="menu-modifier-hint">Leave blank to use the Clover modifier group name.</p>
+      </div>
+
+      ${options.length ? `
+        <div class="menu-modifier-field">
+          <h5>What should the agent call each option?</h5>
+          <div class="menu-modifier-options">
+            ${options.map((option) => renderModifierOptionDisplay(option, presentation.optionDisplayNames || {})).join("")}
+          </div>
+          <p class="menu-modifier-hint">Leave blank to use the Clover modifier name.</p>
+        </div>
+      ` : ""}
+
+      <div class="menu-modifier-default-row">
+        <span>When the caller does not specify</span>
+        <strong>${escapeHTML(modifierAskBehaviorTitle(askBehavior))}<b aria-hidden="true">⌄</b></strong>
+      </div>
+      <p class="menu-modifier-muted">${escapeHTML(modifierDefaultHandlingHelpText(askBehavior))}</p>
+
+      <div class="menu-modifier-examples">
+        <h5>What the caller will hear</h5>
+        ${askBehavior !== "apply_default_silently" ? renderModifierExampleLine("Agent will ask", questionExample, "ask") : ""}
+        ${renderModifierExampleLine("Agent will confirm", confirmationExample, "confirm")}
+        ${renderModifierExampleLine("Agent will read back", readbackExample, "readback")}
+      </div>
+
+      <details class="menu-modifier-custom">
+        <summary>Custom wording (optional)</summary>
+        <div>
+          <p class="menu-modifier-muted">Only fill these in if you want to override the automatic wording.</p>
+          ${renderModifierCustomValue("Custom question the agent asks", presentation.questionTemplate)}
+          ${renderModifierCustomValue("Custom confirmation after selection", presentation.confirmationTemplate)}
+          ${renderModifierCustomValue("Custom wording when reading the order back", presentation.readbackTemplate)}
+          <p class="menu-modifier-hint">You can use: {item}, {group}, {option}, {options}.</p>
+        </div>
+      </details>
+    </section>
+  `;
+}
+
+function renderModifierOptionDisplay(option, optionDisplayNames) {
+  const optionId = typeof option?.id === "string" ? option.id : "";
+  const displayName = typeof optionDisplayNames?.[optionId] === "string" ? optionDisplayNames[optionId].trim() : "";
+  return `
+    <div class="menu-modifier-option-row">
+      <span>${escapeHTML(option?.name || "Option")}</span>
+      <strong class="${displayName ? "" : "placeholder"}">${escapeHTML(displayName || "Optional spoken name")}</strong>
+    </div>
+  `;
+}
+
+function renderModifierExampleLine(title, text, tone) {
+  return `
+    <div class="menu-modifier-example ${escapeHTML(tone)}">
+      <span>${escapeHTML(title)}</span>
+      <strong>“${escapeHTML(text)}”</strong>
+    </div>
+  `;
+}
+
+function renderModifierCustomValue(label, value) {
+  const text = typeof value === "string" && value.trim() ? value.trim() : "";
+  return `
+    <div class="menu-modifier-custom-value">
+      <span>${escapeHTML(label)}</span>
+      <strong class="${text ? "" : "placeholder"}">${escapeHTML(text || "Not customized")}</strong>
+    </div>
+  `;
+}
+
+function modifierAskBehavior(group) {
+  const value = group?.presentation?.askBehavior;
+  return value === "always_ask" || value === "ask_if_no_default" ? value : "apply_default_silently";
+}
+
+function modifierAskBehaviorTitle(askBehavior) {
+  if (askBehavior === "always_ask") {
+    return "Always ask";
+  }
+  if (askBehavior === "ask_if_no_default") {
+    return "Ask only if no default exists";
+  }
+  return "Use the restaurant default";
+}
+
+function modifierDefaultHandlingHelpText(askBehavior) {
+  if (askBehavior === "always_ask") {
+    return "The agent will always ask the caller before choosing one.";
+  }
+  if (askBehavior === "ask_if_no_default") {
+    return "The agent will use a default when Clover provides one, otherwise it will ask.";
+  }
+  return "The agent will use the Clover default unless the caller asks for something different.";
+}
+
+function modifierGroupDisplayName(group) {
+  const displayName = typeof group?.presentation?.displayName === "string" ? group.presentation.displayName.trim() : "";
+  return displayName || group?.name || "Modifier group";
+}
+
+function modifierOptionDisplayName(group, option) {
+  const optionId = typeof option?.id === "string" ? option.id : "";
+  const optionDisplayNames = group?.presentation?.optionDisplayNames || {};
+  const displayName = typeof optionDisplayNames?.[optionId] === "string" ? optionDisplayNames[optionId].trim() : "";
+  return displayName || option?.name || "the default option";
+}
+
+function modifierSampleOption(group) {
+  const options = Array.isArray(group?.options) ? group.options : [];
+  const defaultId = typeof group?.defaultOptionId === "string" ? group.defaultOptionId : "";
+  const defaultOption = defaultId ? options.find((option) => option.id === defaultId) : null;
+  return modifierOptionDisplayName(group, defaultOption || options[0] || null);
+}
+
+function modifierOptionsSummary(group) {
+  const options = Array.isArray(group?.options) ? group.options : [];
+  if (!options.length) {
+    return "the available options";
+  }
+  return options.map((option) => modifierOptionDisplayName(group, option)).join(" or ");
+}
+
+function renderModifierTemplate(template, itemName, groupName, optionName, optionsSummary, fallback) {
+  const text = typeof template === "string" && template.trim() ? template.trim() : fallback;
+  return text
+    .replaceAll("{item}", itemName)
+    .replaceAll("{group}", groupName)
+    .replaceAll("{option}", optionName)
+    .replaceAll("{options}", optionsSummary);
 }
 
 function renderTeamAccessModule() {
