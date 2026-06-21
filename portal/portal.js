@@ -112,6 +112,67 @@ const menu86DurationOptions = [
   { hours: 0, title: "Until further notice" }
 ];
 
+const adminOnlySections = new Set(["onboarding", "configure", "team"]);
+const portalWeekdayLabels = {
+  sun: "Sunday",
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday"
+};
+const portalWeekdayOrder = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const reservationWeekdayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const posProviderLabels = {
+  clover: "Clover",
+  toast: "Toast",
+  square: "Square"
+};
+const googleConversationRelayVoiceOptions = [
+  {
+    id: "google-journey-o",
+    title: "Google Journey O",
+    detail: "Default ConversationRelay voice for live calls.",
+    provider: "Google",
+    voice: "en-US-Journey-O"
+  },
+  {
+    id: "google-chirp3-aoede",
+    title: "Google Chirp3 Aoede",
+    detail: "Female Google Chirp3-HD generative voice. Higher quality, but test for latency.",
+    provider: "Google",
+    voice: "en-US-Chirp3-HD-Aoede"
+  },
+  {
+    id: "google-chirp3-kore",
+    title: "Google Chirp3 Kore",
+    detail: "Female Google Chirp3-HD generative voice. Higher quality, but test for latency.",
+    provider: "Google",
+    voice: "en-US-Chirp3-HD-Kore"
+  }
+];
+const deepgramAuraPreviewOptions = [
+  { id: "arcas", title: "Arcas", detail: "Natural, smooth American masculine voice. Good fit for customer service.", model: "aura-2-arcas-en" },
+  { id: "orpheus", title: "Orpheus", detail: "Professional, trustworthy American masculine voice.", model: "aura-2-orpheus-en" },
+  { id: "zeus", title: "Zeus", detail: "Deep, smooth American masculine voice for IVR-style use.", model: "aura-2-zeus-en" },
+  { id: "pluto", title: "Pluto", detail: "Calm baritone American masculine voice.", model: "aura-2-pluto-en" },
+  { id: "saturn", title: "Saturn", detail: "Confident baritone American masculine voice.", model: "aura-2-saturn-en" },
+  { id: "apollo", title: "Apollo", detail: "Comfortable American masculine voice with a casual tone.", model: "aura-2-apollo-en" },
+  { id: "thalia", title: "Thalia", detail: "Clear, energetic American feminine voice.", model: "aura-2-thalia-en" },
+  { id: "helena", title: "Helena", detail: "Natural, friendly American feminine voice with a slightly raspy edge.", model: "aura-2-helena-en" }
+];
+const defaultSystemFallbacks = {
+  localDeviceOfflineBehavior: "submit_to_pos_cloud",
+  orderSubmissionFailureBehavior: "save_for_staff_followup",
+  paymentFailureBehavior: "save_for_staff_followup",
+  printerFailureBehavior: "track_separately",
+  systemFallbackRouteId: "front_desk",
+  notifyStaffOnSystemFallback: true,
+  connectedSystemUnavailableMessage:
+    "I have your order, but I can't send it through the restaurant system right now. The restaurant will confirm it shortly."
+};
+
 const waitListSourceModes = [
   { key: "automatic", title: "Automatic", subtitle: "Recommended: host quote, then reservation book" },
   { key: "host_override", title: "Host quote only", subtitle: "Most exact, but expires if staff do not update it" },
@@ -191,6 +252,11 @@ let portalState = {
   session: null,
   membership: null,
   business: null,
+  adminSettings: null,
+  adminTeamMembers: [],
+  adminSettingsLoaded: false,
+  adminSettingsLoading: false,
+  adminSettingsError: "",
   section: "operations",
   activeModule: "foodOrders",
   foodOrders: [],
@@ -1927,6 +1993,15 @@ function isFullAccessRole(role) {
   return role === "owner" || role === "gm" || role === "manager";
 }
 
+function isAdminRole(role) {
+  return role === "owner" || role === "gm";
+}
+
+function canAccessAdminAreas() {
+  const membership = portalState.membership;
+  return membership?.status === "active" && isAdminRole(membership.role);
+}
+
 function modulePermission(moduleKey) {
   const membership = portalState.membership;
   if (!membership || membership.status !== "active") {
@@ -1963,12 +2038,30 @@ function renderShell() {
       ? `${roleLabel(role)} · active`
       : "No active access";
   }
+  sectionButtons.forEach((button) => {
+    const section = button.dataset.section || "";
+    const adminOnly = adminOnlySections.has(section);
+    button.hidden = adminOnly && !canAccessAdminAreas();
+    button.disabled = adminOnly && !canAccessAdminAreas();
+  });
   setActiveSection(requestedPortalSection() || portalState.section);
 }
 
 function requestedPortalSection() {
   const section = new URLSearchParams(window.location.search).get("section") || window.location.hash.replace(/^#/, "");
-  return ["operations", "reservations", "foodOrders", "callLogs", "voicemail", "waitList", "menu86"].includes(section)
+  return [
+    "onboarding",
+    "configure",
+    "operations",
+    "reservations",
+    "foodOrders",
+    "callLogs",
+    "voicemail",
+    "waitList",
+    "menu86",
+    "team",
+    "settings"
+  ].includes(section)
     ? section
     : null;
 }
@@ -1984,6 +2077,15 @@ function roleLabel(role) {
 }
 
 function setActiveSection(section) {
+  if (adminOnlySections.has(section) && !canAccessAdminAreas()) {
+    portalState.section = section;
+    document.body.classList.toggle("portal-admin-page", false);
+    sectionButtons.forEach((button) => {
+      button.classList.toggle("active", false);
+    });
+    renderAdminAccessDenied(section);
+    return;
+  }
   if (portalState.section === "voicemail" && section !== "voicemail") {
     stopPortalVoicemail();
   }
@@ -2004,10 +2106,25 @@ function setActiveSection(section) {
   document.body.classList.toggle("portal-voicemail-page", section === "voicemail");
   document.body.classList.toggle("portal-wait-list-page", section === "waitList");
   document.body.classList.toggle("portal-menu86-page", section === "menu86");
+  document.body.classList.toggle("portal-admin-page", section === "onboarding" || section === "configure");
   const sidebarSection = ["reservations", "foodOrders", "callLogs", "voicemail", "waitList", "menu86"].includes(section) ? "operations" : section;
   sectionButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.section === sidebarSection);
   });
+  if (section === "onboarding") {
+    renderOnboardingAdmin();
+    if (!portalState.adminSettingsLoaded && !portalState.adminSettingsLoading) {
+      void loadPortalAdminSettings();
+    }
+    return;
+  }
+  if (section === "configure") {
+    renderConfigureAdmin();
+    if (!portalState.adminSettingsLoaded && !portalState.adminSettingsLoading) {
+      void loadPortalAdminSettings();
+    }
+    return;
+  }
   if (section === "operations") {
     renderOperations();
     return;
@@ -4413,6 +4530,841 @@ function moneyOrBlank(cents) {
   return Number.isFinite(Number(cents)) ? money(Number(cents)) : "";
 }
 
+async function loadPortalAdminSettings() {
+  if (portalState.adminSettingsLoading || !canAccessAdminAreas()) {
+    return;
+  }
+  portalState.adminSettingsLoading = true;
+  portalState.adminSettingsError = "";
+  rerenderActiveAdminSection();
+  try {
+    const payload = await apiRequest("/operations/admin/settings", { method: "GET" });
+    portalState.adminSettings = payload.settings || null;
+    portalState.adminTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
+    portalState.adminSettingsLoaded = true;
+    portalState.adminSettingsError = "";
+  } catch (error) {
+    portalState.adminSettingsError = error?.status === 403
+      ? "This account does not have Owner or GM access."
+      : "Could not load restaurant configuration.";
+  } finally {
+    portalState.adminSettingsLoading = false;
+    rerenderActiveAdminSection();
+  }
+}
+
+function rerenderActiveAdminSection() {
+  if (portalState.section === "onboarding") {
+    renderOnboardingAdmin();
+  } else if (portalState.section === "configure") {
+    renderConfigureAdmin();
+  }
+}
+
+function adminSettingsSnapshot() {
+  return portalState.adminSettings || null;
+}
+
+function adminConfig() {
+  return adminSettingsSnapshot()?.callFlowConfig?.config || {};
+}
+
+function renderAdminAccessDenied(section) {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  const copy = sectionCopy[section] || { title: "Restricted", kicker: "Owner or GM" };
+  pageTitle.textContent = copy.title;
+  pageKicker.textContent = copy.kicker;
+  portalContent.innerHTML = `
+    <section class="ios-form-page">
+      <article class="admin-state-card error">
+        <p class="eyebrow blue">Owner or GM required</p>
+        <h2>Restricted admin area</h2>
+        <p>Onboarding and Configure contain business setup, routing, integrations, and workflow controls. This account cannot view them.</p>
+      </article>
+    </section>
+  `;
+}
+
+function renderAdminState(message, isError = false) {
+  return `
+    <section class="ios-form-page">
+      <article class="admin-state-card ${isError ? "error" : ""}">
+        <p class="eyebrow blue">${isError ? "Configuration unavailable" : "Loading"}</p>
+        <h2>${escapeHTML(message)}</h2>
+      </article>
+    </section>
+  `;
+}
+
+function renderOnboardingAdmin() {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  pageTitle.textContent = "Onboarding";
+  pageKicker.textContent = "Setup";
+  if (!canAccessAdminAreas()) {
+    renderAdminAccessDenied("onboarding");
+    return;
+  }
+  if (portalState.adminSettingsLoading && !portalState.adminSettingsLoaded) {
+    portalContent.innerHTML = renderAdminState("Loading restaurant setup...");
+    return;
+  }
+  if (portalState.adminSettingsError) {
+    portalContent.innerHTML = renderAdminState(portalState.adminSettingsError, true);
+    return;
+  }
+  const settings = adminSettingsSnapshot();
+  if (!settings) {
+    portalContent.innerHTML = renderAdminState("Restaurant setup has not loaded yet.");
+    return;
+  }
+
+  const business = settings.business || {};
+  const profile = settings.profile || {};
+  const menuItems = Array.isArray(profile.menuItems) ? profile.menuItems : [];
+  const upsellItems = Array.isArray(profile.upsellItems) ? profile.upsellItems : [];
+
+  portalContent.innerHTML = `
+    <section class="ios-form-page admin-onboarding-page">
+      ${renderIosModule({
+        title: "Restaurant Profile",
+        icon: "fork.knife",
+        open: true,
+        content: `
+          ${renderReadOnlyInputRow("Restaurant Name", business.name || "")}
+          ${renderPickerRow("Timezone", business.timezone || "America/Chicago")}
+          ${renderReadOnlyInputRow("Agent Number", business.twilioNumberE164 || "")}
+          ${renderActionButton("Browse Agent Numbers", "phone.badge.plus")}
+          ${renderReadOnlyInputRow("Business Phone", business.phoneNumberE164 || "")}
+          ${renderActionButton("Save Restaurant Profile")}
+        `
+      })}
+      ${renderBusinessHoursModule(profile.hours)}
+      ${menuItems.length ? renderMenuKnowledgeModule(menuItems) : ""}
+      ${renderIosModule({
+        title: "Status",
+        icon: "checkmark.circle",
+        open: true,
+        content: `
+          <p class="ios-status-text ok">Loaded restaurant settings from Parse.</p>
+          ${menuItems.length ? `<p class="ios-footnote">Menu items: ${menuItems.length}, Upsell candidates: ${upsellItems.length}</p>` : ""}
+        `
+      })}
+    </section>
+  `;
+}
+
+function renderConfigureAdmin() {
+  if (!portalContent || !pageTitle || !pageKicker) {
+    return;
+  }
+  pageTitle.textContent = "Configure";
+  pageKicker.textContent = "Agent controls";
+  if (!canAccessAdminAreas()) {
+    renderAdminAccessDenied("configure");
+    return;
+  }
+  if (portalState.adminSettingsLoading && !portalState.adminSettingsLoaded) {
+    portalContent.innerHTML = renderAdminState("Loading agent controls...");
+    return;
+  }
+  if (portalState.adminSettingsError) {
+    portalContent.innerHTML = renderAdminState(portalState.adminSettingsError, true);
+    return;
+  }
+  const settings = adminSettingsSnapshot();
+  if (!settings) {
+    portalContent.innerHTML = renderAdminState("Agent controls have not loaded yet.");
+    return;
+  }
+
+  portalContent.innerHTML = `
+    <section class="ios-form-page admin-configure-page">
+      ${renderIosModule({
+        title: "Status",
+        icon: "checkmark.circle",
+        open: true,
+        content: `<p class="ios-status-text ok">Loaded restaurant settings from Parse.</p>`
+      })}
+      ${renderTeamAccessModule()}
+      ${renderAddIntegrationModule()}
+      ${renderPosIntegrationsModule(settings.integrations || [])}
+      ${renderPhonePaymentsModule(settings.paymentProfile || {})}
+      ${renderVoiceRuntimeModule(settings)}
+      ${renderReservationsConfigModule(adminConfig().reservationConfig || {})}
+      ${renderMiscRequestCategoriesModule(adminConfig().miscRequestCategories || [])}
+      ${renderHandoffRoutesModule(adminConfig().handoffRoutes || [])}
+      ${renderKitchenPrintingModule(adminConfig().posPrinting || {})}
+      ${renderSystemFallbacksModule(adminConfig().systemFallbacks || {})}
+      ${renderLiveCallVoiceModule(settings)}
+      ${renderDeepgramAuraPreviewModule()}
+    </section>
+  `;
+}
+
+function renderIosModule({ title, icon, content, open = false, meta = "" }) {
+  return `
+    <section class="ios-module">
+      <details class="ios-disclosure" ${open ? "open" : ""}>
+        <summary>
+          <span class="ios-module-label">
+            <span class="ios-symbol" aria-hidden="true">${escapeHTML(adminSymbolGlyph(icon))}</span>
+            <span>${escapeHTML(title)}</span>
+          </span>
+          ${meta ? `<span class="ios-module-meta">${escapeHTML(meta)}</span>` : ""}
+        </summary>
+        <div class="ios-module-body">
+          ${content}
+        </div>
+      </details>
+    </section>
+  `;
+}
+
+function renderNestedDisclosure(title, content, open = false, meta = "") {
+  return `
+    <details class="ios-nested-disclosure" ${open ? "open" : ""}>
+      <summary>
+        <span>${escapeHTML(title)}</span>
+        ${meta ? `<em>${escapeHTML(meta)}</em>` : ""}
+      </summary>
+      <div class="ios-nested-body">
+        ${content}
+      </div>
+    </details>
+  `;
+}
+
+function renderReadOnlyInputRow(label, value, multiline = false) {
+  const safeValue = escapeHTML(value || "");
+  return `
+    <label class="ios-row ios-control-row">
+      <span>${escapeHTML(label)}</span>
+      ${multiline
+        ? `<textarea disabled rows="3">${safeValue}</textarea>`
+        : `<input type="text" value="${safeValue}" disabled>`}
+    </label>
+  `;
+}
+
+function renderPickerRow(label, value) {
+  return `
+    <div class="ios-row">
+      <span>${escapeHTML(label)}</span>
+      <span class="ios-picker-value">${escapeHTML(displaySettingValue(value))}<b aria-hidden="true">⌄</b></span>
+    </div>
+  `;
+}
+
+function renderValueRow(label, value, detail = "") {
+  return `
+    <div class="ios-row">
+      <span>${escapeHTML(label)}</span>
+      <strong>${escapeHTML(displaySettingValue(value))}</strong>
+      ${detail ? `<small>${escapeHTML(detail)}</small>` : ""}
+    </div>
+  `;
+}
+
+function renderToggleRow(label, checked, detail = "") {
+  return `
+    <div class="ios-row">
+      <span>${escapeHTML(label)}</span>
+      <span class="ios-switch ${checked ? "on" : ""}" role="switch" aria-checked="${checked ? "true" : "false"}"><i></i></span>
+      ${detail ? `<small>${escapeHTML(detail)}</small>` : ""}
+    </div>
+  `;
+}
+
+function renderActionButton(label, icon = "") {
+  return `
+    <button class="ios-action-button" type="button" disabled>
+      ${icon ? `<span aria-hidden="true">${escapeHTML(adminSymbolGlyph(icon))}</span>` : ""}
+      <span>${escapeHTML(label)}</span>
+    </button>
+  `;
+}
+
+function adminSymbolGlyph(icon) {
+  const glyphs = {
+    "fork.knife": "🍴",
+    clock: "◷",
+    "list.bullet.rectangle": "☷",
+    "checkmark.circle": "✓",
+    "person.2.badge.gearshape": "☻",
+    "plus.circle": "+",
+    "plus.circle.fill": "+",
+    "phone.badge.plus": "☎",
+    terminal: "⌘",
+    creditcard: "▭",
+    "phone.badge.checkmark": "☎",
+    waveform: "≈",
+    "calendar.badge.clock": "▦",
+    "questionmark.bubble": "?",
+    "phone.arrow.up.right": "↗",
+    printer: "▣",
+    "exclamationmark.arrow.triangle.2.circlepath": "!",
+    "speaker.wave.2": "◉",
+    "waveform.circle": "◎"
+  };
+  return glyphs[icon] || icon || "";
+}
+
+function displaySettingValue(value, fallback = "Not set") {
+  if (value === true) {
+    return "Enabled";
+  }
+  if (value === false) {
+    return "Disabled";
+  }
+  if (value === null || value === undefined || value === "") {
+    return fallback;
+  }
+  return String(value);
+}
+
+function formatSettingLabel(value) {
+  return statusText(value || "not_set") || "Not set";
+}
+
+function formatTimeOfDay(value) {
+  const text = String(value || "");
+  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    return text || "Not set";
+  }
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${period}`;
+}
+
+function businessHoursDays(hours) {
+  const days = Array.isArray(hours?.days) ? hours.days : [];
+  return portalWeekdayOrder.map((dayKey) => {
+    const day = days.find((item) => item?.day === dayKey) || {};
+    const windows = Array.isArray(day.windows) ? day.windows : [{ start: "09:00", end: "17:00" }];
+    return {
+      day: dayKey,
+      isOpen: day.isOpen !== false,
+      windows
+    };
+  });
+}
+
+function formatBusinessHoursSource(hours) {
+  const source = hours?.source || "manual_default";
+  const lastSyncedAt = hours?.lastSyncedAt;
+  if (source === "clover") {
+    return `Synced from Clover${lastSyncedAt ? ` on ${lastSyncedAt}` : ""}`;
+  }
+  if (source === "square") {
+    return `Synced from Square${lastSyncedAt ? ` on ${lastSyncedAt}` : ""}`;
+  }
+  if (source === "manual") {
+    return "Manually configured";
+  }
+  return "Default hours: open 9:00 AM-5:00 PM daily";
+}
+
+function renderBusinessHoursModule(hours) {
+  const days = businessHoursDays(hours || {});
+  return renderIosModule({
+    title: "Business Hours",
+    icon: "clock",
+    open: true,
+    content: `
+      <p class="ios-footnote">Synced from the POS when available. If the POS does not provide hours, configure them here so Tavra knows when the restaurant is open.</p>
+      <p class="ios-source-note"><span aria-hidden="true">clock</span>${escapeHTML(formatBusinessHoursSource(hours || {}))}</p>
+      <div class="ios-day-list">
+        ${days.map((day) => `
+          <div class="ios-day-row">
+            <strong>${escapeHTML(portalWeekdayLabels[day.day] || day.day)}</strong>
+            <span>${escapeHTML(day.isOpen ? day.windows.map(formatBusinessWindow).join(", ") : "Closed")}</span>
+          </div>
+        `).join("")}
+      </div>
+      ${renderActionButton("Save Business Hours")}
+    `
+  });
+}
+
+function formatBusinessWindow(window) {
+  return `${formatTimeOfDay(window?.start)}-${formatTimeOfDay(window?.end)}`;
+}
+
+function renderMenuKnowledgeModule(menuItems) {
+  const groups = groupMenuItemsByCategory(menuItems);
+  return renderIosModule({
+    title: "Menu Knowledge",
+    icon: "list.bullet.rectangle",
+    open: false,
+    meta: `${menuItems.length} items`,
+    content: `
+      <p class="ios-footnote">Provider-synced menus keep prices and item IDs in sync. Hide items or categories here to keep them out of the agent without changing the POS.</p>
+      ${groups.map((group) => renderMenuCategoryDisclosure(group)).join("")}
+    `
+  });
+}
+
+function groupMenuItemsByCategory(menuItems) {
+  const groups = new Map();
+  menuItems.forEach((item) => {
+    const title = item.category || "Uncategorized";
+    if (!groups.has(title)) {
+      groups.set(title, []);
+    }
+    groups.get(title).push(item);
+  });
+  return Array.from(groups.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([title, items]) => ({
+      title,
+      items: items.sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""))),
+      visibleCount: items.filter((item) => item.hiddenFromAgent !== true).length
+    }));
+}
+
+function renderMenuCategoryDisclosure(group) {
+  return renderNestedDisclosure(
+    group.title,
+    group.items.map(renderMenuItemDisclosure).join(""),
+    false,
+    `${group.visibleCount}/${group.items.length}`
+  );
+}
+
+function renderMenuItemDisclosure(item) {
+  const title = `${item.name || "Unnamed item"}${Number.isFinite(Number(item.priceCents)) ? ` - ${money(Number(item.priceCents))}` : ""}`;
+  return renderNestedDisclosure(
+    title,
+    `
+      ${renderValueRow("Agent visibility", item.hiddenFromAgent === true ? "Hidden from agent" : "Visible to agent")}
+      ${renderValueRow("Category", item.category || "Uncategorized")}
+      ${renderValueRow("Price", Number.isFinite(Number(item.priceCents)) ? money(Number(item.priceCents)) : "Not set")}
+      ${renderReadOnlyInputRow("Description", item.description || "", true)}
+      ${renderValueRow("Aliases", Array.isArray(item.aliases) && item.aliases.length ? item.aliases.join(", ") : "None")}
+      ${renderModifierGroups(item.modifierGroups || [])}
+    `,
+    false,
+    item.hiddenFromAgent === true ? "Hidden" : "Visible"
+  );
+}
+
+function renderModifierGroups(groups) {
+  if (!Array.isArray(groups) || !groups.length) {
+    return renderValueRow("Modifier groups", "None");
+  }
+  return `
+    <div class="ios-subgroup">
+      <h4>Modifier groups</h4>
+      ${groups.map((group) => `
+        <div class="ios-mini-card">
+          <strong>${escapeHTML(group.name || "Modifier group")}</strong>
+          <span>${escapeHTML(Array.isArray(group.options) ? `${group.options.length} options` : "No options")}</span>
+          ${group.presentation?.displayName ? `<p>${escapeHTML(group.presentation.displayName)}</p>` : ""}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderTeamAccessModule() {
+  const members = portalState.adminTeamMembers || [];
+  const activeMembers = members.filter((member) => member.status === "active");
+  return renderIosModule({
+    title: "Team Access",
+    icon: "person.2.badge.gearshape",
+    open: false,
+    meta: `${activeMembers.length} active`,
+    content: `
+      ${members.length ? members.map((member) => `
+        <div class="ios-list-card">
+          <strong>${escapeHTML(member.name || member.email || member.invitedEmail || "Team member")}</strong>
+          <span>${escapeHTML(roleLabel(member.role))} · ${escapeHTML(formatSettingLabel(member.status))}</span>
+        </div>
+      `).join("") : `<p class="ios-footnote">No team members are configured yet.</p>`}
+    `
+  });
+}
+
+function renderAddIntegrationModule() {
+  return renderIosModule({
+    title: "Add Integration",
+    icon: "plus.circle",
+    open: true,
+    content: `
+      <div class="ios-button-grid">
+        ${["clover", "toast", "square"].map((provider) => renderActionButton(posProviderLabels[provider], "plus.circle.fill")).join("")}
+      </div>
+    `
+  });
+}
+
+function renderPosIntegrationsModule(integrations) {
+  const byProvider = new Map((Array.isArray(integrations) ? integrations : []).map((integration) => [integration.provider, integration]));
+  return renderIosModule({
+    title: "POS Integrations",
+    icon: "terminal",
+    open: false,
+    content: ["clover", "toast", "square"].map((provider) => {
+      const integration = byProvider.get(provider);
+      const detail = integration
+        ? [
+            integration.restaurantName,
+            integration.merchantId ? `Merchant ${integration.merchantId}` : "",
+            integration.lastMenuSyncItemCount ? `${integration.lastMenuSyncItemCount} synced menu items` : ""
+          ].filter(Boolean).join(" · ")
+        : "Not connected";
+      return renderIntegrationStatusRow({
+        title: posProviderLabels[provider],
+        detail,
+        stateLabel: integration ? formatSettingLabel(integration.status) : "Disconnected",
+        actionTitle: integration?.status === "connected" ? "Sync Menu" : "Connect"
+      }) + (provider === "toast" && integration ? `
+        ${renderReadOnlyInputRow("Restaurant GUID", integration.restaurantGuid || "")}
+        ${renderReadOnlyInputRow("Dining option GUID", integration.diningOptionGuid || "")}
+        ${renderReadOnlyInputRow("Dining option name", integration.diningOptionName || "")}
+      ` : "");
+    }).join("")
+  });
+}
+
+function renderPhonePaymentsModule(paymentProfile) {
+  const title = paymentProfile.displayName || "Phone payments";
+  const status = paymentProfile.status || "not_configured";
+  const detail = paymentProfile.provider
+    ? `${formatSettingLabel(paymentProfile.provider)} · ${paymentProfile.phonePaymentsEnabled ? "Phone payments enabled" : "Phone payments disabled"}`
+    : "No payment provider is configured.";
+  return renderIosModule({
+    title: "Phone Payments",
+    icon: "creditcard",
+    open: false,
+    content: `
+      <div class="ios-button-grid">
+        ${renderActionButton("Secure Keypad Entry", "phone.badge.checkmark")}
+        ${renderActionButton("Stripe Connect", "creditcard")}
+      </div>
+      ${renderIntegrationStatusRow({
+        title,
+        detail,
+        stateLabel: formatSettingLabel(status),
+        actionTitle: status === "not_configured" ? "Set Up" : "Manage"
+      })}
+    `
+  });
+}
+
+function renderIntegrationStatusRow({ title, detail, stateLabel, actionTitle }) {
+  return `
+    <div class="ios-integration-row">
+      <div>
+        <strong>${escapeHTML(title)}</strong>
+        <span>${escapeHTML(detail || "Not configured")}</span>
+      </div>
+      <em>${escapeHTML(stateLabel)}</em>
+      <button type="button" disabled>${escapeHTML(actionTitle || "Manage")}</button>
+    </div>
+  `;
+}
+
+function renderVoiceRuntimeModule(settings) {
+  const menuCount = Array.isArray(settings.profile?.menuItems) ? settings.profile.menuItems.length : 0;
+  return renderIosModule({
+    title: "Voice Runtime",
+    icon: "waveform",
+    open: false,
+    content: `
+      ${renderSetupRow("ConversationRelay", "Live primary voice transport for the receptionist runtime", true)}
+      ${renderSetupRow(
+        "Menu-Aware Ordering",
+        menuCount > 0
+          ? `Agent reads ${menuCount} synced menu items from BusinessProfile.menuItems.`
+          : "Agent reads BusinessProfile.menuItems after any POS menu sync or manual menu setup.",
+        menuCount > 0
+      )}
+    `
+  });
+}
+
+function renderSetupRow(title, detail, complete) {
+  return `
+    <div class="ios-setup-row">
+      <span class="${complete ? "complete" : "in-progress"}" aria-hidden="true">${complete ? "✓" : "…"}</span>
+      <div>
+        <strong>${escapeHTML(title)}</strong>
+        <p>${escapeHTML(detail)}</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderReservationsConfigModule(config) {
+  const serviceHours = config.serviceHours || {};
+  return renderIosModule({
+    title: "Reservations",
+    icon: "calendar.badge.clock",
+    open: false,
+    content: `
+      ${renderToggleRow("Reservations enabled", config.reservationsEnabled === true)}
+      <p class="ios-footnote">Tavra can act as the restaurant's native reservation book without OpenTable, Resy, Tock, or another external platform. External providers can be added later without changing the reservation model.</p>
+      ${renderIntegrationStatusRow({
+        title: "Reservation Integrations",
+        detail: reservationProviderDetail(config.externalProvider),
+        stateLabel: "Read only",
+        actionTitle: "Inspect"
+      })}
+      ${renderPickerRow("Mode", formatSettingLabel(config.reservationMode))}
+      ${renderPickerRow("Fallback", formatSettingLabel(config.fallbackBehavior))}
+      ${renderPickerRow("Default status", formatSettingLabel(config.defaultReservationStatus))}
+      ${renderValueRow("Party size", `${config.minPartySize || 1}-${config.maxPartySize || 12} guests`)}
+      ${renderPickerRow("Reservation spacing", `${config.reservationTimeSlotMinutes || 15} minutes`)}
+      ${renderValueRow("Max covers/hour", config.maxCoversPerHour ?? "Not set")}
+      ${renderValueRow("Max covers/slot", config.maxCoversPerSlot ?? "Not set")}
+      ${renderValueRow("Max parties/slot", config.maxPartiesPerSlot ?? "Not set")}
+      ${renderValueRow("Advance booking min", `${config.advanceBookingMinHours ?? 0} hours`)}
+      ${renderValueRow("Advance booking max", `${config.advanceBookingMaxDays ?? 0} days`)}
+      ${renderNestedDisclosure("Closed Days", renderClosedDays(config.closedDays || []), false)}
+      ${renderNestedDisclosure("Bookable Hours", renderReservationServiceHours(serviceHours), false)}
+      ${renderToggleRow("Send confirmation SMS", config.confirmationSmsEnabled === true)}
+      ${renderToggleRow("Owner notification SMS", config.ownerNotificationSmsEnabled === true)}
+      ${renderToggleRow("Owner notification email", config.ownerNotificationEmailEnabled === true)}
+      ${renderActionButton("Save Reservation Settings")}
+    `
+  });
+}
+
+function reservationProviderDetail(provider) {
+  if (!provider?.enabled) {
+    return "Native Tavra book";
+  }
+  return [
+    formatSettingLabel(provider.providerId),
+    formatSettingLabel(provider.syncDirection),
+    provider.providerLocationId
+  ].filter(Boolean).join(" · ");
+}
+
+function renderClosedDays(closedDays) {
+  const closed = new Set(Array.isArray(closedDays) ? closedDays : []);
+  return reservationWeekdayNames.map((label, index) => renderToggleRow(label, closed.has(index), closed.has(index) ? "Closed" : "Bookable")).join("");
+}
+
+function renderReservationServiceHours(serviceHours) {
+  const rows = Object.entries(serviceHours || {});
+  if (!rows.length) {
+    return `<p class="ios-footnote">No bookable hours are configured.</p>`;
+  }
+  return rows.map(([key, windows]) => `
+    <div class="ios-day-row">
+      <strong>${escapeHTML(reservationWeekdayNames[Number(key)] || formatSettingLabel(key))}</strong>
+      <span>${escapeHTML(Array.isArray(windows) && windows.length ? windows.map(formatBusinessWindow).join(", ") : "Closed")}</span>
+    </div>
+  `).join("");
+}
+
+function renderMiscRequestCategoriesModule(categories) {
+  const enabledCount = (Array.isArray(categories) ? categories : []).filter((category) => category.enabled !== false).length;
+  return renderIosModule({
+    title: "Other Caller Questions",
+    icon: "questionmark.bubble",
+    open: false,
+    meta: `${enabledCount} enabled`,
+    content: `
+      <p class="ios-footnote">Configure how Tavra handles caller requests that are not reservations or to-go orders. Each category has its own answer, routing target, and optional custom phone number. Handoff Routes still define the restaurant's reusable staff destinations.</p>
+      ${(Array.isArray(categories) ? categories : []).map(renderMiscRequestCategory).join("")}
+      ${renderActionButton("Save Other Caller Questions")}
+    `
+  });
+}
+
+function renderMiscRequestCategory(category) {
+  return renderNestedDisclosure(
+    category.displayName || category.categoryKey || "Caller question",
+    `
+      ${renderToggleRow("Enabled", category.enabled !== false)}
+      ${renderPickerRow("Handling", formatSettingLabel(category.handlingMode))}
+      ${renderPickerRow("Source", formatSettingLabel(category.sourceType))}
+      ${renderPickerRow("Routing target", formatSettingLabel(category.routingTargetType))}
+      ${renderValueRow("Required caller fields", Array.isArray(category.requiredCallerFields) && category.requiredCallerFields.length ? category.requiredCallerFields.map(formatSettingLabel).join(", ") : "None")}
+      ${renderReadOnlyInputRow("Public answer", category.publicAnswerTemplate || category.ownerProvidedKnowledge || "", true)}
+      ${category.lastSyncStatus ? renderValueRow("Last sync", formatSettingLabel(category.lastSyncStatus), category.lastSyncedAt || "") : ""}
+    `,
+    false,
+    category.enabled === false ? "Off" : "On"
+  );
+}
+
+function handoffRoutesWithDefaults(routes) {
+  const byId = new Map((Array.isArray(routes) ? routes : []).map((route) => [route.id, route]));
+  return [
+    {
+      id: "manager",
+      label: "Manager",
+      description: "Escalations, complaints, urgent issues",
+      phoneNumber: "",
+      enabled: false,
+      timeoutSeconds: 20,
+      liveTransferPolicy: "urgent_only",
+      ...byId.get("manager")
+    },
+    {
+      id: "front_desk",
+      label: "Host Stand",
+      description: "General questions requiring a human",
+      phoneNumber: "",
+      enabled: false,
+      timeoutSeconds: 15,
+      liveTransferPolicy: "all_matches",
+      ...byId.get("front_desk")
+    }
+  ];
+}
+
+function renderHandoffRoutesModule(routes) {
+  return renderIosModule({
+    title: "Live Handoff Routes",
+    icon: "phone.arrow.up.right",
+    open: false,
+    meta: `${handoffRoutesWithDefaults(routes).filter((route) => route.enabled).length} enabled`,
+    content: `
+      <p class="ios-footnote">Use a direct number Tavra can call for live handoffs. Do not use the same public number that forwards calls to Tavra.</p>
+      ${handoffRoutesWithDefaults(routes).map((route) => renderNestedDisclosure(
+        route.label || route.id,
+        `
+          ${renderToggleRow("Enabled", route.enabled === true)}
+          ${renderReadOnlyInputRow("Phone number", route.phoneNumber || "")}
+          ${renderReadOnlyInputRow("Description", route.description || "", true)}
+          ${renderPickerRow("Timeout", `${route.timeoutSeconds || 15} seconds`)}
+          ${route.id === "manager" ? renderPickerRow("Manager live calls", formatSettingLabel(route.liveTransferPolicy)) : ""}
+        `,
+        false,
+        route.enabled ? "On" : "Off"
+      )).join("")}
+      ${renderActionButton("Save Handoff Routes")}
+    `
+  });
+}
+
+function renderKitchenPrintingModule(posPrinting) {
+  const targets = Array.isArray(posPrinting.targets) ? posPrinting.targets : [];
+  return renderIosModule({
+    title: "Kitchen Printing",
+    icon: "printer",
+    open: false,
+    content: `
+      <p class="ios-footnote">Tavra routes paid order print requests through the configured POS or printer target when that provider supports order printing.</p>
+      ${renderToggleRow("Print new paid orders", posPrinting.enabled === true)}
+      ${targets.length ? targets.map((target) => `
+        <div class="ios-list-card">
+          <strong>${escapeHTML(target.label || "Printer target")}</strong>
+          <span>${escapeHTML([formatSettingLabel(target.provider), target.description, target.deviceId ? `Device ID: ${target.deviceId}` : ""].filter(Boolean).join(" · "))}</span>
+        </div>
+      `).join("") : `<p class="ios-footnote">No printer targets are configured.</p>`}
+      ${renderActionButton("Save Printer Settings")}
+    `
+  });
+}
+
+function renderSystemFallbacksModule(rawFallbacks) {
+  const fallbacks = { ...defaultSystemFallbacks, ...(rawFallbacks || {}) };
+  return renderIosModule({
+    title: "System Fallbacks",
+    icon: "exclamationmark.arrow.triangle.2.circlepath",
+    open: false,
+    content: `
+      <p class="ios-footnote">Separates provider/API outages from in-store device and printer outages during a live call.</p>
+      ${renderPickerRow("Store devices offline", formatSettingLabel(fallbacks.localDeviceOfflineBehavior))}
+      ${renderPickerRow("Provider/API unavailable", formatSettingLabel(fallbacks.orderSubmissionFailureBehavior))}
+      ${renderPickerRow("Printer offline after order accepted", formatSettingLabel(fallbacks.printerFailureBehavior))}
+      ${renderPickerRow("Payment failure", formatSettingLabel(fallbacks.paymentFailureBehavior))}
+      ${renderPickerRow("Fallback route", formatSettingLabel(fallbacks.systemFallbackRouteId))}
+      ${renderToggleRow("Mark in Operations for staff", fallbacks.notifyStaffOnSystemFallback === true)}
+      ${renderReadOnlyInputRow("Caller-facing fallback message", fallbacks.connectedSystemUnavailableMessage || "", true)}
+      ${renderActionButton("Save System Fallbacks")}
+    `
+  });
+}
+
+function renderLiveCallVoiceModule(settings) {
+  const voiceSettings = settings.callFlowConfig?.config?.conversationRelayVoice || {};
+  const elevenLabsOptions = Array.isArray(settings.elevenLabsVoices) ? settings.elevenLabsVoices : [];
+  return renderIosModule({
+    title: "Live Call Voice",
+    icon: "speaker.wave.2",
+    open: false,
+    content: `
+      <p class="ios-footnote">This setting controls your Agent's voice</p>
+      ${renderValueRow("Current provider", voiceSettings.ttsProvider || "Google")}
+      ${renderValueRow("Current voice", voiceDisplayName(voiceSettings, elevenLabsOptions))}
+      ${elevenLabsOptions.length ? `
+        <div class="ios-subgroup">
+          <h4>ElevenLabs</h4>
+          ${elevenLabsOptions.map((option) => renderVoiceOptionCard({
+            title: option.friendlyName,
+            detail: option.description || "Curated ElevenLabs voice for live ConversationRelay calls.",
+            selected: voiceSettings.ttsProvider === "ElevenLabs" && normalizeElevenLabsVoiceId(voiceSettings.voice) === option.voiceId
+          })).join("")}
+        </div>
+      ` : ""}
+      <div class="ios-subgroup">
+        <h4>Google ConversationRelay</h4>
+        ${googleConversationRelayVoiceOptions.map((option) => renderVoiceOptionCard({
+          title: option.title,
+          detail: option.detail,
+          selected: voiceSettings.ttsProvider === "Google" && voiceSettings.voice === option.voice
+        })).join("")}
+      </div>
+      ${renderActionButton("Save Live Voice Preference")}
+      <p class="ios-footnote">Voice changes are saved immediately for the next inbound call. ElevenLabs previews use the restaurant name currently loaded from Parse.</p>
+    `
+  });
+}
+
+function normalizeElevenLabsVoiceId(voice) {
+  return typeof voice === "string" && voice.trim() ? voice.trim().split("-")[0] : null;
+}
+
+function voiceDisplayName(voiceSettings, elevenLabsOptions) {
+  if (voiceSettings.ttsProvider === "ElevenLabs") {
+    const voiceId = normalizeElevenLabsVoiceId(voiceSettings.voice);
+    const option = elevenLabsOptions.find((item) => item.voiceId === voiceId);
+    return option?.friendlyName || voiceId || "Not set";
+  }
+  const google = googleConversationRelayVoiceOptions.find((option) => option.voice === voiceSettings.voice);
+  return google?.title || voiceSettings.voice || "Google Journey O";
+}
+
+function renderVoiceOptionCard({ title, detail, selected }) {
+  return `
+    <div class="ios-list-card voice ${selected ? "selected" : ""}">
+      <strong>${escapeHTML(title || "Voice")}</strong>
+      <span>${escapeHTML(detail || "")}</span>
+      <em>${selected ? "Selected" : "Available"}</em>
+    </div>
+  `;
+}
+
+function renderDeepgramAuraPreviewModule() {
+  return renderIosModule({
+    title: "Deepgram Aura Preview",
+    icon: "waveform.circle",
+    open: false,
+    content: `
+      <p class="ios-footnote">These previews are real Deepgram Aura renders. They do not control the live caller voice while ConversationRelay remains responsible for TTS.</p>
+      ${deepgramAuraPreviewOptions.map((option) => renderVoiceOptionCard({
+        title: option.title,
+        detail: `${option.detail} Model: ${option.model}`,
+        selected: false
+      })).join("")}
+    `
+  });
+}
+
 function renderPlaceholderSection(section) {
   if (!portalContent || !pageTitle || !pageKicker) {
     return;
@@ -4448,9 +5400,15 @@ function showLogin() {
   document.body.classList.remove("portal-voicemail-page");
   document.body.classList.remove("portal-wait-list-page");
   document.body.classList.remove("portal-menu86-page");
+  document.body.classList.remove("portal-admin-page");
   portalState.session = null;
   portalState.membership = null;
   portalState.business = null;
+  portalState.adminSettings = null;
+  portalState.adminTeamMembers = [];
+  portalState.adminSettingsLoaded = false;
+  portalState.adminSettingsLoading = false;
+  portalState.adminSettingsError = "";
   clearStoredSession();
   loginScreen.hidden = false;
   loginScreen.removeAttribute("aria-hidden");

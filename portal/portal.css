@@ -566,6 +566,492 @@ body.portal-authenticated .portal-app {
   line-height: 1.6;
 }
 
+body.portal-admin-page {
+  background:
+    radial-gradient(circle at 16% 0%, rgba(49, 168, 255, 0.1), transparent 24rem),
+    radial-gradient(circle at 92% 6%, rgba(50, 195, 115, 0.1), transparent 28rem),
+    #050505;
+}
+
+body.portal-admin-page .portal-main-shell {
+  background: #050505;
+}
+
+.ios-form-page {
+  width: min(900px, 100%);
+  display: grid;
+  gap: 18px;
+  padding-bottom: 72px;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", sans-serif;
+}
+
+.admin-configure-page,
+.admin-onboarding-page {
+  max-width: 920px;
+}
+
+.admin-state-card,
+.ios-disclosure {
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 22px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.045));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 40px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.admin-state-card {
+  padding: 24px;
+}
+
+.admin-state-card h2 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.admin-state-card p:last-child {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.66);
+  line-height: 1.45;
+}
+
+.admin-state-card.error {
+  border-color: rgba(255, 84, 84, 0.34);
+  background: rgba(255, 84, 84, 0.1);
+}
+
+.ios-disclosure summary {
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ios-disclosure summary::-webkit-details-marker,
+.ios-nested-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.ios-disclosure summary::after,
+.ios-nested-disclosure summary::after {
+  content: "⌄";
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 18px;
+  font-weight: 850;
+  transform: rotate(-90deg);
+  transition: transform 160ms ease;
+}
+
+.ios-disclosure[open] > summary::after,
+.ios-nested-disclosure[open] > summary::after {
+  transform: rotate(0deg);
+}
+
+.ios-module-label {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.ios-symbol {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(49, 168, 255, 0.92), rgba(50, 195, 115, 0.82));
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.ios-module-meta {
+  margin-left: auto;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.ios-module-body {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ios-row {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: minmax(180px, 0.75fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 11px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.ios-row:first-child {
+  border-top: 0;
+}
+
+.ios-row > span:first-child {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 15px;
+  font-weight: 720;
+}
+
+.ios-row strong,
+.ios-picker-value {
+  min-width: 0;
+  justify-self: end;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 15px;
+  font-weight: 650;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.ios-row small {
+  grid-column: 2;
+  margin-top: -7px;
+  justify-self: end;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.ios-picker-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.ios-picker-value b {
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 13px;
+}
+
+.ios-control-row input,
+.ios-control-row textarea {
+  width: 100%;
+  min-height: 38px;
+  justify-self: stretch;
+  padding: 8px 11px;
+  color: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  outline: none;
+}
+
+.ios-control-row textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+
+.ios-switch {
+  width: 51px;
+  height: 31px;
+  justify-self: end;
+  padding: 2px;
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.36);
+  transition: background 160ms ease;
+}
+
+.ios-switch i {
+  width: 27px;
+  height: 27px;
+  display: block;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transition: transform 160ms ease;
+}
+
+.ios-switch.on {
+  background: #34c759;
+}
+
+.ios-switch.on i {
+  transform: translateX(20px);
+}
+
+.ios-action-button {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 12px 18px 16px;
+  padding: 0 16px;
+  color: #fff;
+  border: 0;
+  border-radius: 13px;
+  background: rgba(10, 132, 255, 0.82);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.ios-action-button:disabled {
+  opacity: 0.54;
+  cursor: default;
+}
+
+.ios-button-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 0 0;
+}
+
+.ios-button-grid .ios-action-button {
+  margin: 0;
+}
+
+.ios-footnote,
+.ios-status-text,
+.ios-source-note {
+  margin: 0;
+  padding: 13px 18px;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.ios-status-text.ok {
+  color: #40d477;
+}
+
+.ios-source-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ios-day-list {
+  display: grid;
+}
+
+.ios-day-row {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.ios-day-row strong {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.ios-day-row span {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 14px;
+  font-weight: 650;
+  text-align: right;
+}
+
+.ios-nested-disclosure {
+  margin: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+}
+
+.ios-nested-disclosure summary {
+  min-height: 50px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.ios-nested-disclosure summary span {
+  min-width: 0;
+  flex: 1;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 780;
+  overflow-wrap: anywhere;
+}
+
+.ios-nested-disclosure summary em {
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.ios-nested-body {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ios-subgroup {
+  padding: 12px 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.065);
+}
+
+.ios-subgroup h4 {
+  margin: 0 0 10px;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ios-mini-card,
+.ios-list-card,
+.ios-integration-row,
+.ios-setup-row {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.ios-mini-card strong,
+.ios-list-card strong,
+.ios-integration-row strong,
+.ios-setup-row strong {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ios-mini-card span,
+.ios-list-card span,
+.ios-integration-row span,
+.ios-setup-row p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.ios-mini-card p {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 12px;
+}
+
+.ios-integration-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  margin: 10px 18px;
+}
+
+.ios-integration-row em,
+.ios-list-card em {
+  color: #8fdcff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.ios-integration-row button {
+  min-height: 32px;
+  padding: 0 11px;
+  color: #fff;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(10, 132, 255, 0.62);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.ios-integration-row button:disabled {
+  opacity: 0.54;
+  cursor: default;
+}
+
+.ios-setup-row {
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: start;
+  margin: 10px 18px;
+}
+
+.ios-setup-row > span {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #07170e;
+  background: #34c759;
+  font-weight: 900;
+}
+
+.ios-setup-row > span.in-progress {
+  color: #1f1600;
+  background: #ffd60a;
+}
+
+.ios-list-card {
+  margin: 10px 18px;
+}
+
+.ios-list-card.voice {
+  position: relative;
+  padding-right: 92px;
+}
+
+.ios-list-card.voice.selected {
+  border-color: rgba(52, 199, 89, 0.48);
+  background: rgba(52, 199, 89, 0.11);
+}
+
+.ios-list-card.voice em {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+}
+
+@media (max-width: 760px) {
+  .ios-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .ios-row strong,
+  .ios-picker-value,
+  .ios-switch,
+  .ios-row small {
+    justify-self: start;
+    text-align: left;
+  }
+
+  .ios-integration-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+}
+
 body.portal-food-orders-page {
   background:
     radial-gradient(circle at 26% 0%, rgba(49, 168, 255, 0.1), transparent 26rem),
