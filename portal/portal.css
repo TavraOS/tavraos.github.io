@@ -744,6 +744,7 @@ body.portal-admin-page .portal-main-shell {
 }
 
 .ios-control-row input,
+.ios-control-row select,
 .ios-control-row textarea {
   width: 100%;
   min-height: 38px;
@@ -754,6 +755,15 @@ body.portal-admin-page .portal-main-shell {
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
   outline: none;
+}
+
+.ios-control-row select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.6) 50%) calc(100% - 16px) 16px / 7px 7px no-repeat,
+    linear-gradient(135deg, rgba(255, 255, 255, 0.6) 50%, transparent 50%) calc(100% - 11px) 16px / 7px 7px no-repeat,
+    rgba(255, 255, 255, 0.06);
+  padding-right: 32px;
 }
 
 .ios-control-row textarea {
@@ -808,6 +818,28 @@ body.portal-admin-page .portal-main-shell {
 .ios-action-button:disabled {
   opacity: 0.54;
   cursor: default;
+}
+
+.ios-action-button.primary {
+  background: rgba(10, 132, 255, 0.94);
+}
+
+.ios-save-status {
+  margin: 10px 18px 0;
+  padding: 11px 13px;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.ios-save-status.ok {
+  color: #9df6bf;
+  background: rgba(52, 199, 89, 0.12);
+}
+
+.ios-save-status.error {
+  color: #ff9b9b;
+  background: rgba(255, 84, 84, 0.13);
 }
 
 .ios-button-grid {
@@ -867,6 +899,96 @@ body.portal-admin-page .portal-main-shell {
   font-size: 14px;
   font-weight: 650;
   text-align: right;
+}
+
+.admin-hours-list {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 4px;
+}
+
+.admin-hours-day {
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  border-radius: 16px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.admin-hours-day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.admin-hours-day-head strong {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 820;
+}
+
+.admin-hours-day-head select,
+.admin-hours-window select {
+  min-height: 36px;
+  padding: 0 28px 0 11px;
+  color: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  border-radius: 10px;
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.64) 50%) calc(100% - 14px) 15px / 6px 6px no-repeat,
+    linear-gradient(135deg, rgba(255, 255, 255, 0.64) 50%, transparent 50%) calc(100% - 10px) 15px / 6px 6px no-repeat,
+    rgba(255, 255, 255, 0.06);
+  appearance: none;
+}
+
+.admin-hours-windows {
+  display: grid;
+  gap: 8px;
+  margin-top: 11px;
+}
+
+.admin-hours-window {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-hours-window span,
+.admin-hours-closed {
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-hours-closed {
+  margin: 9px 0 0;
+}
+
+.admin-hour-icon-button {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  color: #07170e;
+  border: 0;
+  border-radius: 999px;
+  background: #34c759;
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.admin-hour-icon-button.danger {
+  color: #fff;
+  background: rgba(255, 69, 58, 0.82);
+}
+
+.admin-hour-icon-button:disabled,
+.admin-hours-day-head select:disabled,
+.admin-hours-window select:disabled {
+  opacity: 0.54;
+  cursor: default;
 }
 
 .ios-nested-disclosure {

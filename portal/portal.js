@@ -113,6 +113,11 @@ const menu86DurationOptions = [
 ];
 
 const adminOnlySections = new Set(["onboarding", "configure", "team"]);
+const adminTimezoneOptions = ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles"];
+const adminBusinessHourTimeOptions = Array.from({ length: 48 }, (_, index) => {
+  const minutes = index * 30;
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+});
 const portalWeekdayLabels = {
   sun: "Sunday",
   mon: "Monday",
@@ -257,6 +262,12 @@ let portalState = {
   adminSettingsLoaded: false,
   adminSettingsLoading: false,
   adminSettingsError: "",
+  adminProfileDraft: null,
+  adminBusinessHoursDraft: null,
+  adminSavingTarget: null,
+  adminSaving: false,
+  adminSaveMessage: "",
+  adminSaveIsError: false,
   section: "operations",
   activeModule: "foodOrders",
   foodOrders: [],
@@ -4539,8 +4550,7 @@ async function loadPortalAdminSettings() {
   rerenderActiveAdminSection();
   try {
     const payload = await apiRequest("/operations/admin/settings", { method: "GET" });
-    portalState.adminSettings = payload.settings || null;
-    portalState.adminTeamMembers = Array.isArray(payload.teamMembers) ? payload.teamMembers : [];
+    applyPortalAdminSettingsPayload(payload);
     portalState.adminSettingsLoaded = true;
     portalState.adminSettingsError = "";
   } catch (error) {
@@ -4551,6 +4561,14 @@ async function loadPortalAdminSettings() {
     portalState.adminSettingsLoading = false;
     rerenderActiveAdminSection();
   }
+}
+
+function applyPortalAdminSettingsPayload(payload) {
+  const settings = payload?.settings || null;
+  portalState.adminSettings = settings;
+  portalState.adminTeamMembers = Array.isArray(payload?.teamMembers) ? payload.teamMembers : portalState.adminTeamMembers;
+  portalState.adminProfileDraft = profileDraftFromSettings(settings);
+  portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
 }
 
 function rerenderActiveAdminSection() {
@@ -4567,6 +4585,255 @@ function adminSettingsSnapshot() {
 
 function adminConfig() {
   return adminSettingsSnapshot()?.callFlowConfig?.config || {};
+}
+
+function profileDraftFromSettings(settings) {
+  const business = settings?.business || {};
+  return {
+    name: business.name || "",
+    timezone: business.timezone || "America/Chicago",
+    twilioNumberE164: business.twilioNumberE164 || "",
+    phoneNumberE164: business.phoneNumberE164 || ""
+  };
+}
+
+function businessHoursDraftFromSettings(settings) {
+  const hours = settings?.profile?.hours || {};
+  return {
+    source: "manual",
+    timezone: hours.timezone || settings?.business?.timezone || "America/Chicago",
+    days: businessHoursDays(hours).map((day) => ({
+      day: day.day,
+      isOpen: day.isOpen,
+      windows: (Array.isArray(day.windows) && day.windows.length ? day.windows : [{ start: "09:00", end: "17:00" }])
+        .map((window) => ({
+          start: normalizedAdminTime(window?.start) || "09:00",
+          end: normalizedAdminTime(window?.end) || "17:00"
+        }))
+    })),
+    lastSyncedAt: null
+  };
+}
+
+function ensureAdminDrafts() {
+  const settings = adminSettingsSnapshot();
+  if (!portalState.adminProfileDraft) {
+    portalState.adminProfileDraft = profileDraftFromSettings(settings);
+  }
+  if (!portalState.adminBusinessHoursDraft) {
+    portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
+  }
+}
+
+function normalizedAdminTime(value) {
+  const text = String(value || "");
+  const match = text.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (!Number.isInteger(hour) || !Number.isInteger(minute) || hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return null;
+  }
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function adminSaveStatusMarkup(target) {
+  if (!portalState.adminSaveMessage || portalState.adminSavingTarget !== target) {
+    return "";
+  }
+  return `<p class="ios-save-status ${portalState.adminSaveIsError ? "error" : "ok"}">${escapeHTML(portalState.adminSaveMessage)}</p>`;
+}
+
+function setAdminSaveStatus(target, message, isError = false) {
+  portalState.adminSavingTarget = target;
+  portalState.adminSaveMessage = message;
+  portalState.adminSaveIsError = isError;
+}
+
+function clearAdminSaveStatus() {
+  portalState.adminSaveMessage = "";
+  portalState.adminSaveIsError = false;
+}
+
+async function savePortalAdminProfile() {
+  syncAdminProfileDraftFromDom();
+  const draft = portalState.adminProfileDraft || {};
+  if (!String(draft.name || "").trim()) {
+    setAdminSaveStatus("profile", "Restaurant name is required.", true);
+    renderOnboardingAdmin();
+    return;
+  }
+  portalState.adminSavingTarget = "profile";
+  portalState.adminSaving = true;
+  portalState.adminSaveMessage = "Saving restaurant profile...";
+  portalState.adminSaveIsError = false;
+  renderOnboardingAdmin();
+  try {
+    const payload = await apiRequest("/operations/admin/profile", {
+      method: "PUT",
+      body: JSON.stringify(draft)
+    });
+    applyPortalAdminSettingsPayload(payload);
+    portalState.adminSettingsLoaded = true;
+    setAdminSaveStatus("profile", "Saved restaurant profile.");
+  } catch (error) {
+    setAdminSaveStatus("profile", adminSaveErrorMessage(error), true);
+  } finally {
+    portalState.adminSaving = false;
+    renderOnboardingAdmin();
+  }
+}
+
+async function savePortalAdminBusinessHours() {
+  syncAdminBusinessHoursDraftFromDom();
+  portalState.adminSavingTarget = "businessHours";
+  portalState.adminSaving = true;
+  portalState.adminSaveMessage = "Saving business hours...";
+  portalState.adminSaveIsError = false;
+  renderOnboardingAdmin();
+  try {
+    const payload = await apiRequest("/operations/admin/business-hours", {
+      method: "PUT",
+      body: JSON.stringify(portalState.adminBusinessHoursDraft || {})
+    });
+    applyPortalAdminSettingsPayload(payload);
+    portalState.adminSettingsLoaded = true;
+    setAdminSaveStatus("businessHours", "Saved business hours.");
+  } catch (error) {
+    setAdminSaveStatus("businessHours", adminSaveErrorMessage(error), true);
+  } finally {
+    portalState.adminSaving = false;
+    renderOnboardingAdmin();
+  }
+}
+
+function adminSaveErrorMessage(error) {
+  const message = error instanceof Error ? error.message : String(error || "");
+  const labels = {
+    restaurant_name_required: "Restaurant name is required.",
+    twilioNumberE164_invalid: "Agent number must be a valid phone number.",
+    phoneNumberE164_invalid: "Business phone must be a valid phone number.",
+    business_hours_invalid_windows: "Business hours must end after they start."
+  };
+  return labels[message] || "Save failed. Check the fields and try again.";
+}
+
+function syncAdminProfileDraftFromDom() {
+  const form = portalContent?.querySelector("[data-admin-profile-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+  const formData = new FormData(form);
+  portalState.adminProfileDraft = {
+    name: String(formData.get("name") || "").trim(),
+    timezone: String(formData.get("timezone") || "America/Chicago"),
+    twilioNumberE164: String(formData.get("twilioNumberE164") || "").trim(),
+    phoneNumberE164: String(formData.get("phoneNumberE164") || "").trim()
+  };
+}
+
+function syncAdminBusinessHoursDraftFromDom() {
+  const form = portalContent?.querySelector("[data-admin-hours-form]");
+  if (!(form instanceof HTMLFormElement) || !portalState.adminBusinessHoursDraft) {
+    return;
+  }
+  const formData = new FormData(form);
+  portalState.adminBusinessHoursDraft = {
+    ...portalState.adminBusinessHoursDraft,
+    days: portalState.adminBusinessHoursDraft.days.map((day, dayIndex) => {
+      const isOpen = formData.get(`day-${dayIndex}-isOpen`) === "open";
+      const windows = day.windows.map((window, windowIndex) => ({
+        start: normalizedAdminTime(formData.get(`day-${dayIndex}-window-${windowIndex}-start`)) || window.start,
+        end: normalizedAdminTime(formData.get(`day-${dayIndex}-window-${windowIndex}-end`)) || window.end
+      }));
+      return {
+        ...day,
+        isOpen,
+        windows: windows.length ? windows : [{ start: "09:00", end: "17:00" }]
+      };
+    })
+  };
+}
+
+function addBusinessHourWindow(dayIndex) {
+  syncAdminBusinessHoursDraftFromDom();
+  const draft = portalState.adminBusinessHoursDraft;
+  const day = draft?.days?.[dayIndex];
+  if (!day) {
+    return;
+  }
+  day.isOpen = true;
+  day.windows.push({ start: "09:00", end: "17:00" });
+  clearAdminSaveStatus();
+  renderOnboardingAdmin();
+}
+
+function removeBusinessHourWindow(dayIndex, windowIndex) {
+  syncAdminBusinessHoursDraftFromDom();
+  const draft = portalState.adminBusinessHoursDraft;
+  const day = draft?.days?.[dayIndex];
+  if (!day || day.windows.length <= 1) {
+    return;
+  }
+  day.windows.splice(windowIndex, 1);
+  clearAdminSaveStatus();
+  renderOnboardingAdmin();
+}
+
+function wireOnboardingAdminEvents() {
+  const profileForm = portalContent?.querySelector("[data-admin-profile-form]");
+  if (profileForm instanceof HTMLFormElement) {
+    profileForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void savePortalAdminProfile();
+    });
+    profileForm.addEventListener("input", () => {
+      syncAdminProfileDraftFromDom();
+      if (portalState.adminSavingTarget === "profile" && portalState.adminSaveMessage) {
+        clearAdminSaveStatus();
+      }
+    });
+    profileForm.addEventListener("change", () => {
+      syncAdminProfileDraftFromDom();
+      if (portalState.adminSavingTarget === "profile" && portalState.adminSaveMessage) {
+        clearAdminSaveStatus();
+      }
+    });
+  }
+
+  const hoursForm = portalContent?.querySelector("[data-admin-hours-form]");
+  if (hoursForm instanceof HTMLFormElement) {
+    hoursForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void savePortalAdminBusinessHours();
+    });
+    hoursForm.addEventListener("change", (event) => {
+      syncAdminBusinessHoursDraftFromDom();
+      if (portalState.adminSavingTarget === "businessHours" && portalState.adminSaveMessage) {
+        clearAdminSaveStatus();
+      }
+      const target = event.target;
+      if (target instanceof HTMLSelectElement && target.dataset.adminHoursOpen) {
+        renderOnboardingAdmin();
+      }
+    });
+  }
+
+  portalContent?.querySelectorAll("[data-admin-hours-add]").forEach((button) => {
+    button.addEventListener("click", () => {
+      addBusinessHourWindow(Number(button.dataset.adminHoursAdd));
+    });
+  });
+  portalContent?.querySelectorAll("[data-admin-hours-remove-day][data-admin-hours-remove-window]").forEach((button) => {
+    button.addEventListener("click", () => {
+      removeBusinessHourWindow(
+        Number(button.dataset.adminHoursRemoveDay),
+        Number(button.dataset.adminHoursRemoveWindow)
+      );
+    });
+  });
 }
 
 function renderAdminAccessDenied(section) {
@@ -4621,28 +4888,16 @@ function renderOnboardingAdmin() {
     portalContent.innerHTML = renderAdminState("Restaurant setup has not loaded yet.");
     return;
   }
+  ensureAdminDrafts();
 
-  const business = settings.business || {};
   const profile = settings.profile || {};
   const menuItems = Array.isArray(profile.menuItems) ? profile.menuItems : [];
   const upsellItems = Array.isArray(profile.upsellItems) ? profile.upsellItems : [];
 
   portalContent.innerHTML = `
     <section class="ios-form-page admin-onboarding-page">
-      ${renderIosModule({
-        title: "Restaurant Profile",
-        icon: "fork.knife",
-        open: true,
-        content: `
-          ${renderReadOnlyInputRow("Restaurant Name", business.name || "")}
-          ${renderPickerRow("Timezone", business.timezone || "America/Chicago")}
-          ${renderReadOnlyInputRow("Agent Number", business.twilioNumberE164 || "")}
-          ${renderActionButton("Browse Agent Numbers", "phone.badge.plus")}
-          ${renderReadOnlyInputRow("Business Phone", business.phoneNumberE164 || "")}
-          ${renderActionButton("Save Restaurant Profile")}
-        `
-      })}
-      ${renderBusinessHoursModule(profile.hours)}
+      ${renderRestaurantProfileModule()}
+      ${renderBusinessHoursModule()}
       ${menuItems.length ? renderMenuKnowledgeModule(menuItems) : ""}
       ${renderIosModule({
         title: "Status",
@@ -4655,6 +4910,7 @@ function renderOnboardingAdmin() {
       })}
     </section>
   `;
+  wireOnboardingAdminEvents();
 }
 
 function renderConfigureAdmin() {
@@ -4746,6 +5002,37 @@ function renderReadOnlyInputRow(label, value, multiline = false) {
       ${multiline
         ? `<textarea disabled rows="3">${safeValue}</textarea>`
         : `<input type="text" value="${safeValue}" disabled>`}
+    </label>
+  `;
+}
+
+function renderEditableInputRow(label, name, value, options = {}) {
+  const type = options.type || "text";
+  return `
+    <label class="ios-row ios-control-row">
+      <span>${escapeHTML(label)}</span>
+      <input
+        type="${escapeHTML(type)}"
+        name="${escapeHTML(name)}"
+        value="${escapeHTML(value || "")}"
+        autocomplete="off"
+        ${options.required ? "required" : ""}
+        ${options.placeholder ? `placeholder="${escapeHTML(options.placeholder)}"` : ""}
+        ${portalState.adminSaving ? "disabled" : ""}
+      >
+    </label>
+  `;
+}
+
+function renderEditableSelectRow(label, name, value, options) {
+  return `
+    <label class="ios-row ios-control-row">
+      <span>${escapeHTML(label)}</span>
+      <select name="${escapeHTML(name)}" ${portalState.adminSaving ? "disabled" : ""}>
+        ${options.map((option) => `
+          <option value="${escapeHTML(option)}" ${option === value ? "selected" : ""}>${escapeHTML(option)}</option>
+        `).join("")}
+      </select>
     </label>
   `;
 }
@@ -4871,26 +5158,92 @@ function formatBusinessHoursSource(hours) {
   return "Default hours: open 9:00 AM-5:00 PM daily";
 }
 
-function renderBusinessHoursModule(hours) {
-  const days = businessHoursDays(hours || {});
+function renderRestaurantProfileModule() {
+  const draft = portalState.adminProfileDraft || {};
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "profile";
+  return renderIosModule({
+    title: "Restaurant Profile",
+    icon: "fork.knife",
+    open: true,
+    content: `
+      <form data-admin-profile-form>
+        ${renderEditableInputRow("Restaurant Name", "name", draft.name || "", { required: true })}
+        ${renderEditableSelectRow("Timezone", "timezone", draft.timezone || "America/Chicago", adminTimezoneOptions)}
+        ${renderEditableInputRow("Agent Number", "twilioNumberE164", draft.twilioNumberE164 || "", { type: "tel", placeholder: "+15551234567" })}
+        ${renderActionButton("Browse Agent Numbers", "phone.badge.plus")}
+        ${renderEditableInputRow("Business Phone", "phoneNumberE164", draft.phoneNumberE164 || "", { type: "tel", placeholder: "+15551234567" })}
+        ${adminSaveStatusMarkup("profile")}
+        <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save Restaurant Profile"}
+        </button>
+      </form>
+    `
+  });
+}
+
+function renderBusinessHoursModule() {
+  const draft = portalState.adminBusinessHoursDraft || businessHoursDraftFromSettings(adminSettingsSnapshot());
+  const hoursForSource = adminSettingsSnapshot()?.profile?.hours || draft;
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "businessHours";
   return renderIosModule({
     title: "Business Hours",
     icon: "clock",
     open: true,
     content: `
-      <p class="ios-footnote">Synced from the POS when available. If the POS does not provide hours, configure them here so Tavra knows when the restaurant is open.</p>
-      <p class="ios-source-note"><span aria-hidden="true">clock</span>${escapeHTML(formatBusinessHoursSource(hours || {}))}</p>
-      <div class="ios-day-list">
-        ${days.map((day) => `
-          <div class="ios-day-row">
-            <strong>${escapeHTML(portalWeekdayLabels[day.day] || day.day)}</strong>
-            <span>${escapeHTML(day.isOpen ? day.windows.map(formatBusinessWindow).join(", ") : "Closed")}</span>
-          </div>
-        `).join("")}
-      </div>
-      ${renderActionButton("Save Business Hours")}
+      <form data-admin-hours-form>
+        <p class="ios-footnote">Synced from the POS when available. If the POS does not provide hours, configure them here so Tavra knows when the restaurant is open.</p>
+        <p class="ios-source-note"><span aria-hidden="true">clock</span>${escapeHTML(formatBusinessHoursSource(hoursForSource || {}))}</p>
+        <div class="admin-hours-list">
+          ${(draft.days || []).map(renderBusinessHoursDayEditor).join("")}
+        </div>
+        ${adminSaveStatusMarkup("businessHours")}
+        <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save Business Hours"}
+        </button>
+      </form>
     `
   });
+}
+
+function renderBusinessHoursDayEditor(day, dayIndex) {
+  return `
+    <div class="admin-hours-day" data-day-index="${dayIndex}">
+      <div class="admin-hours-day-head">
+        <strong>${escapeHTML(portalWeekdayLabels[day.day] || day.day)}</strong>
+        <select name="day-${dayIndex}-isOpen" data-admin-hours-open="${dayIndex}" ${portalState.adminSaving ? "disabled" : ""}>
+          <option value="open" ${day.isOpen ? "selected" : ""}>Open</option>
+          <option value="closed" ${day.isOpen ? "" : "selected"}>Closed</option>
+        </select>
+      </div>
+      ${day.isOpen ? `
+        <div class="admin-hours-windows">
+          ${day.windows.map((window, windowIndex) => renderBusinessHourWindow(dayIndex, windowIndex, window)).join("")}
+        </div>
+      ` : `<p class="admin-hours-closed">Closed</p>`}
+    </div>
+  `;
+}
+
+function renderBusinessHourWindow(dayIndex, windowIndex, window) {
+  return `
+    <div class="admin-hours-window">
+      <select name="day-${dayIndex}-window-${windowIndex}-start" data-admin-hours-time ${portalState.adminSaving ? "disabled" : ""}>
+        ${adminBusinessHourTimeOptions.map((time) => `
+          <option value="${time}" ${time === window.start ? "selected" : ""}>${escapeHTML(formatTimeOfDay(time))}</option>
+        `).join("")}
+      </select>
+      <span>to</span>
+      <select name="day-${dayIndex}-window-${windowIndex}-end" data-admin-hours-time ${portalState.adminSaving ? "disabled" : ""}>
+        ${adminBusinessHourTimeOptions.map((time) => `
+          <option value="${time}" ${time === window.end ? "selected" : ""}>${escapeHTML(formatTimeOfDay(time))}</option>
+        `).join("")}
+      </select>
+      <button class="admin-hour-icon-button" type="button" data-admin-hours-add="${dayIndex}" ${portalState.adminSaving ? "disabled" : ""} aria-label="Add hours window">+</button>
+      ${portalState.adminBusinessHoursDraft?.days?.[dayIndex]?.windows?.length > 1 ? `
+        <button class="admin-hour-icon-button danger" type="button" data-admin-hours-remove-day="${dayIndex}" data-admin-hours-remove-window="${windowIndex}" ${portalState.adminSaving ? "disabled" : ""} aria-label="Remove hours window">×</button>
+      ` : ""}
+    </div>
+  `;
 }
 
 function formatBusinessWindow(window) {
@@ -5409,6 +5762,12 @@ function showLogin() {
   portalState.adminSettingsLoaded = false;
   portalState.adminSettingsLoading = false;
   portalState.adminSettingsError = "";
+  portalState.adminProfileDraft = null;
+  portalState.adminBusinessHoursDraft = null;
+  portalState.adminSavingTarget = null;
+  portalState.adminSaving = false;
+  portalState.adminSaveMessage = "";
+  portalState.adminSaveIsError = false;
   clearStoredSession();
   loginScreen.hidden = false;
   loginScreen.removeAttribute("aria-hidden");
