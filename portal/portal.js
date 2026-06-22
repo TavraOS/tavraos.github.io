@@ -6865,7 +6865,7 @@ function renderLiveCallVoiceModule(settings) {
         })).join("")}
       </div>
       <button class="ios-action-button primary" type="button" data-admin-live-voice-save ${portalState.adminSaving || !canSaveVoice ? "disabled" : ""}>Save Voice & Language</button>
-      ${renderAdminSaveStatus("liveCallVoice")}
+      ${adminSaveStatusMarkup("liveCallVoice")}
       <p class="ios-footnote">Voice and language changes are saved for the next inbound call.</p>
     `
   });
