@@ -4701,6 +4701,26 @@ function liveCallVoiceDraftFromSettings(settings) {
   };
 }
 
+function liveCallVoiceSupportsBilingual(voiceSettings) {
+  return voiceSettings?.ttsProvider === "ElevenLabs" && typeof voiceSettings.voice === "string" && voiceSettings.voice.trim();
+}
+
+function canSaveLiveCallVoiceDraft(draft) {
+  return draft?.languageMode !== "auto_en_es" || liveCallVoiceSupportsBilingual(draft?.conversationRelayVoice);
+}
+
+function liveCallVoiceDetail(detail, fallback = "Curated voice for live calls.") {
+  const text = typeof detail === "string" ? detail.trim() : "";
+  if (!text || /deepgram|elevenlabs|conversationrelay|google/i.test(text)) {
+    return fallback;
+  }
+  return text;
+}
+
+function standardLiveCallVoiceTitle(title) {
+  return String(title || "Voice").replace(/^Google\s+/i, "").trim() || "Voice";
+}
+
 function menuVisibilityDraftFromSettings(settings) {
   const draft = {};
   const menuItems = Array.isArray(settings?.profile?.menuItems) ? settings.profile.menuItems : [];
@@ -5047,6 +5067,12 @@ async function savePortalAdminBusinessHours() {
 
 async function savePortalAdminLiveCallVoice() {
   ensureAdminDrafts();
+  const draft = portalState.adminLiveCallVoiceDraft || liveCallVoiceDraftFromSettings(adminSettingsSnapshot());
+  if (!canSaveLiveCallVoiceDraft(draft)) {
+    setAdminSaveStatus("liveCallVoice", "Select a compatible voice before saving bilingual support.", true);
+    renderConfigureAdmin();
+    return;
+  }
   portalState.adminSavingTarget = "liveCallVoice";
   portalState.adminSaving = true;
   portalState.adminSaveMessage = "Saving live call voice...";
@@ -5055,7 +5081,7 @@ async function savePortalAdminLiveCallVoice() {
   try {
     const payload = await apiRequest("/operations/admin/live-call-voice", {
       method: "PUT",
-      body: JSON.stringify(portalState.adminLiveCallVoiceDraft || liveCallVoiceDraftFromSettings(adminSettingsSnapshot()))
+      body: JSON.stringify(draft)
     });
     applyPortalAdminSettingsPayload(payload);
     portalState.adminSettingsLoaded = true;
@@ -5087,21 +5113,18 @@ function setPortalAdminLanguageMode(languageMode) {
   ensureAdminDrafts();
   const nextLanguageMode = languageMode === "auto_en_es" ? "auto_en_es" : "english_only";
   const currentDraft = portalState.adminLiveCallVoiceDraft || liveCallVoiceDraftFromSettings(adminSettingsSnapshot());
-  const firstElevenLabsVoice = (adminSettingsSnapshot()?.elevenLabsVoices || [])
-    .find((voice) => typeof voice?.voiceId === "string" && voice.voiceId.trim());
-  const conversationRelayVoice =
-    nextLanguageMode === "auto_en_es" && currentDraft.conversationRelayVoice?.ttsProvider !== "ElevenLabs" && firstElevenLabsVoice
-      ? { ttsProvider: "ElevenLabs", voice: firstElevenLabsVoice.voiceId.trim() }
-      : currentDraft.conversationRelayVoice;
   portalState.adminLiveCallVoiceDraft = {
     ...currentDraft,
     languageMode: nextLanguageMode,
-    conversationRelayVoice
+    conversationRelayVoice: currentDraft.conversationRelayVoice
   };
   if (portalState.adminSavingTarget === "liveCallVoice" && portalState.adminSaveMessage) {
     clearAdminSaveStatus();
   }
   renderConfigureAdmin();
+  if (nextLanguageMode === "auto_en_es" && !liveCallVoiceSupportsBilingual(currentDraft.conversationRelayVoice)) {
+    window.alert("Bilingual support requires one of the ElevenLabs voices. Please select one of those voices before saving Auto English/Spanish.");
+  }
 }
 
 async function savePortalAdminMenuKnowledge() {
@@ -6798,12 +6821,13 @@ function renderLiveCallVoiceModule(settings) {
   const voiceSettings = draft.conversationRelayVoice || {};
   const languageMode = draft.languageMode === "auto_en_es" ? "auto_en_es" : "english_only";
   const elevenLabsOptions = Array.isArray(settings.elevenLabsVoices) ? settings.elevenLabsVoices : [];
+  const canSaveVoice = canSaveLiveCallVoiceDraft(draft);
   return renderIosModule({
     title: "Live Call Voice",
     icon: "speaker.wave.2",
     open: false,
     content: `
-      <p class="ios-footnote">This setting controls your Agent's voice</p>
+      <p class="ios-footnote">This setting controls your Agent's voice and caller language handling.</p>
       <div class="ios-subgroup">
         <h4>Language</h4>
         <div class="ios-choice-row">
@@ -6814,16 +6838,15 @@ function renderLiveCallVoiceModule(settings) {
             Auto English/Spanish
           </button>
         </div>
-        <p class="ios-footnote">Auto English/Spanish uses ConversationRelay multi-language mode with Deepgram speech recognition and ElevenLabs TTS.</p>
+        ${languageMode === "auto_en_es" ? `<p class="ios-footnote">Detects English or Spanish from the caller after the greeting and responds in that language.</p>` : ""}
       </div>
-      ${renderValueRow("Current provider", voiceSettings.ttsProvider || "Google")}
       ${renderValueRow("Current voice", voiceDisplayName(voiceSettings, elevenLabsOptions))}
       ${elevenLabsOptions.length ? `
         <div class="ios-subgroup">
-          <h4>ElevenLabs</h4>
+          <h4>Bilingual-compatible voices</h4>
           ${elevenLabsOptions.map((option) => renderVoiceOptionCard({
             title: option.friendlyName,
-            detail: option.description || "Curated ElevenLabs voice for live ConversationRelay calls.",
+            detail: liveCallVoiceDetail(option.description),
             selected: voiceSettings.ttsProvider === "ElevenLabs" && normalizeElevenLabsVoiceId(voiceSettings.voice) === option.voiceId,
             provider: "ElevenLabs",
             voice: option.voiceId
@@ -6831,18 +6854,19 @@ function renderLiveCallVoiceModule(settings) {
         </div>
       ` : ""}
       <div class="ios-subgroup">
-        <h4>Google ConversationRelay</h4>
+        <h4>Standard voices</h4>
         ${googleConversationRelayVoiceOptions.map((option) => renderVoiceOptionCard({
-          title: option.title,
-          detail: option.detail,
+          title: standardLiveCallVoiceTitle(option.title),
+          detail: liveCallVoiceDetail(option.detail, "Standard live-call voice."),
           selected: voiceSettings.ttsProvider === "Google" && voiceSettings.voice === option.voice,
           provider: "Google",
-          voice: option.voice
+          voice: option.voice,
+          disabled: languageMode === "auto_en_es"
         })).join("")}
       </div>
-      <button class="ios-action-button primary" type="button" data-admin-live-voice-save ${portalState.adminSaving ? "disabled" : ""}>Save Live Voice Preference</button>
+      <button class="ios-action-button primary" type="button" data-admin-live-voice-save ${portalState.adminSaving || !canSaveVoice ? "disabled" : ""}>Save Voice & Language</button>
       ${renderAdminSaveStatus("liveCallVoice")}
-      <p class="ios-footnote">Voice changes are saved immediately for the next inbound call. ElevenLabs previews use the restaurant name currently loaded from Parse.</p>
+      <p class="ios-footnote">Voice and language changes are saved for the next inbound call.</p>
     `
   });
 }
@@ -6858,20 +6882,20 @@ function voiceDisplayName(voiceSettings, elevenLabsOptions) {
     return option?.friendlyName || voiceId || "Not set";
   }
   const google = googleConversationRelayVoiceOptions.find((option) => option.voice === voiceSettings.voice);
-  return google?.title || voiceSettings.voice || "Google Journey O";
+  return standardLiveCallVoiceTitle(google?.title || voiceSettings.voice || "Journey O");
 }
 
-function renderVoiceOptionCard({ title, detail, selected, provider = "", voice = "" }) {
-  const selectable = provider && voice;
+function renderVoiceOptionCard({ title, detail, selected, provider = "", voice = "", disabled = false }) {
+  const selectable = provider && voice && !disabled;
   const attrs = selectable
     ? `button type="button" data-admin-live-voice-provider="${escapeHTML(provider)}" data-admin-live-voice-value="${escapeHTML(voice)}"`
     : `div`;
   const closeTag = selectable ? "button" : "div";
   return `
-    <${attrs} class="ios-list-card voice ${selected ? "selected" : ""}">
+    <${attrs} class="ios-list-card voice ${selected ? "selected" : ""} ${disabled ? "disabled" : ""}">
       <strong>${escapeHTML(title || "Voice")}</strong>
       <span>${escapeHTML(detail || "")}</span>
-      <em>${selected ? "Selected" : "Available"}</em>
+      <em>${selected ? "Selected" : disabled ? "Unavailable" : "Available"}</em>
     </${closeTag}>
   `;
 }
