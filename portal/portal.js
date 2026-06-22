@@ -265,6 +265,7 @@ let portalState = {
   adminSettingsError: "",
   adminProfileDraft: null,
   adminBusinessHoursDraft: null,
+  adminLiveCallVoiceDraft: null,
   adminMenuVisibilityDraft: null,
   adminMenuKnowledgeDraft: null,
   adminOnboardingOpenModules: {
@@ -4617,6 +4618,7 @@ function applyPortalAdminSettingsPayload(payload) {
   portalState.adminTeamMembers = Array.isArray(payload?.teamMembers) ? payload.teamMembers : portalState.adminTeamMembers;
   portalState.adminProfileDraft = profileDraftFromSettings(settings);
   portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
+  portalState.adminLiveCallVoiceDraft = liveCallVoiceDraftFromSettings(settings);
   portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
   portalState.adminMenuKnowledgeDraft = menuKnowledgeDraftFromSettings(settings);
   portalState.adminOnboardingOpenModules = readStoredAdminOnboardingOpenModules();
@@ -4676,12 +4678,27 @@ function ensureAdminDrafts() {
   if (!portalState.adminBusinessHoursDraft) {
     portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
   }
+  if (!portalState.adminLiveCallVoiceDraft) {
+    portalState.adminLiveCallVoiceDraft = liveCallVoiceDraftFromSettings(settings);
+  }
   if (!portalState.adminMenuVisibilityDraft) {
     portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
   }
   if (!portalState.adminMenuKnowledgeDraft) {
     portalState.adminMenuKnowledgeDraft = menuKnowledgeDraftFromSettings(settings);
   }
+}
+
+function liveCallVoiceDraftFromSettings(settings) {
+  const config = settings?.callFlowConfig?.config || {};
+  const voice = config.conversationRelayVoice || {};
+  return {
+    languageMode: config.languageMode === "auto_en_es" ? "auto_en_es" : "english_only",
+    conversationRelayVoice: {
+      ttsProvider: voice.ttsProvider === "ElevenLabs" ? "ElevenLabs" : "Google",
+      voice: typeof voice.voice === "string" && voice.voice.trim() ? voice.voice.trim() : "en-US-Journey-O"
+    }
+  };
 }
 
 function menuVisibilityDraftFromSettings(settings) {
@@ -5028,6 +5045,65 @@ async function savePortalAdminBusinessHours() {
   }
 }
 
+async function savePortalAdminLiveCallVoice() {
+  ensureAdminDrafts();
+  portalState.adminSavingTarget = "liveCallVoice";
+  portalState.adminSaving = true;
+  portalState.adminSaveMessage = "Saving live call voice...";
+  portalState.adminSaveIsError = false;
+  renderConfigureAdmin();
+  try {
+    const payload = await apiRequest("/operations/admin/live-call-voice", {
+      method: "PUT",
+      body: JSON.stringify(portalState.adminLiveCallVoiceDraft || liveCallVoiceDraftFromSettings(adminSettingsSnapshot()))
+    });
+    applyPortalAdminSettingsPayload(payload);
+    portalState.adminSettingsLoaded = true;
+    setAdminSaveStatus("liveCallVoice", "Saved live call voice.");
+  } catch (error) {
+    setAdminSaveStatus("liveCallVoice", adminSaveErrorMessage(error), true);
+  } finally {
+    portalState.adminSaving = false;
+    renderConfigureAdmin();
+  }
+}
+
+function setPortalAdminLiveCallVoice(provider, voice) {
+  ensureAdminDrafts();
+  portalState.adminLiveCallVoiceDraft = {
+    ...(portalState.adminLiveCallVoiceDraft || liveCallVoiceDraftFromSettings(adminSettingsSnapshot())),
+    conversationRelayVoice: {
+      ttsProvider: provider === "ElevenLabs" ? "ElevenLabs" : "Google",
+      voice: String(voice || "").trim()
+    }
+  };
+  if (portalState.adminSavingTarget === "liveCallVoice" && portalState.adminSaveMessage) {
+    clearAdminSaveStatus();
+  }
+  renderConfigureAdmin();
+}
+
+function setPortalAdminLanguageMode(languageMode) {
+  ensureAdminDrafts();
+  const nextLanguageMode = languageMode === "auto_en_es" ? "auto_en_es" : "english_only";
+  const currentDraft = portalState.adminLiveCallVoiceDraft || liveCallVoiceDraftFromSettings(adminSettingsSnapshot());
+  const firstElevenLabsVoice = (adminSettingsSnapshot()?.elevenLabsVoices || [])
+    .find((voice) => typeof voice?.voiceId === "string" && voice.voiceId.trim());
+  const conversationRelayVoice =
+    nextLanguageMode === "auto_en_es" && currentDraft.conversationRelayVoice?.ttsProvider !== "ElevenLabs" && firstElevenLabsVoice
+      ? { ttsProvider: "ElevenLabs", voice: firstElevenLabsVoice.voiceId.trim() }
+      : currentDraft.conversationRelayVoice;
+  portalState.adminLiveCallVoiceDraft = {
+    ...currentDraft,
+    languageMode: nextLanguageMode,
+    conversationRelayVoice
+  };
+  if (portalState.adminSavingTarget === "liveCallVoice" && portalState.adminSaveMessage) {
+    clearAdminSaveStatus();
+  }
+  renderConfigureAdmin();
+}
+
 async function savePortalAdminMenuKnowledge() {
   syncAdminProfileDraftFromDom();
   syncAdminBusinessHoursDraftFromDom();
@@ -5363,6 +5439,19 @@ function wireOnboardingAdminEvents() {
   portalContent?.querySelector("[data-admin-menu-save]")?.addEventListener("click", () => {
     void savePortalAdminMenuKnowledge();
   });
+  portalContent?.querySelector("[data-admin-live-voice-save]")?.addEventListener("click", () => {
+    void savePortalAdminLiveCallVoice();
+  });
+  portalContent?.querySelectorAll("[data-admin-live-voice-provider][data-admin-live-voice-value]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setPortalAdminLiveCallVoice(button.dataset.adminLiveVoiceProvider || "Google", button.dataset.adminLiveVoiceValue || "");
+    });
+  });
+  portalContent?.querySelectorAll("[data-admin-language-mode]").forEach((button) => {
+    button.addEventListener("click", () => {
+      setPortalAdminLanguageMode(button.dataset.adminLanguageMode || "english_only");
+    });
+  });
   const menuKnowledgeDetails = portalContent?.querySelector("[data-admin-menu-knowledge-details]");
   if (menuKnowledgeDetails instanceof HTMLDetailsElement) {
     const syncMenuKnowledgeAndClearStatus = () => {
@@ -5583,6 +5672,7 @@ function renderConfigureAdmin() {
       ${renderDeepgramAuraPreviewModule()}
     </section>
   `;
+  wireOnboardingAdminEvents();
 }
 
 function renderIosModule({ title, icon, content, open = false, meta = "", detailsAttributes = "" }) {
@@ -6703,7 +6793,10 @@ function renderSystemFallbacksModule(rawFallbacks) {
 }
 
 function renderLiveCallVoiceModule(settings) {
-  const voiceSettings = settings.callFlowConfig?.config?.conversationRelayVoice || {};
+  ensureAdminDrafts();
+  const draft = portalState.adminLiveCallVoiceDraft || liveCallVoiceDraftFromSettings(settings);
+  const voiceSettings = draft.conversationRelayVoice || {};
+  const languageMode = draft.languageMode === "auto_en_es" ? "auto_en_es" : "english_only";
   const elevenLabsOptions = Array.isArray(settings.elevenLabsVoices) ? settings.elevenLabsVoices : [];
   return renderIosModule({
     title: "Live Call Voice",
@@ -6711,6 +6804,18 @@ function renderLiveCallVoiceModule(settings) {
     open: false,
     content: `
       <p class="ios-footnote">This setting controls your Agent's voice</p>
+      <div class="ios-subgroup">
+        <h4>Language</h4>
+        <div class="ios-choice-row">
+          <button class="ios-choice-pill ${languageMode === "english_only" ? "selected" : ""}" type="button" data-admin-language-mode="english_only">
+            English only
+          </button>
+          <button class="ios-choice-pill ${languageMode === "auto_en_es" ? "selected" : ""}" type="button" data-admin-language-mode="auto_en_es">
+            Auto English/Spanish
+          </button>
+        </div>
+        <p class="ios-footnote">Auto English/Spanish uses ConversationRelay multi-language mode with Deepgram speech recognition and ElevenLabs TTS.</p>
+      </div>
       ${renderValueRow("Current provider", voiceSettings.ttsProvider || "Google")}
       ${renderValueRow("Current voice", voiceDisplayName(voiceSettings, elevenLabsOptions))}
       ${elevenLabsOptions.length ? `
@@ -6719,7 +6824,9 @@ function renderLiveCallVoiceModule(settings) {
           ${elevenLabsOptions.map((option) => renderVoiceOptionCard({
             title: option.friendlyName,
             detail: option.description || "Curated ElevenLabs voice for live ConversationRelay calls.",
-            selected: voiceSettings.ttsProvider === "ElevenLabs" && normalizeElevenLabsVoiceId(voiceSettings.voice) === option.voiceId
+            selected: voiceSettings.ttsProvider === "ElevenLabs" && normalizeElevenLabsVoiceId(voiceSettings.voice) === option.voiceId,
+            provider: "ElevenLabs",
+            voice: option.voiceId
           })).join("")}
         </div>
       ` : ""}
@@ -6728,10 +6835,13 @@ function renderLiveCallVoiceModule(settings) {
         ${googleConversationRelayVoiceOptions.map((option) => renderVoiceOptionCard({
           title: option.title,
           detail: option.detail,
-          selected: voiceSettings.ttsProvider === "Google" && voiceSettings.voice === option.voice
+          selected: voiceSettings.ttsProvider === "Google" && voiceSettings.voice === option.voice,
+          provider: "Google",
+          voice: option.voice
         })).join("")}
       </div>
-      ${renderActionButton("Save Live Voice Preference")}
+      <button class="ios-action-button primary" type="button" data-admin-live-voice-save ${portalState.adminSaving ? "disabled" : ""}>Save Live Voice Preference</button>
+      ${renderAdminSaveStatus("liveCallVoice")}
       <p class="ios-footnote">Voice changes are saved immediately for the next inbound call. ElevenLabs previews use the restaurant name currently loaded from Parse.</p>
     `
   });
@@ -6751,13 +6861,18 @@ function voiceDisplayName(voiceSettings, elevenLabsOptions) {
   return google?.title || voiceSettings.voice || "Google Journey O";
 }
 
-function renderVoiceOptionCard({ title, detail, selected }) {
+function renderVoiceOptionCard({ title, detail, selected, provider = "", voice = "" }) {
+  const selectable = provider && voice;
+  const attrs = selectable
+    ? `button type="button" data-admin-live-voice-provider="${escapeHTML(provider)}" data-admin-live-voice-value="${escapeHTML(voice)}"`
+    : `div`;
+  const closeTag = selectable ? "button" : "div";
   return `
-    <div class="ios-list-card voice ${selected ? "selected" : ""}">
+    <${attrs} class="ios-list-card voice ${selected ? "selected" : ""}">
       <strong>${escapeHTML(title || "Voice")}</strong>
       <span>${escapeHTML(detail || "")}</span>
       <em>${selected ? "Selected" : "Available"}</em>
-    </div>
+    </${closeTag}>
   `;
 }
 
@@ -6823,6 +6938,7 @@ function showLogin() {
   portalState.adminSettingsError = "";
   portalState.adminProfileDraft = null;
   portalState.adminBusinessHoursDraft = null;
+  portalState.adminLiveCallVoiceDraft = null;
   portalState.adminMenuVisibilityDraft = null;
   portalState.adminMenuKnowledgeDraft = null;
   portalState.adminOnboardingOpenModules = defaultOnboardingOpenModules();

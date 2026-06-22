@@ -849,6 +849,30 @@ body.portal-admin-page .portal-main-shell {
   padding: 4px 0 0;
 }
 
+.ios-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 8px 18px 4px;
+}
+
+.ios-choice-pill {
+  min-height: 36px;
+  padding: 0 13px;
+  color: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ios-choice-pill.selected {
+  color: #fff;
+  border-color: rgba(10, 132, 255, 0.72);
+  background: rgba(10, 132, 255, 0.28);
+}
+
 .ios-button-grid .ios-action-button {
   margin: 0;
 }
@@ -1532,6 +1556,12 @@ body.portal-admin-page .portal-main-shell {
 .ios-list-card.voice {
   position: relative;
   padding-right: 92px;
+}
+
+button.ios-list-card.voice {
+  width: calc(100% - 36px);
+  text-align: left;
+  cursor: pointer;
 }
 
 .ios-list-card.voice.selected {
