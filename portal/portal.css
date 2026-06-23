@@ -771,6 +771,18 @@ body.portal-admin-page .portal-main-shell {
   resize: vertical;
 }
 
+.ios-toggle-control-row {
+  cursor: pointer;
+}
+
+.ios-toggle-control-row input[type="checkbox"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .ios-switch {
   width: 51px;
   height: 31px;
@@ -795,7 +807,15 @@ body.portal-admin-page .portal-main-shell {
   background: #34c759;
 }
 
+.ios-toggle-control-row input[type="checkbox"]:checked + .ios-switch {
+  background: #34c759;
+}
+
 .ios-switch.on i {
+  transform: translateX(20px);
+}
+
+.ios-toggle-control-row input[type="checkbox"]:checked + .ios-switch i {
   transform: translateX(20px);
 }
 

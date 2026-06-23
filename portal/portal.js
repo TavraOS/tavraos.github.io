@@ -179,6 +179,79 @@ const defaultSystemFallbacks = {
     "I have your order, but I can't send it through the restaurant system right now. The restaurant will confirm it shortly."
 };
 
+const reservationModeOptions = [
+  { value: "native_tavra", label: "Native Tavra" },
+  { value: "request_only", label: "Request only" },
+  { value: "external_provider_later", label: "External provider later" }
+];
+const reservationFallbackOptions = [
+  { value: "request_only", label: "Collect request" },
+  { value: "take_message", label: "Take message" },
+  { value: "something_else_handoff", label: "Route to staff" },
+  { value: "end_call", label: "End call" }
+];
+const reservationDefaultStatusOptions = [
+  { value: "ai_decides", label: "Let Tavra AI decide" },
+  { value: "requested", label: "Requested" },
+  { value: "confirmed", label: "Confirmed" }
+];
+const reservationSlotMinuteOptions = [5, 10, 15, 20, 30, 45, 60].map((value) => ({
+  value: String(value),
+  label: `${value} minutes`
+}));
+const miscHandlingModeOptions = [
+  { value: "answer_only", label: "Answer only" },
+  { value: "collect_info", label: "Collect info" },
+  { value: "route_only", label: "Route only" },
+  { value: "answer_then_route_if_needed", label: "Answer, route if needed" },
+  { value: "collect_then_route", label: "Collect, then route" }
+];
+const miscSourceTypeOptions = [
+  { value: "manual", label: "Manual" },
+  { value: "website_url", label: "Website URL" },
+  { value: "ical", label: "Calendar feed" },
+  { value: "google_calendar", label: "Google Calendar" },
+  { value: "uploaded_file", label: "Uploaded file" },
+  { value: "pos", label: "POS" }
+];
+const miscRoutingTargetOptions = [
+  { value: "none", label: "No routing" },
+  { value: "host_stand", label: "Host stand" },
+  { value: "manager", label: "Manager" },
+  { value: "owner", label: "Owner" },
+  { value: "restaurant_phone", label: "Restaurant phone" },
+  { value: "custom", label: "Custom number" }
+];
+const handoffFallbackOptions = [
+  { value: "take_message", label: "Take message" },
+  { value: "return_to_agent", label: "Return to agent" },
+  { value: "end_call", label: "End call" }
+];
+const handoffLiveTransferPolicyOptions = [
+  { value: "all_matches", label: "All matches" },
+  { value: "urgent_only", label: "Urgent only" },
+  { value: "voicemail_only", label: "Voicemail only" }
+];
+const handoffTimeoutOptions = [5, 10, 15, 20, 25, 30, 45, 60].map((value) => ({
+  value: String(value),
+  label: `${value} seconds`
+}));
+const posPrintingProviderOptions = [
+  { value: "", label: "Auto" },
+  { value: "pos", label: "Connected POS" },
+  { value: "clover", label: "Clover" },
+  { value: "toast", label: "Toast" },
+  { value: "square", label: "Square" }
+];
+const systemFallbackBehaviorOptions = [
+  { value: "save_for_staff_followup", label: "Save for staff follow-up" },
+  { value: "take_message", label: "Take a message" },
+  { value: "submit_to_pos_cloud", label: "Submit to POS cloud" },
+  { value: "connect_staff", label: "Connect staff" },
+  { value: "end_call", label: "End call" },
+  { value: "track_separately", label: "Track separately" }
+];
+
 const waitListSourceModes = [
   { key: "automatic", title: "Automatic", subtitle: "Recommended: host quote, then reservation book" },
   { key: "host_override", title: "Host quote only", subtitle: "Most exact, but expires if staff do not update it" },
@@ -266,6 +339,7 @@ let portalState = {
   adminProfileDraft: null,
   adminBusinessHoursDraft: null,
   adminLiveCallVoiceDraft: null,
+  adminConfigureDraft: null,
   adminMenuVisibilityDraft: null,
   adminMenuKnowledgeDraft: null,
   adminOnboardingOpenModules: {
@@ -4619,6 +4693,7 @@ function applyPortalAdminSettingsPayload(payload) {
   portalState.adminProfileDraft = profileDraftFromSettings(settings);
   portalState.adminBusinessHoursDraft = businessHoursDraftFromSettings(settings);
   portalState.adminLiveCallVoiceDraft = liveCallVoiceDraftFromSettings(settings);
+  portalState.adminConfigureDraft = configureDraftFromSettings(settings);
   portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
   portalState.adminMenuKnowledgeDraft = menuKnowledgeDraftFromSettings(settings);
   portalState.adminOnboardingOpenModules = readStoredAdminOnboardingOpenModules();
@@ -4681,6 +4756,9 @@ function ensureAdminDrafts() {
   if (!portalState.adminLiveCallVoiceDraft) {
     portalState.adminLiveCallVoiceDraft = liveCallVoiceDraftFromSettings(settings);
   }
+  if (!portalState.adminConfigureDraft) {
+    portalState.adminConfigureDraft = configureDraftFromSettings(settings);
+  }
   if (!portalState.adminMenuVisibilityDraft) {
     portalState.adminMenuVisibilityDraft = menuVisibilityDraftFromSettings(settings);
   }
@@ -4699,6 +4777,36 @@ function liveCallVoiceDraftFromSettings(settings) {
       voice: typeof voice.voice === "string" && voice.voice.trim() ? voice.voice.trim() : "en-US-Journey-O"
     }
   };
+}
+
+function clonePlain(value, fallback) {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch {
+    return fallback;
+  }
+}
+
+function configureDraftFromSettings(settings) {
+  const config = settings?.callFlowConfig?.config || {};
+  return {
+    reservationConfig: clonePlain(config.reservationConfig, {}),
+    miscRequestCategories: clonePlain(config.miscRequestCategories, []),
+    handoffRoutes: handoffRoutesWithDefaults(clonePlain(config.handoffRoutes, [])),
+    posPrinting: clonePlain(config.posPrinting, {}),
+    systemFallbacks: {
+      ...defaultSystemFallbacks,
+      ...(clonePlain(config.systemFallbacks, {}) || {})
+    }
+  };
+}
+
+function currentConfigureDraft() {
+  ensureAdminDrafts();
+  return portalState.adminConfigureDraft || configureDraftFromSettings(adminSettingsSnapshot());
 }
 
 function liveCallVoiceSupportsBilingual(voiceSettings) {
@@ -5013,6 +5121,165 @@ function clearAdminSaveStatus() {
   portalState.adminSaveIsError = false;
 }
 
+function formField(form, name) {
+  return form?.elements?.namedItem(name) || null;
+}
+
+function formString(form, name) {
+  const field = formField(form, name);
+  return field && "value" in field ? String(field.value || "").trim() : "";
+}
+
+function formBoolean(form, name) {
+  const field = formField(form, name);
+  return field instanceof HTMLInputElement ? field.checked === true : false;
+}
+
+function formNumber(form, name, fallback = 0) {
+  const text = formString(form, name);
+  const value = text ? Number(text) : Number.NaN;
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function formNullableNumber(form, name) {
+  const text = formString(form, name);
+  if (!text) {
+    return null;
+  }
+  const value = Number(text);
+  return Number.isFinite(value) ? value : null;
+}
+
+function configureDraftForEdit() {
+  ensureAdminDrafts();
+  if (!portalState.adminConfigureDraft) {
+    portalState.adminConfigureDraft = configureDraftFromSettings(adminSettingsSnapshot());
+  }
+  return portalState.adminConfigureDraft;
+}
+
+function syncAdminReservationConfigDraftFromDom() {
+  const form = portalContent?.querySelector("[data-admin-reservation-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+  const draft = configureDraftForEdit();
+  const existing = draft.reservationConfig || {};
+  draft.reservationConfig = {
+    ...existing,
+    reservationsEnabled: formBoolean(form, "reservationsEnabled"),
+    reservationMode: formString(form, "reservationMode") || "native_tavra",
+    fallbackBehavior: formString(form, "fallbackBehavior") || "request_only",
+    defaultReservationStatus: formString(form, "defaultReservationStatus") || "ai_decides",
+    minPartySize: formNumber(form, "minPartySize", existing.minPartySize || 1),
+    maxPartySize: formNumber(form, "maxPartySize", existing.maxPartySize || 12),
+    reservationTimeSlotMinutes: formNumber(form, "reservationTimeSlotMinutes", existing.reservationTimeSlotMinutes || 15),
+    maxCoversPerHour: formNullableNumber(form, "maxCoversPerHour"),
+    maxCoversPerSlot: formNullableNumber(form, "maxCoversPerSlot"),
+    maxPartiesPerSlot: formNullableNumber(form, "maxPartiesPerSlot"),
+    advanceBookingMinHours: formNullableNumber(form, "advanceBookingMinHours"),
+    advanceBookingMaxDays: formNullableNumber(form, "advanceBookingMaxDays"),
+    closedDays: reservationWeekdayNames.map((_, index) => index).filter((index) => formBoolean(form, `closedDay-${index}`)),
+    confirmationSmsEnabled: formBoolean(form, "confirmationSmsEnabled"),
+    ownerNotificationSmsEnabled: formBoolean(form, "ownerNotificationSmsEnabled"),
+    ownerNotificationEmailEnabled: formBoolean(form, "ownerNotificationEmailEnabled")
+  };
+}
+
+function syncAdminMiscRequestCategoriesDraftFromDom() {
+  const form = portalContent?.querySelector("[data-admin-misc-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+  const draft = configureDraftForEdit();
+  draft.miscRequestCategories = (Array.isArray(draft.miscRequestCategories) ? draft.miscRequestCategories : []).map((category) => {
+    const key = category.categoryKey || "";
+    if (!key) {
+      return category;
+    }
+    return {
+      ...category,
+      enabled: formBoolean(form, `misc-${key}-enabled`),
+      handlingMode: formString(form, `misc-${key}-handlingMode`) || category.handlingMode,
+      sourceType: formString(form, `misc-${key}-sourceType`) || category.sourceType,
+      routingTargetType: formString(form, `misc-${key}-routingTargetType`) || category.routingTargetType,
+      routingTargetPhone: formString(form, `misc-${key}-routingTargetPhone`) || null,
+      publicAnswerTemplate: formString(form, `misc-${key}-publicAnswerTemplate`) || null,
+      routingInstructions: formString(form, `misc-${key}-routingInstructions`) || null,
+      agentInstructions: formString(form, `misc-${key}-agentInstructions`) || null
+    };
+  });
+}
+
+function syncAdminHandoffRoutesDraftFromDom() {
+  const form = portalContent?.querySelector("[data-admin-handoff-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+  const draft = configureDraftForEdit();
+  draft.handoffRoutes = handoffRoutesWithDefaults(draft.handoffRoutes || []).map((route) => ({
+    ...route,
+    enabled: formBoolean(form, `handoff-${route.id}-enabled`),
+    phoneNumber: formString(form, `handoff-${route.id}-phoneNumber`),
+    description: formString(form, `handoff-${route.id}-description`) || null,
+    timeoutSeconds: formNumber(form, `handoff-${route.id}-timeoutSeconds`, route.timeoutSeconds || 20),
+    fallback: formString(form, `handoff-${route.id}-fallback`) || route.fallback || "take_message",
+    liveTransferPolicy: formString(form, `handoff-${route.id}-liveTransferPolicy`) || route.liveTransferPolicy || "all_matches"
+  }));
+}
+
+function syncAdminPosPrintingDraftFromDom() {
+  const form = portalContent?.querySelector("[data-admin-printing-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+  const draft = configureDraftForEdit();
+  const existing = draft.posPrinting || {};
+  const targets = Array.isArray(existing.targets) ? existing.targets : [];
+  draft.posPrinting = {
+    ...existing,
+    enabled: formBoolean(form, "posPrinting-enabled"),
+    provider: formString(form, "posPrinting-provider") || null,
+    targets: targets.map((target, index) => ({
+      ...target,
+      id: formString(form, `posPrinting-target-${index}-id`) || target.id || `target_${index}`,
+      type: formString(form, `posPrinting-target-${index}-type`) || target.type || "default_order_printer",
+      enabled: formBoolean(form, `posPrinting-target-${index}-enabled`),
+      provider: formString(form, `posPrinting-target-${index}-provider`) || target.provider || "pos",
+      label: formString(form, `posPrinting-target-${index}-label`) || target.label || "Printer target",
+      deviceId: formString(form, `posPrinting-target-${index}-deviceId`) || null,
+      description: formString(form, `posPrinting-target-${index}-description`) || null
+    }))
+  };
+}
+
+function syncAdminSystemFallbacksDraftFromDom() {
+  const form = portalContent?.querySelector("[data-admin-fallbacks-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+  const draft = configureDraftForEdit();
+  draft.systemFallbacks = {
+    ...defaultSystemFallbacks,
+    ...(draft.systemFallbacks || {}),
+    localDeviceOfflineBehavior: formString(form, "localDeviceOfflineBehavior") || defaultSystemFallbacks.localDeviceOfflineBehavior,
+    orderSubmissionFailureBehavior: formString(form, "orderSubmissionFailureBehavior") || defaultSystemFallbacks.orderSubmissionFailureBehavior,
+    printerFailureBehavior: formString(form, "printerFailureBehavior") || defaultSystemFallbacks.printerFailureBehavior,
+    paymentFailureBehavior: formString(form, "paymentFailureBehavior") || defaultSystemFallbacks.paymentFailureBehavior,
+    systemFallbackRouteId: formString(form, "systemFallbackRouteId") || defaultSystemFallbacks.systemFallbackRouteId,
+    notifyStaffOnSystemFallback: formBoolean(form, "notifyStaffOnSystemFallback"),
+    connectedSystemUnavailableMessage: formString(form, "connectedSystemUnavailableMessage") || defaultSystemFallbacks.connectedSystemUnavailableMessage
+  };
+}
+
+function syncAdminConfigureDraftFromDom() {
+  syncAdminReservationConfigDraftFromDom();
+  syncAdminMiscRequestCategoriesDraftFromDom();
+  syncAdminHandoffRoutesDraftFromDom();
+  syncAdminPosPrintingDraftFromDom();
+  syncAdminSystemFallbacksDraftFromDom();
+}
+
 async function savePortalAdminProfile() {
   syncAdminProfileDraftFromDom();
   const draft = portalState.adminProfileDraft || {};
@@ -5092,6 +5359,75 @@ async function savePortalAdminLiveCallVoice() {
     portalState.adminSaving = false;
     renderConfigureAdmin();
   }
+}
+
+async function savePortalAdminConfigureModule(target, path, body) {
+  portalState.adminSavingTarget = target;
+  portalState.adminSaving = true;
+  portalState.adminSaveMessage = "Saving...";
+  portalState.adminSaveIsError = false;
+  renderConfigureAdmin();
+  try {
+    const payload = await apiRequest(path, {
+      method: "PUT",
+      body: JSON.stringify(body)
+    });
+    applyPortalAdminSettingsPayload(payload);
+    portalState.adminSettingsLoaded = true;
+    const labels = {
+      reservationConfig: "Saved reservation settings.",
+      miscRequestCategories: "Saved other caller questions.",
+      handoffRoutes: "Saved handoff routes.",
+      posPrinting: "Saved printer settings.",
+      systemFallbacks: "Saved system fallbacks."
+    };
+    setAdminSaveStatus(target, labels[target] || "Saved.");
+  } catch (error) {
+    setAdminSaveStatus(target, adminSaveErrorMessage(error), true);
+  } finally {
+    portalState.adminSaving = false;
+    renderConfigureAdmin();
+  }
+}
+
+async function savePortalAdminReservationConfig() {
+  syncAdminReservationConfigDraftFromDom();
+  const draft = configureDraftForEdit();
+  await savePortalAdminConfigureModule("reservationConfig", "/operations/admin/reservation-config", {
+    reservationConfig: draft.reservationConfig || {}
+  });
+}
+
+async function savePortalAdminMiscRequestCategories() {
+  syncAdminMiscRequestCategoriesDraftFromDom();
+  const draft = configureDraftForEdit();
+  await savePortalAdminConfigureModule("miscRequestCategories", "/operations/admin/misc-request-categories", {
+    miscRequestCategories: draft.miscRequestCategories || []
+  });
+}
+
+async function savePortalAdminHandoffRoutes() {
+  syncAdminHandoffRoutesDraftFromDom();
+  const draft = configureDraftForEdit();
+  await savePortalAdminConfigureModule("handoffRoutes", "/operations/admin/handoff-routes", {
+    handoffRoutes: draft.handoffRoutes || []
+  });
+}
+
+async function savePortalAdminPosPrinting() {
+  syncAdminPosPrintingDraftFromDom();
+  const draft = configureDraftForEdit();
+  await savePortalAdminConfigureModule("posPrinting", "/operations/admin/pos-printing", {
+    posPrinting: draft.posPrinting || {}
+  });
+}
+
+async function savePortalAdminSystemFallbacks() {
+  syncAdminSystemFallbacksDraftFromDom();
+  const draft = configureDraftForEdit();
+  await savePortalAdminConfigureModule("systemFallbacks", "/operations/admin/system-fallbacks", {
+    systemFallbacks: draft.systemFallbacks || {}
+  });
 }
 
 function setPortalAdminLiveCallVoice(provider, voice) {
@@ -5203,7 +5539,12 @@ function adminSaveErrorMessage(error) {
     business_hours_invalid_windows: "Business hours must end after they start.",
     menu_knowledge_updates_required: "Choose at least one menu knowledge change.",
     menu_visibility_updates_required: "Choose at least one menu visibility change.",
-    menu_items_not_found: "The synced menu changed. Reload and try again."
+    menu_items_not_found: "The synced menu changed. Reload and try again.",
+    reservation_config_required: "Reservation settings are missing.",
+    misc_request_categories_required: "Other caller question settings are missing.",
+    handoff_routes_required: "Handoff routes are missing.",
+    pos_printing_required: "Printer settings are missing.",
+    system_fallbacks_required: "System fallback settings are missing."
   };
   return labels[message] || "Save failed. Check the fields and try again.";
 }
@@ -5407,6 +5748,32 @@ function setMenuCategoryHidden(categoryTitle, hiddenFromAgent) {
 }
 
 function wireOnboardingAdminEvents() {
+  const wireConfigureForm = (selector, sync, save, target) => {
+    const form = portalContent?.querySelector(selector);
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void save();
+    });
+    const syncAndClearStatus = () => {
+      sync();
+      if (portalState.adminSavingTarget === target && portalState.adminSaveMessage) {
+        clearAdminSaveStatus();
+        clearAdminSaveStatusElement(target);
+      }
+    };
+    form.addEventListener("input", syncAndClearStatus);
+    form.addEventListener("change", syncAndClearStatus);
+  };
+
+  wireConfigureForm("[data-admin-reservation-form]", syncAdminReservationConfigDraftFromDom, savePortalAdminReservationConfig, "reservationConfig");
+  wireConfigureForm("[data-admin-misc-form]", syncAdminMiscRequestCategoriesDraftFromDom, savePortalAdminMiscRequestCategories, "miscRequestCategories");
+  wireConfigureForm("[data-admin-handoff-form]", syncAdminHandoffRoutesDraftFromDom, savePortalAdminHandoffRoutes, "handoffRoutes");
+  wireConfigureForm("[data-admin-printing-form]", syncAdminPosPrintingDraftFromDom, savePortalAdminPosPrinting, "posPrinting");
+  wireConfigureForm("[data-admin-fallbacks-form]", syncAdminSystemFallbacksDraftFromDom, savePortalAdminSystemFallbacks, "systemFallbacks");
+
   const profileForm = portalContent?.querySelector("[data-admin-profile-form]");
   if (profileForm instanceof HTMLFormElement) {
     profileForm.addEventListener("submit", (event) => {
@@ -5672,6 +6039,8 @@ function renderConfigureAdmin() {
     portalContent.innerHTML = renderAdminState("Agent controls have not loaded yet.");
     return;
   }
+  ensureAdminDrafts();
+  const configureDraft = currentConfigureDraft();
 
   portalContent.innerHTML = `
     <section class="ios-form-page admin-configure-page">
@@ -5686,11 +6055,11 @@ function renderConfigureAdmin() {
       ${renderPosIntegrationsModule(settings.integrations || [])}
       ${renderPhonePaymentsModule(settings.paymentProfile || {})}
       ${renderVoiceRuntimeModule(settings)}
-      ${renderReservationsConfigModule(adminConfig().reservationConfig || {})}
-      ${renderMiscRequestCategoriesModule(adminConfig().miscRequestCategories || [])}
-      ${renderHandoffRoutesModule(adminConfig().handoffRoutes || [])}
-      ${renderKitchenPrintingModule(adminConfig().posPrinting || {})}
-      ${renderSystemFallbacksModule(adminConfig().systemFallbacks || {})}
+      ${renderReservationsConfigModule(configureDraft.reservationConfig || {})}
+      ${renderMiscRequestCategoriesModule(configureDraft.miscRequestCategories || [])}
+      ${renderHandoffRoutesModule(configureDraft.handoffRoutes || [])}
+      ${renderKitchenPrintingModule(configureDraft.posPrinting || {})}
+      ${renderSystemFallbacksModule(configureDraft.systemFallbacks || {})}
       ${renderLiveCallVoiceModule(settings)}
       ${renderDeepgramAuraPreviewModule()}
     </section>
@@ -5751,7 +6120,7 @@ function renderEditableInputRow(label, name, value, options = {}) {
       <input
         type="${escapeHTML(type)}"
         name="${escapeHTML(name)}"
-        value="${escapeHTML(value || "")}"
+        value="${escapeHTML(value ?? "")}"
         autocomplete="off"
         ${options.required ? "required" : ""}
         ${options.placeholder ? `placeholder="${escapeHTML(options.placeholder)}"` : ""}
@@ -5762,14 +6131,55 @@ function renderEditableInputRow(label, name, value, options = {}) {
 }
 
 function renderEditableSelectRow(label, name, value, options) {
+  const normalizedOptions = options.map((option) => (
+    typeof option === "object" && option !== null
+      ? { value: option.value, label: option.label ?? option.value }
+      : { value: option, label: option }
+  ));
   return `
     <label class="ios-row ios-control-row">
       <span>${escapeHTML(label)}</span>
       <select name="${escapeHTML(name)}" ${portalState.adminSaving ? "disabled" : ""}>
-        ${options.map((option) => `
-          <option value="${escapeHTML(option)}" ${option === value ? "selected" : ""}>${escapeHTML(option)}</option>
+        ${normalizedOptions.map((option) => `
+          <option value="${escapeHTML(option.value)}" ${option.value === value ? "selected" : ""}>${escapeHTML(option.label)}</option>
         `).join("")}
       </select>
+    </label>
+  `;
+}
+
+function renderEditableNumberRow(label, name, value, options = {}) {
+  return renderEditableInputRow(label, name, value ?? "", {
+    type: "number",
+    placeholder: options.placeholder || "",
+    required: options.required === true
+  }).replace(
+    "<input",
+    `<input ${options.min !== undefined ? `min="${escapeHTML(options.min)}"` : ""} ${options.max !== undefined ? `max="${escapeHTML(options.max)}"` : ""} ${options.step !== undefined ? `step="${escapeHTML(options.step)}"` : ""}`
+  );
+}
+
+function renderEditableTextareaRow(label, name, value, options = {}) {
+  return `
+    <label class="ios-row ios-control-row">
+      <span>${escapeHTML(label)}</span>
+      <textarea
+        name="${escapeHTML(name)}"
+        rows="${escapeHTML(options.rows || 3)}"
+        ${options.placeholder ? `placeholder="${escapeHTML(options.placeholder)}"` : ""}
+        ${portalState.adminSaving ? "disabled" : ""}
+      >${escapeHTML(value || "")}</textarea>
+    </label>
+  `;
+}
+
+function renderEditableToggleRow(label, name, checked, detail = "") {
+  return `
+    <label class="ios-row ios-toggle-control-row">
+      <span>${escapeHTML(label)}</span>
+      <input type="checkbox" name="${escapeHTML(name)}" ${checked ? "checked" : ""} ${portalState.adminSaving ? "disabled" : ""}>
+      <span class="ios-switch ${checked ? "on" : ""}" aria-hidden="true"><i></i></span>
+      ${detail ? `<small>${escapeHTML(detail)}</small>` : ""}
     </label>
   `;
 }
@@ -6630,35 +7040,42 @@ function renderSetupRow(title, detail, complete) {
 
 function renderReservationsConfigModule(config) {
   const serviceHours = config.serviceHours || {};
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "reservationConfig";
   return renderIosModule({
     title: "Reservations",
     icon: "calendar.badge.clock",
     open: false,
     content: `
-      ${renderToggleRow("Reservations enabled", config.reservationsEnabled === true)}
-      <p class="ios-footnote">Tavra can act as the restaurant's native reservation book without OpenTable, Resy, Tock, or another external platform. External providers can be added later without changing the reservation model.</p>
-      ${renderIntegrationStatusRow({
-        title: "Reservation Integrations",
-        detail: reservationProviderDetail(config.externalProvider),
-        stateLabel: "Read only",
-        actionTitle: "Inspect"
-      })}
-      ${renderPickerRow("Mode", formatSettingLabel(config.reservationMode))}
-      ${renderPickerRow("Fallback", formatSettingLabel(config.fallbackBehavior))}
-      ${renderPickerRow("Default status", formatSettingLabel(config.defaultReservationStatus))}
-      ${renderValueRow("Party size", `${config.minPartySize || 1}-${config.maxPartySize || 12} guests`)}
-      ${renderPickerRow("Reservation spacing", `${config.reservationTimeSlotMinutes || 15} minutes`)}
-      ${renderValueRow("Max covers/hour", config.maxCoversPerHour ?? "Not set")}
-      ${renderValueRow("Max covers/slot", config.maxCoversPerSlot ?? "Not set")}
-      ${renderValueRow("Max parties/slot", config.maxPartiesPerSlot ?? "Not set")}
-      ${renderValueRow("Advance booking min", `${config.advanceBookingMinHours ?? 0} hours`)}
-      ${renderValueRow("Advance booking max", `${config.advanceBookingMaxDays ?? 0} days`)}
-      ${renderNestedDisclosure("Closed Days", renderClosedDays(config.closedDays || []), false)}
-      ${renderNestedDisclosure("Bookable Hours", renderReservationServiceHours(serviceHours), false)}
-      ${renderToggleRow("Send confirmation SMS", config.confirmationSmsEnabled === true)}
-      ${renderToggleRow("Owner notification SMS", config.ownerNotificationSmsEnabled === true)}
-      ${renderToggleRow("Owner notification email", config.ownerNotificationEmailEnabled === true)}
-      ${renderActionButton("Save Reservation Settings")}
+      <form data-admin-reservation-form>
+        ${renderEditableToggleRow("Reservations enabled", "reservationsEnabled", config.reservationsEnabled === true)}
+        <p class="ios-footnote">Tavra can act as the restaurant's native reservation book without OpenTable, Resy, Tock, or another external platform. External providers can be added later without changing the reservation model.</p>
+        ${renderIntegrationStatusRow({
+          title: "Reservation Integrations",
+          detail: reservationProviderDetail(config.externalProvider),
+          stateLabel: "Inspect only",
+          actionTitle: "Inspect"
+        })}
+        ${renderEditableSelectRow("Mode", "reservationMode", config.reservationMode || "native_tavra", reservationModeOptions)}
+        ${renderEditableSelectRow("Fallback", "fallbackBehavior", config.fallbackBehavior || "request_only", reservationFallbackOptions)}
+        ${renderEditableSelectRow("Default status", "defaultReservationStatus", config.defaultReservationStatus || "ai_decides", reservationDefaultStatusOptions)}
+        ${renderEditableNumberRow("Minimum party size", "minPartySize", config.minPartySize ?? 1, { min: 1, max: 100, step: 1 })}
+        ${renderEditableNumberRow("Maximum party size", "maxPartySize", config.maxPartySize ?? 12, { min: 1, max: 100, step: 1 })}
+        ${renderEditableSelectRow("Reservation spacing", "reservationTimeSlotMinutes", String(config.reservationTimeSlotMinutes || 15), reservationSlotMinuteOptions)}
+        ${renderEditableNumberRow("Max covers/hour", "maxCoversPerHour", config.maxCoversPerHour ?? "", { min: 1, max: 10000, step: 1, placeholder: "Optional" })}
+        ${renderEditableNumberRow("Max covers/slot", "maxCoversPerSlot", config.maxCoversPerSlot ?? "", { min: 1, max: 1000, step: 1, placeholder: "Optional" })}
+        ${renderEditableNumberRow("Max parties/slot", "maxPartiesPerSlot", config.maxPartiesPerSlot ?? "", { min: 1, max: 1000, step: 1, placeholder: "Optional" })}
+        ${renderEditableNumberRow("Advance booking min hours", "advanceBookingMinHours", config.advanceBookingMinHours ?? 0, { min: 0, max: 8760, step: 1 })}
+        ${renderEditableNumberRow("Advance booking max days", "advanceBookingMaxDays", config.advanceBookingMaxDays ?? 60, { min: 0, max: 730, step: 1 })}
+        ${renderNestedDisclosure("Closed Days", renderClosedDaysEditor(config.closedDays || []), false)}
+        ${renderNestedDisclosure("Bookable Hours", renderReservationServiceHours(serviceHours), false)}
+        ${renderEditableToggleRow("Send confirmation SMS", "confirmationSmsEnabled", config.confirmationSmsEnabled === true)}
+        ${renderEditableToggleRow("Owner notification SMS", "ownerNotificationSmsEnabled", config.ownerNotificationSmsEnabled === true)}
+        ${renderEditableToggleRow("Owner notification email", "ownerNotificationEmailEnabled", config.ownerNotificationEmailEnabled === true)}
+        ${adminSaveStatusMarkup("reservationConfig")}
+        <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save Reservation Settings"}
+        </button>
+      </form>
     `
   });
 }
@@ -6679,6 +7096,13 @@ function renderClosedDays(closedDays) {
   return reservationWeekdayNames.map((label, index) => renderToggleRow(label, closed.has(index), closed.has(index) ? "Closed" : "Bookable")).join("");
 }
 
+function renderClosedDaysEditor(closedDays) {
+  const closed = new Set(Array.isArray(closedDays) ? closedDays : []);
+  return reservationWeekdayNames
+    .map((label, index) => renderEditableToggleRow(label, `closedDay-${index}`, closed.has(index), closed.has(index) ? "Closed" : "Bookable"))
+    .join("");
+}
+
 function renderReservationServiceHours(serviceHours) {
   const rows = Object.entries(serviceHours || {});
   if (!rows.length) {
@@ -6694,29 +7118,39 @@ function renderReservationServiceHours(serviceHours) {
 
 function renderMiscRequestCategoriesModule(categories) {
   const enabledCount = (Array.isArray(categories) ? categories : []).filter((category) => category.enabled !== false).length;
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "miscRequestCategories";
   return renderIosModule({
     title: "Other Caller Questions",
     icon: "questionmark.bubble",
     open: false,
     meta: `${enabledCount} enabled`,
     content: `
-      <p class="ios-footnote">Configure how Tavra handles caller requests that are not reservations or to-go orders. Each category has its own answer, routing target, and optional custom phone number. Handoff Routes still define the restaurant's reusable staff destinations.</p>
-      ${(Array.isArray(categories) ? categories : []).map(renderMiscRequestCategory).join("")}
-      ${renderActionButton("Save Other Caller Questions")}
+      <form data-admin-misc-form>
+        <p class="ios-footnote">Configure how Tavra handles caller requests that are not reservations or to-go orders. Each category has its own answer, routing target, and optional custom phone number. Handoff Routes still define the restaurant's reusable staff destinations.</p>
+        ${(Array.isArray(categories) ? categories : []).map(renderMiscRequestCategory).join("")}
+        ${adminSaveStatusMarkup("miscRequestCategories")}
+        <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save Other Caller Questions"}
+        </button>
+      </form>
     `
   });
 }
 
 function renderMiscRequestCategory(category) {
+  const key = category.categoryKey || "";
   return renderNestedDisclosure(
     category.displayName || category.categoryKey || "Caller question",
     `
-      ${renderToggleRow("Enabled", category.enabled !== false)}
-      ${renderPickerRow("Handling", formatSettingLabel(category.handlingMode))}
-      ${renderPickerRow("Source", formatSettingLabel(category.sourceType))}
-      ${renderPickerRow("Routing target", formatSettingLabel(category.routingTargetType))}
+      ${renderEditableToggleRow("Enabled", `misc-${key}-enabled`, category.enabled !== false)}
+      ${renderEditableSelectRow("Handling", `misc-${key}-handlingMode`, category.handlingMode || "answer_only", miscHandlingModeOptions)}
+      ${renderEditableSelectRow("Source", `misc-${key}-sourceType`, category.sourceType || "manual", miscSourceTypeOptions)}
+      ${renderEditableSelectRow("Routing target", `misc-${key}-routingTargetType`, category.routingTargetType || "none", miscRoutingTargetOptions)}
+      ${renderEditableInputRow("Custom route phone", `misc-${key}-routingTargetPhone`, category.routingTargetPhone || "", { type: "tel", placeholder: "+15551234567" })}
       ${renderValueRow("Required caller fields", Array.isArray(category.requiredCallerFields) && category.requiredCallerFields.length ? category.requiredCallerFields.map(formatSettingLabel).join(", ") : "None")}
-      ${renderReadOnlyInputRow("Public answer", category.publicAnswerTemplate || category.ownerProvidedKnowledge || "", true)}
+      ${renderEditableTextareaRow("Public answer", `misc-${key}-publicAnswerTemplate`, category.publicAnswerTemplate || category.ownerProvidedKnowledge || "", { rows: 4, placeholder: "Answer the agent can give callers." })}
+      ${renderEditableTextareaRow("Routing instructions", `misc-${key}-routingInstructions`, category.routingInstructions || "", { rows: 3, placeholder: "Instructions before routing or collecting a message." })}
+      ${renderEditableTextareaRow("Agent instructions", `misc-${key}-agentInstructions`, category.agentInstructions || "", { rows: 3, placeholder: "Extra internal guidance for the agent." })}
       ${category.lastSyncStatus ? renderValueRow("Last sync", formatSettingLabel(category.lastSyncStatus), category.lastSyncedAt || "") : ""}
     `,
     false,
@@ -6751,66 +7185,97 @@ function handoffRoutesWithDefaults(routes) {
 }
 
 function renderHandoffRoutesModule(routes) {
+  const normalizedRoutes = handoffRoutesWithDefaults(routes);
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "handoffRoutes";
   return renderIosModule({
     title: "Live Handoff Routes",
     icon: "phone.arrow.up.right",
     open: false,
-    meta: `${handoffRoutesWithDefaults(routes).filter((route) => route.enabled).length} enabled`,
+    meta: `${normalizedRoutes.filter((route) => route.enabled).length} enabled`,
     content: `
-      <p class="ios-footnote">Use a direct number Tavra can call for live handoffs. Do not use the same public number that forwards calls to Tavra.</p>
-      ${handoffRoutesWithDefaults(routes).map((route) => renderNestedDisclosure(
-        route.label || route.id,
-        `
-          ${renderToggleRow("Enabled", route.enabled === true)}
-          ${renderReadOnlyInputRow("Phone number", route.phoneNumber || "")}
-          ${renderReadOnlyInputRow("Description", route.description || "", true)}
-          ${renderPickerRow("Timeout", `${route.timeoutSeconds || 15} seconds`)}
-          ${route.id === "manager" ? renderPickerRow("Manager live calls", formatSettingLabel(route.liveTransferPolicy)) : ""}
-        `,
-        false,
-        route.enabled ? "On" : "Off"
-      )).join("")}
-      ${renderActionButton("Save Handoff Routes")}
+      <form data-admin-handoff-form>
+        <p class="ios-footnote">Use a direct number Tavra can call for live handoffs. Do not use the same public number that forwards calls to Tavra.</p>
+        ${normalizedRoutes.map((route) => renderNestedDisclosure(
+          route.label || route.id,
+          `
+            ${renderEditableToggleRow("Enabled", `handoff-${route.id}-enabled`, route.enabled === true)}
+            ${renderEditableInputRow("Phone number", `handoff-${route.id}-phoneNumber`, route.phoneNumber || "", { type: "tel", placeholder: "+15551234567" })}
+            ${renderEditableTextareaRow("Description", `handoff-${route.id}-description`, route.description || "", { rows: 3 })}
+            ${renderEditableSelectRow("Timeout", `handoff-${route.id}-timeoutSeconds`, String(route.timeoutSeconds || 15), handoffTimeoutOptions)}
+            ${renderEditableSelectRow("Fallback", `handoff-${route.id}-fallback`, route.fallback || "take_message", handoffFallbackOptions)}
+            ${renderEditableSelectRow(route.id === "manager" ? "Manager live calls" : "Live calls", `handoff-${route.id}-liveTransferPolicy`, route.liveTransferPolicy || "all_matches", handoffLiveTransferPolicyOptions)}
+          `,
+          false,
+          route.enabled ? "On" : "Off"
+        )).join("")}
+        ${adminSaveStatusMarkup("handoffRoutes")}
+        <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save Handoff Routes"}
+        </button>
+      </form>
     `
   });
 }
 
 function renderKitchenPrintingModule(posPrinting) {
   const targets = Array.isArray(posPrinting.targets) ? posPrinting.targets : [];
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "posPrinting";
   return renderIosModule({
     title: "Kitchen Printing",
     icon: "printer",
     open: false,
     content: `
-      <p class="ios-footnote">Tavra routes paid order print requests through the configured POS or printer target when that provider supports order printing.</p>
-      ${renderToggleRow("Print new paid orders", posPrinting.enabled === true)}
-      ${targets.length ? targets.map((target) => `
-        <div class="ios-list-card">
-          <strong>${escapeHTML(target.label || "Printer target")}</strong>
-          <span>${escapeHTML([formatSettingLabel(target.provider), target.description, target.deviceId ? `Device ID: ${target.deviceId}` : ""].filter(Boolean).join(" · "))}</span>
-        </div>
-      `).join("") : `<p class="ios-footnote">No printer targets are configured.</p>`}
-      ${renderActionButton("Save Printer Settings")}
+      <form data-admin-printing-form>
+        <p class="ios-footnote">Tavra routes paid order print requests through the configured POS or printer target when that provider supports order printing.</p>
+        ${renderEditableToggleRow("Print new paid orders", "posPrinting-enabled", posPrinting.enabled === true)}
+        ${renderEditableSelectRow("Provider", "posPrinting-provider", posPrinting.provider || "", posPrintingProviderOptions)}
+        ${targets.length ? targets.map((target, index) => renderNestedDisclosure(
+          target.label || "Printer target",
+          `
+            <input type="hidden" name="posPrinting-target-${index}-id" value="${escapeHTML(target.id || `target_${index}`)}">
+            <input type="hidden" name="posPrinting-target-${index}-type" value="${escapeHTML(target.type || "default_order_printer")}">
+            ${renderEditableToggleRow("Enabled", `posPrinting-target-${index}-enabled`, target.enabled === true)}
+            ${renderEditableSelectRow("Provider", `posPrinting-target-${index}-provider`, target.provider || "pos", posPrintingProviderOptions.filter((option) => option.value))}
+            ${renderEditableInputRow("Label", `posPrinting-target-${index}-label`, target.label || "Printer target", { required: true })}
+            ${renderEditableInputRow("Device ID", `posPrinting-target-${index}-deviceId`, target.deviceId || "", { placeholder: "Optional" })}
+            ${renderEditableTextareaRow("Description", `posPrinting-target-${index}-description`, target.description || "", { rows: 3 })}
+          `,
+          false,
+          target.enabled ? "On" : "Off"
+        )).join("") : `<p class="ios-footnote">No printer targets are configured.</p>`}
+        ${adminSaveStatusMarkup("posPrinting")}
+        <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save Printer Settings"}
+        </button>
+      </form>
     `
   });
 }
 
 function renderSystemFallbacksModule(rawFallbacks) {
   const fallbacks = { ...defaultSystemFallbacks, ...(rawFallbacks || {}) };
+  const routes = handoffRoutesWithDefaults(currentConfigureDraft().handoffRoutes || []);
+  const routeOptions = routes.map((route) => ({ value: route.id, label: route.label || route.id }));
+  const saving = portalState.adminSaving && portalState.adminSavingTarget === "systemFallbacks";
   return renderIosModule({
     title: "System Fallbacks",
     icon: "exclamationmark.arrow.triangle.2.circlepath",
     open: false,
     content: `
-      <p class="ios-footnote">Separates provider/API outages from in-store device and printer outages during a live call.</p>
-      ${renderPickerRow("Store devices offline", formatSettingLabel(fallbacks.localDeviceOfflineBehavior))}
-      ${renderPickerRow("Provider/API unavailable", formatSettingLabel(fallbacks.orderSubmissionFailureBehavior))}
-      ${renderPickerRow("Printer offline after order accepted", formatSettingLabel(fallbacks.printerFailureBehavior))}
-      ${renderPickerRow("Payment failure", formatSettingLabel(fallbacks.paymentFailureBehavior))}
-      ${renderPickerRow("Fallback route", formatSettingLabel(fallbacks.systemFallbackRouteId))}
-      ${renderToggleRow("Mark in Operations for staff", fallbacks.notifyStaffOnSystemFallback === true)}
-      ${renderReadOnlyInputRow("Caller-facing fallback message", fallbacks.connectedSystemUnavailableMessage || "", true)}
-      ${renderActionButton("Save System Fallbacks")}
+      <form data-admin-fallbacks-form>
+        <p class="ios-footnote">Separates provider/API outages from in-store device and printer outages during a live call.</p>
+        ${renderEditableSelectRow("Store devices offline", "localDeviceOfflineBehavior", fallbacks.localDeviceOfflineBehavior, systemFallbackBehaviorOptions)}
+        ${renderEditableSelectRow("Provider/API unavailable", "orderSubmissionFailureBehavior", fallbacks.orderSubmissionFailureBehavior, systemFallbackBehaviorOptions)}
+        ${renderEditableSelectRow("Printer offline after order accepted", "printerFailureBehavior", fallbacks.printerFailureBehavior, systemFallbackBehaviorOptions)}
+        ${renderEditableSelectRow("Payment failure", "paymentFailureBehavior", fallbacks.paymentFailureBehavior, systemFallbackBehaviorOptions)}
+        ${renderEditableSelectRow("Fallback route", "systemFallbackRouteId", fallbacks.systemFallbackRouteId || "front_desk", routeOptions)}
+        ${renderEditableToggleRow("Mark in Operations for staff", "notifyStaffOnSystemFallback", fallbacks.notifyStaffOnSystemFallback === true)}
+        ${renderEditableTextareaRow("Caller-facing fallback message", "connectedSystemUnavailableMessage", fallbacks.connectedSystemUnavailableMessage || "", { rows: 4 })}
+        ${adminSaveStatusMarkup("systemFallbacks")}
+        <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
+          ${saving ? "Saving..." : "Save System Fallbacks"}
+        </button>
+      </form>
     `
   });
 }
@@ -6963,6 +7428,7 @@ function showLogin() {
   portalState.adminProfileDraft = null;
   portalState.adminBusinessHoursDraft = null;
   portalState.adminLiveCallVoiceDraft = null;
+  portalState.adminConfigureDraft = null;
   portalState.adminMenuVisibilityDraft = null;
   portalState.adminMenuKnowledgeDraft = null;
   portalState.adminOnboardingOpenModules = defaultOnboardingOpenModules();
