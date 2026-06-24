@@ -5774,6 +5774,26 @@ function wireOnboardingAdminEvents() {
   wireConfigureForm("[data-admin-printing-form]", syncAdminPosPrintingDraftFromDom, savePortalAdminPosPrinting, "posPrinting");
   wireConfigureForm("[data-admin-fallbacks-form]", syncAdminSystemFallbacksDraftFromDom, savePortalAdminSystemFallbacks, "systemFallbacks");
 
+  portalContent?.querySelectorAll("[data-admin-toggle-name]").forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    button.addEventListener("click", () => {
+      if (button.disabled) {
+        return;
+      }
+      const form = button.closest("form");
+      const toggleName = button.dataset.adminToggleName || "";
+      const field = form instanceof HTMLFormElement ? form.elements.namedItem(toggleName) : null;
+      if (!(field instanceof HTMLInputElement) || field.type !== "checkbox" || field.disabled) {
+        return;
+      }
+      field.checked = !field.checked;
+      button.setAttribute("aria-checked", field.checked ? "true" : "false");
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  });
+
   const profileForm = portalContent?.querySelector("[data-admin-profile-form]");
   if (profileForm instanceof HTMLFormElement) {
     profileForm.addEventListener("submit", (event) => {
@@ -6175,12 +6195,19 @@ function renderEditableTextareaRow(label, name, value, options = {}) {
 
 function renderEditableToggleRow(label, name, checked, detail = "") {
   return `
-    <label class="ios-row ios-toggle-control-row">
+    <div class="ios-row ios-toggle-control-row">
       <span>${escapeHTML(label)}</span>
-      <input type="checkbox" name="${escapeHTML(name)}" ${checked ? "checked" : ""} ${portalState.adminSaving ? "disabled" : ""}>
-      <span class="ios-switch" aria-hidden="true"><i></i></span>
+      <input class="ios-toggle-input" type="checkbox" name="${escapeHTML(name)}" ${checked ? "checked" : ""} ${portalState.adminSaving ? "disabled" : ""}>
+      <button
+        class="ios-switch"
+        type="button"
+        role="switch"
+        aria-checked="${checked ? "true" : "false"}"
+        data-admin-toggle-name="${escapeHTML(name)}"
+        ${portalState.adminSaving ? "disabled" : ""}
+      ><i></i></button>
       ${detail ? `<small>${escapeHTML(detail)}</small>` : ""}
-    </label>
+    </div>
   `;
 }
 
@@ -7049,12 +7076,6 @@ function renderReservationsConfigModule(config) {
       <form data-admin-reservation-form>
         ${renderEditableToggleRow("Reservations enabled", "reservationsEnabled", config.reservationsEnabled === true)}
         <p class="ios-footnote">Tavra can act as the restaurant's native reservation book without OpenTable, Resy, Tock, or another external platform. External providers can be added later without changing the reservation model.</p>
-        ${renderIntegrationStatusRow({
-          title: "Reservation Integrations",
-          detail: reservationProviderDetail(config.externalProvider),
-          stateLabel: "Inspect only",
-          actionTitle: "Inspect"
-        })}
         ${renderEditableSelectRow("Mode", "reservationMode", config.reservationMode || "native_tavra", reservationModeOptions)}
         ${renderEditableSelectRow("Fallback", "fallbackBehavior", config.fallbackBehavior || "request_only", reservationFallbackOptions)}
         ${renderEditableSelectRow("Default status", "defaultReservationStatus", config.defaultReservationStatus || "ai_decides", reservationDefaultStatusOptions)}

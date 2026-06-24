@@ -772,28 +772,26 @@ body.portal-admin-page .portal-main-shell {
 }
 
 .ios-toggle-control-row {
-  position: relative;
-  cursor: pointer;
+  cursor: default;
 }
 
-.ios-toggle-control-row input[type="checkbox"] {
+.ios-toggle-input {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 1px;
+  height: 1px;
   opacity: 0;
-  cursor: pointer;
-  z-index: 2;
+  pointer-events: none;
 }
 
 .ios-switch {
+  border: 0;
   width: 51px;
   height: 31px;
   justify-self: end;
-  pointer-events: none;
   padding: 2px;
   border-radius: 999px;
   background: rgba(120, 120, 128, 0.36);
+  cursor: pointer;
   transition: background 160ms ease;
 }
 
@@ -807,7 +805,8 @@ body.portal-admin-page .portal-main-shell {
   transition: transform 160ms ease;
 }
 
-.ios-switch.on {
+.ios-switch.on,
+.ios-switch[aria-checked="true"] {
   background: #34c759;
 }
 
@@ -815,12 +814,18 @@ body.portal-admin-page .portal-main-shell {
   background: #34c759;
 }
 
-.ios-switch.on i {
+.ios-switch.on i,
+.ios-switch[aria-checked="true"] i {
   transform: translateX(20px);
 }
 
 .ios-toggle-control-row input[type="checkbox"]:checked + .ios-switch i {
   transform: translateX(20px);
+}
+
+.ios-switch:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
 }
 
 .ios-action-button {
