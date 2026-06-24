@@ -6178,7 +6178,7 @@ function renderEditableToggleRow(label, name, checked, detail = "") {
     <label class="ios-row ios-toggle-control-row">
       <span>${escapeHTML(label)}</span>
       <input type="checkbox" name="${escapeHTML(name)}" ${checked ? "checked" : ""} ${portalState.adminSaving ? "disabled" : ""}>
-      <span class="ios-switch ${checked ? "on" : ""}" aria-hidden="true"><i></i></span>
+      <span class="ios-switch" aria-hidden="true"><i></i></span>
       ${detail ? `<small>${escapeHTML(detail)}</small>` : ""}
     </label>
   `;

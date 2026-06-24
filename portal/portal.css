@@ -772,21 +772,25 @@ body.portal-admin-page .portal-main-shell {
 }
 
 .ios-toggle-control-row {
+  position: relative;
   cursor: pointer;
 }
 
 .ios-toggle-control-row input[type="checkbox"] {
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   opacity: 0;
-  pointer-events: none;
+  cursor: pointer;
+  z-index: 2;
 }
 
 .ios-switch {
   width: 51px;
   height: 31px;
   justify-self: end;
+  pointer-events: none;
   padding: 2px;
   border-radius: 999px;
   background: rgba(120, 120, 128, 0.36);
