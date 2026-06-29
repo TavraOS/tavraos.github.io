@@ -530,6 +530,97 @@ function storeAdminOnboardingOpenModules() {
   }
 }
 
+function resetBusinessScopedPortalState() {
+  stopPortalVoicemail();
+  resetPortalFoodOrdersLiveQuery();
+  resetPortalReservationsLiveQuery();
+  resetPortalCallLogsLiveQuery();
+  stopPortalCallLogsPolling();
+
+  portalState.adminSettings = null;
+  portalState.adminTeamMembers = [];
+  portalState.adminSettingsLoaded = false;
+  portalState.adminSettingsLoading = false;
+  portalState.adminSettingsError = "";
+  portalState.adminProfileDraft = null;
+  portalState.adminBusinessHoursDraft = null;
+  portalState.adminLiveCallVoiceDraft = null;
+  portalState.adminConfigureDraft = null;
+  portalState.adminMenuVisibilityDraft = null;
+  portalState.adminMenuKnowledgeDraft = null;
+  portalState.adminOnboardingOpenModules = defaultOnboardingOpenModules();
+  portalState.adminMenuKnowledgeOpen = false;
+  portalState.adminMenuOpenCategories = new Set();
+  portalState.adminMenuOpenItems = new Set();
+  portalState.adminSavingTarget = null;
+  portalState.adminSaving = false;
+  portalState.adminSaveMessage = "";
+  portalState.adminSaveIsError = false;
+
+  portalState.foodOrders = [];
+  portalState.foodOrdersLoaded = false;
+  portalState.foodOrdersLoading = false;
+  portalState.foodOrdersError = "";
+  portalState.expandedFoodOrderIds = new Set();
+  portalState.foodOrderUpdatingId = null;
+
+  portalState.callLogs = [];
+  portalState.callLogsLoaded = false;
+  portalState.callLogsLoading = false;
+  portalState.callLogsError = "";
+  portalState.selectedCallLogId = null;
+  portalState.callLogDetails = new Map();
+  portalState.callLogDetailLoadingId = null;
+  portalState.callLogDetailError = "";
+
+  portalState.voicemails = [];
+  portalState.voicemailsLoaded = false;
+  portalState.voicemailsLoading = false;
+  portalState.voicemailsError = "";
+  portalState.voicemailPlayingId = null;
+  portalState.voicemailLoadingAudioId = null;
+
+  portalState.waitStatus = null;
+  portalState.waitStatusLoaded = false;
+  portalState.waitStatusLoading = false;
+  portalState.waitStatusSaving = false;
+  portalState.waitStatusMessage = "";
+  portalState.waitStatusIsError = false;
+
+  portalState.menu86Outages = [];
+  portalState.menu86MenuItems = [];
+  portalState.menu86Loaded = false;
+  portalState.menu86Loading = false;
+  portalState.menu86Error = "";
+  portalState.menu86IngredientName = "";
+  portalState.menu86MenuSearchText = "";
+  portalState.menu86SelectedMenuItemIds = new Set();
+  portalState.menu86Note = "";
+  portalState.menu86DurationHours = 0;
+  portalState.menu86Saving = false;
+  portalState.menu86ResolvingId = null;
+
+  portalState.reservations = [];
+  portalState.reservationsLoaded = false;
+  portalState.reservationsLoading = false;
+  portalState.reservationLoadError = "";
+  portalState.reservationConfig = null;
+  portalState.reservationSelectedDateKey = null;
+  portalState.reservationSelectedServiceKey = null;
+  portalState.reservationCalendarMonthKey = null;
+  portalState.reservationFormOpen = false;
+  portalState.reservationFormDateKey = null;
+  portalState.reservationFormSaving = false;
+  portalState.reservationFormError = "";
+  portalState.reservationDetailId = null;
+  portalState.reservationDetailEditing = false;
+  portalState.reservationDetailEditDateKey = null;
+  portalState.reservationDetailDraft = null;
+  portalState.reservationDetailSaving = false;
+  portalState.reservationDetailError = "";
+  portalState.reservationCheckInPrompt = null;
+}
+
 async function apiRequest(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -2109,18 +2200,28 @@ async function logIn(email, password) {
     body: JSON.stringify({ email, password })
   });
   portalState.session = payload.session;
-  portalState.membership = payload.membership;
-  portalState.business = payload.business;
+  applyPortalBusinessContext(payload);
   if (!portalState.membership || portalState.membership.status !== "active") {
     throw new Error("no_active_portal_access");
   }
   storeSession(payload.session);
 }
 
-async function refreshMembership() {
+async function refreshMembership({ resetOnBusinessChange = false } = {}) {
   const payload = await apiRequest("/operations/me/membership", { method: "GET" });
-  portalState.membership = payload.membership;
-  portalState.business = payload.business;
+  return applyPortalBusinessContext(payload, { resetOnBusinessChange });
+}
+
+function applyPortalBusinessContext(payload, { resetOnBusinessChange = false } = {}) {
+  const previousBusinessId = portalState.business?.objectId || portalState.membership?.businessId || "";
+  const nextBusinessId = payload?.business?.objectId || payload?.membership?.businessId || "";
+  const changed = previousBusinessId !== nextBusinessId;
+  if (changed && resetOnBusinessChange) {
+    resetBusinessScopedPortalState();
+  }
+  portalState.membership = payload?.membership || null;
+  portalState.business = payload?.business || null;
+  return changed;
 }
 
 function isFullAccessRole(role) {
@@ -2162,23 +2263,57 @@ function renderShell() {
   portalApp.removeAttribute("hidden");
   portalApp.removeAttribute("aria-hidden");
   portalApp.style.display = "grid";
+  updatePortalShellBusinessContext();
+  setActiveSectionButtonsForCurrentAccess();
+  setActiveSection(requestedPortalSection() || portalState.section);
+}
+
+function updatePortalShellBusinessContext() {
   const businessName = portalState.business?.name || "Tavra restaurant";
   const role = portalState.membership?.role || "member";
   if (businessSummary) {
-    businessSummary.textContent = `${businessName} · ${roleLabel(role)} access`;
+    const selectedContextSuffix = portalState.business?.objectId ? "current restaurant" : "select in Tavra app";
+    businessSummary.textContent = `${businessName} · ${roleLabel(role)} access · ${selectedContextSuffix}`;
   }
   if (roleChip) {
     roleChip.textContent = portalState.membership?.status === "active"
       ? `${roleLabel(role)} · active`
       : "No active access";
   }
+}
+
+function setActiveSectionButtonsForCurrentAccess() {
   sectionButtons.forEach((button) => {
     const section = button.dataset.section || "";
     const adminOnly = adminOnlySections.has(section);
     button.hidden = adminOnly && !canAccessAdminAreas();
     button.disabled = adminOnly && !canAccessAdminAreas();
   });
-  setActiveSection(requestedPortalSection() || portalState.section);
+}
+
+let portalBusinessContextRefreshInFlight = false;
+
+async function refreshPortalBusinessContextIfNeeded({ rerenderOnChange = true } = {}) {
+  if (!portalState.session?.sessionToken || portalBusinessContextRefreshInFlight) {
+    return false;
+  }
+
+  portalBusinessContextRefreshInFlight = true;
+  try {
+    const changed = await refreshMembership({ resetOnBusinessChange: true });
+    updatePortalShellBusinessContext();
+    setActiveSectionButtonsForCurrentAccess();
+    if (changed && rerenderOnChange) {
+      setActiveSection(portalState.section);
+    }
+    return changed;
+  } catch {
+    showLogin();
+    setLoginStatus("Your portal session expired. Log in again.", true);
+    return false;
+  } finally {
+    portalBusinessContextRefreshInFlight = false;
+  }
 }
 
 function requestedPortalSection() {
@@ -7425,11 +7560,7 @@ function showLogin() {
   if (!loginScreen || !portalApp) {
     return;
   }
-  stopPortalVoicemail();
-  resetPortalFoodOrdersLiveQuery();
-  resetPortalReservationsLiveQuery();
-  resetPortalCallLogsLiveQuery();
-  stopPortalCallLogsPolling();
+  resetBusinessScopedPortalState();
   document.body.classList.remove("portal-authenticated");
   document.body.classList.remove("portal-reservations-page");
   document.body.classList.remove("portal-food-orders-page");
@@ -7441,25 +7572,6 @@ function showLogin() {
   portalState.session = null;
   portalState.membership = null;
   portalState.business = null;
-  portalState.adminSettings = null;
-  portalState.adminTeamMembers = [];
-  portalState.adminSettingsLoaded = false;
-  portalState.adminSettingsLoading = false;
-  portalState.adminSettingsError = "";
-  portalState.adminProfileDraft = null;
-  portalState.adminBusinessHoursDraft = null;
-  portalState.adminLiveCallVoiceDraft = null;
-  portalState.adminConfigureDraft = null;
-  portalState.adminMenuVisibilityDraft = null;
-  portalState.adminMenuKnowledgeDraft = null;
-  portalState.adminOnboardingOpenModules = defaultOnboardingOpenModules();
-  portalState.adminMenuKnowledgeOpen = false;
-  portalState.adminMenuOpenCategories = new Set();
-  portalState.adminMenuOpenItems = new Set();
-  portalState.adminSavingTarget = null;
-  portalState.adminSaving = false;
-  portalState.adminSaveMessage = "";
-  portalState.adminSaveIsError = false;
   clearStoredSession();
   loginScreen.hidden = false;
   loginScreen.removeAttribute("aria-hidden");
@@ -7487,8 +7599,12 @@ loginForm?.addEventListener("submit", async (event) => {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === "no_active_portal_access") {
+      portalState.session = null;
+      portalState.membership = null;
+      portalState.business = null;
+      resetBusinessScopedPortalState();
       clearStoredSession();
-      setLoginStatus("Login worked, but this account does not have active portal access yet.", true);
+      setLoginStatus("Login worked, but no active restaurant is selected for the web portal. If this is a sales account, open Tavra on iOS and select a restaurant first.", true);
     } else if (message === "portal_shell_missing") {
       setLoginStatus("Login worked, but the portal shell could not render. Reload the page and try again.", true);
     } else {
@@ -7502,8 +7618,12 @@ loginForm?.addEventListener("submit", async (event) => {
 logoutButton?.addEventListener("click", showLogin);
 
 sectionButtons.forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     const section = button.dataset.section || "operations";
+    await refreshPortalBusinessContextIfNeeded({ rerenderOnChange: false });
+    if (!portalState.session?.sessionToken) {
+      return;
+    }
     setActiveSection(section);
   });
 });
@@ -7525,6 +7645,18 @@ async function boot() {
 }
 
 boot();
+
+window.addEventListener("focus", () => {
+  if (document.body.classList.contains("portal-authenticated")) {
+    void refreshPortalBusinessContextIfNeeded();
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && document.body.classList.contains("portal-authenticated")) {
+    void refreshPortalBusinessContextIfNeeded();
+  }
+});
 
 window.addEventListener("error", (event) => {
   if (!document.body.classList.contains("portal-authenticated")) {
