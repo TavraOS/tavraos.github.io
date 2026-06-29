@@ -90,6 +90,7 @@ let activeWorkflow = "orders";
 let activeDemoCall = null;
 let activeDemoState = null;
 let demoStatePollTimer = null;
+let postCallScrollResetSessionId = null;
 let activeOperationsTile = "callLogs";
 const previewAudioUrls = new Map();
 
@@ -608,6 +609,24 @@ function demoCallHasEnded() {
   return terminalDemoStatus(activeDemoCall?.status) || Boolean(activeDemoState?.callEnded || activeDemoState?.ended);
 }
 
+function demoCallSessionKey() {
+  return activeDemoCall?.sessionId || activeDemoCall?.callSid || null;
+}
+
+function resetPostCallPreviewScrollIfNeeded() {
+  const sessionKey = demoCallSessionKey();
+  if (!sessionKey || postCallScrollResetSessionId === sessionKey) {
+    return;
+  }
+
+  postCallScrollResetSessionId = sessionKey;
+  window.requestAnimationFrame(() => {
+    consolePreview?.scrollTo({ top: 0, behavior: "auto" });
+    liveWorkflowPanel?.scrollTo({ top: 0, behavior: "auto" });
+    liveWorkflowPanel?.querySelector(".operations-shell")?.scrollTo({ top: 0, behavior: "auto" });
+  });
+}
+
 function formatCents(cents) {
   return typeof cents === "number" && Number.isFinite(cents) ? `$${(cents / 100).toFixed(2)}` : "Open";
 }
@@ -1057,6 +1076,7 @@ function renderLiveWorkflowPanel() {
   if (!liveWorkflowPanel) return;
 
   if (!activeDemoCall) {
+    postCallScrollResetSessionId = null;
     liveWorkflowPanel.hidden = true;
     liveWorkflowPanel.innerHTML = "";
     return;
@@ -1066,6 +1086,7 @@ function renderLiveWorkflowPanel() {
     liveWorkflowPanel.hidden = false;
     liveWorkflowPanel.dataset.workflow = "operations";
     liveWorkflowPanel.innerHTML = renderOperationsPanel();
+    resetPostCallPreviewScrollIfNeeded();
     return;
   }
 
@@ -1970,6 +1991,7 @@ async function submitDemoCall(event) {
       workflowConfig,
       postCallPolls: 0
     };
+    postCallScrollResetSessionId = null;
     activeOperationsTile = "callLogs";
     activeDemoState = {
       activeWorkflow: "waiting",

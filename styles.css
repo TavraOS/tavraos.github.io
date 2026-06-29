@@ -1528,7 +1528,8 @@ textarea {
 .preview-panel.is-post-call {
   background: #030303;
   padding: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .preview-panel.is-post-call .button-call {
@@ -1542,7 +1543,7 @@ textarea {
   color: #fff;
   padding: 0;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .operations-shell {
