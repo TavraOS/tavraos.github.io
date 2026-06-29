@@ -852,7 +852,7 @@ function renderReservationOperationDetail(reservation) {
 function renderCallLogOperationDetail(callLog, transcript) {
   const entries = transcript;
   return `
-    <div class="operation-detail-card">
+    <div class="operation-detail-card operation-detail-card-transcript">
       <div class="operation-detail-heading">
         <p class="note-title">Call transcript</p>
         <span>${callLog?.duration || callLog?.durationSeconds ? `${callLog.duration || callLog.durationSeconds}s` : "Latest demo call"}</span>
