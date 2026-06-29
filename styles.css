@@ -554,12 +554,14 @@ h3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(300px, 0.78fr);
   gap: 18px;
+  align-items: start;
   padding: 18px;
 }
 
 .builder-controls {
   display: grid;
   gap: 14px;
+  align-content: start;
 }
 
 .field {
@@ -1149,12 +1151,16 @@ textarea {
 .preview-panel {
   display: grid;
   gap: 14px;
+  align-self: start;
+  max-height: min(860px, calc(100vh - 124px));
   border: 4px solid var(--line);
   border-radius: 18px;
   background: var(--dark-2);
   color: var(--paper);
   padding: 16px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
 .preview-phone {
