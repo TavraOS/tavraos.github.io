@@ -1810,6 +1810,21 @@ function phoneToE164(value) {
   return digits.length === 10 ? `+1${digits}` : null;
 }
 
+function isTollFreeDemoPhone(phoneNumber) {
+  const match = String(phoneNumber || "").match(/^\+1(\d{3})\d{7}$/);
+  return Boolean(match && ["800", "888", "877", "866", "855", "844", "833", "822"].includes(match[1]));
+}
+
+function demoCallErrorMessage(errorCode) {
+  if (errorCode === "unsupported_demo_call_number") {
+    return "Use a direct mobile or landline. The demo cannot call 800 or other toll-free phone trees.";
+  }
+  if (errorCode === "demo_call_rate_limited") {
+    return "Too many demo call attempts. Please wait a minute and try again.";
+  }
+  return "The demo call could not be placed. Try again shortly.";
+}
+
 function selectedVoicePayload() {
   if (!voiceSelect || !voiceSelect.value) {
     return { voiceId: null, voiceLabel: null };
@@ -1903,6 +1918,11 @@ async function submitDemoCall(event) {
     return;
   }
 
+  if (isTollFreeDemoPhone(phoneNumber)) {
+    setDemoCallStatus(demoCallErrorMessage("unsupported_demo_call_number"), "error");
+    return;
+  }
+
   if (!businessName) {
     setDemoCallStatus("Add the restaurant name first.", "error");
     return;
@@ -1940,7 +1960,7 @@ async function submitDemoCall(event) {
     const payload = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(payload.error || `Demo call request failed with ${response.status}`);
+      throw new Error(demoCallErrorMessage(payload.error || `status_${response.status}`));
     }
 
     activeDemoCall = {
@@ -1963,8 +1983,9 @@ async function submitDemoCall(event) {
     if (activeDemoCall.sessionId) {
       scheduleDemoStatePoll(activeDemoCall.sessionId, 900);
     }
-  } catch {
-    setDemoCallStatus("The demo call could not be placed. Try again shortly.", "error");
+  } catch (error) {
+    const message = error instanceof Error && error.message ? error.message : demoCallErrorMessage();
+    setDemoCallStatus(message, "error");
   } finally {
     demoCallSubmit?.removeAttribute("disabled");
   }
