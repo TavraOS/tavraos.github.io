@@ -3954,6 +3954,7 @@ function renderCallLogDetail(callLogId, detail, summary) {
         <h3>Call</h3>
         <div class="call-log-detail-grid">
           ${renderCallLogDetailMetric("Caller", callerPhone ? formatNorthAmericanPhone(callerPhone) : "Unknown")}
+          ${renderCallLogDetailMetric("Called At", absolutePortalDateTime(callSummary.startedAt || source.startedAt))}
           ${renderCallLogDetailMetric("Duration", durationText(callSummary.durationSeconds))}
           ${renderCallLogDetailMetric("Status", statusText(callSummary.status || "unknown"))}
           ${Number.isFinite(Number(callSummary.orderAmountCents)) ? renderCallLogDetailMetric("Order Amount", money(Number(callSummary.orderAmountCents))) : ""}
@@ -4382,6 +4383,17 @@ function clockTime(value) {
     return "";
   }
   return new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date);
+}
+
+function absolutePortalDateTime(value) {
+  const date = parsePortalDate(value);
+  if (!date) {
+    return "Unknown";
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(date);
 }
 
 function durationText(seconds) {
