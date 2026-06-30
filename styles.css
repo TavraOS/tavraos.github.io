@@ -300,6 +300,7 @@ h1 span {
 h2 {
   margin-bottom: 20px;
   font-size: clamp(2.4rem, 5vw, 5.25rem);
+  line-height: 1.06;
 }
 
 h3 {
