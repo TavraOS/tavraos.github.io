@@ -173,6 +173,14 @@ body.portal-authenticated .portal-app {
   letter-spacing: 0;
 }
 
+.login-copy h1 {
+  line-height: 1.04;
+}
+
+.login-title-tail {
+  white-space: nowrap;
+}
+
 .login-copy p:last-child,
 .portal-header p {
   max-width: 660px;
