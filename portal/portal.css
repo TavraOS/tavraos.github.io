@@ -129,14 +129,15 @@ body.portal-authenticated .portal-app {
 }
 
 .login-brand-lockup {
-  width: min(100%, 390px);
-  padding: 16px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.58);
-  border-radius: 22px;
+  width: min(64%, 300px);
+  min-width: 210px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 16px;
   background:
     linear-gradient(135deg, #fffdf2, #eefef9 54%, #dcefff);
   box-shadow:
-    0 22px 46px rgba(0, 0, 0, 0.24),
+    0 16px 34px rgba(0, 0, 0, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
@@ -174,7 +175,11 @@ body.portal-authenticated .portal-app {
 }
 
 .login-copy h1 {
-  line-height: 1.04;
+  max-width: 10ch;
+  font-size: clamp(3rem, 5.2vw, 4.2rem);
+  line-height: 1.08;
+  overflow-wrap: normal;
+  text-wrap: balance;
 }
 
 .login-title-tail {
@@ -4426,9 +4431,10 @@ body.portal-reservations-page .portal-content {
   }
 
   .login-brand-lockup {
-    width: min(100%, 320px);
-    padding: 13px 15px;
-    border-radius: 18px;
+    width: min(72%, 250px);
+    min-width: 190px;
+    padding: 9px 11px;
+    border-radius: 14px;
   }
 
   .login-form {
@@ -4583,8 +4589,7 @@ body.portal-reservations-page .portal-content {
     grid-template-columns: 1fr;
   }
 
-  .portal-header h1,
-  .login-copy h1 {
+  .portal-header h1 {
     overflow-wrap: anywhere;
   }
 }
