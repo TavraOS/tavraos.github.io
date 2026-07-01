@@ -41,6 +41,7 @@ Logo assets copied into `assets/`:
 
 - `assets/Tavra05_glyph_black2.png`
 - `assets/Tavra05_glyph_white.png`
+- `assets/Tavra_full_dark.png`
 
 Source originals are in the iOS app asset catalog:
 
