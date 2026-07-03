@@ -1941,6 +1941,13 @@ async function loadPortalCallLogDetail(callLogId) {
 }
 
 async function loadPortalVoicemails() {
+  if (!modulePermission("voicemail").read) {
+    portalState.voicemails = [];
+    portalState.voicemailsLoaded = false;
+    portalState.voicemailsLoading = false;
+    portalState.voicemailsError = "";
+    return;
+  }
   if (portalState.voicemailsLoading) {
     return;
   }
@@ -1960,6 +1967,12 @@ async function loadPortalVoicemails() {
 }
 
 async function playOrStopPortalVoicemail(voicemailId) {
+  if (!modulePermission("voicemail").read) {
+    stopPortalVoicemail();
+    portalState.voicemailsError = "This account does not currently have access to Voicemail.";
+    renderVoicemailInbox();
+    return;
+  }
   if (!voicemailId) {
     return;
   }
