@@ -4614,7 +4614,7 @@ function renderMenu86IngredientInput(canWrite) {
 }
 
 function renderMenu86MenuItemSelector(canWrite) {
-  const items = menu86FilteredMenuItems().slice(0, 30);
+  const items = menu86FilteredMenuItems();
   return `
     <label class="menu86-label">
       <span>Search menu items</span>
@@ -6744,13 +6744,16 @@ function renderModifierPresentationEditor(item, group, itemName) {
   const sampleOption = modifierSampleOption(effectiveGroup);
   const askBehavior = modifierAskBehavior(effectiveGroup);
   const shouldShowAskExample = modifierShouldAskForPreview(item, effectiveGroup);
+  const isSizeGroup = isSizeModifierGroup(effectiveGroup);
   const questionExample = renderModifierTemplate(
     presentation.questionTemplate,
     itemName,
     displayGroupName,
     modifierQuestionTemplateOptionName(item, effectiveGroup),
     optionsSummary,
-    `What kind of ${displayGroupName.toLowerCase()} would you like, ${optionsSummary}?`
+    isSizeGroup
+      ? `What size would you like for the ${itemName}: ${optionsSummary}?`
+      : `What kind of ${displayGroupName.toLowerCase()} would you like, ${optionsSummary}?`
   );
   const confirmationExample = renderModifierTemplate(
     presentation.confirmationTemplate,
@@ -6758,7 +6761,7 @@ function renderModifierPresentationEditor(item, group, itemName) {
     displayGroupName,
     sampleOption,
     optionsSummary,
-    `Got it. ${itemName} with ${sampleOption}.`
+    isSizeGroup ? `Got it. ${sampleOption} ${itemName}.` : `Got it. ${itemName} with ${sampleOption}.`
   );
   const readbackExample = renderModifierTemplate(
     presentation.readbackTemplate,
@@ -6766,7 +6769,7 @@ function renderModifierPresentationEditor(item, group, itemName) {
     displayGroupName,
     sampleOption,
     optionsSummary,
-    `${itemName} with ${sampleOption}`
+    isSizeGroup ? `${sampleOption} ${itemName}.` : `${itemName} with ${sampleOption}`
   );
 
   return `
@@ -6987,6 +6990,15 @@ function isIngredientModifierGroup(group) {
     normalizedMenuKnowledgeText(modifierGroupDisplayName(group))
   ];
   return values.some((value) => ["toppings", "sauces", "sides"].includes(value));
+}
+
+function isSizeModifierGroup(group) {
+  const label = normalizedMenuKnowledgeText([
+    group?.kind || "",
+    group?.name || "",
+    modifierGroupDisplayName(group)
+  ].join(" "));
+  return label.split(" ").includes("size");
 }
 
 function modifierGroupDisplayName(group) {
