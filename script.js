@@ -57,7 +57,8 @@ const configKitchenSummary = document.querySelector("[data-config-kitchen-summar
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactPhoneInput = contactForm?.querySelector("input[name='phone']");
-const pilotOfferButtons = Array.from(document.querySelectorAll("[data-pilot-offer]"));
+const contactSubmitButton = document.querySelector("[data-contact-submit]");
+const requestKindRadios = Array.from(document.querySelectorAll("[name='requestKind']"));
 const signupForm = document.querySelector("[data-signup-form]");
 const signupStatus = document.querySelector("[data-signup-status]");
 const signupCreateBusiness = document.querySelector("[data-signup-create-business]");
@@ -2028,6 +2029,17 @@ function setContactStatus(message, state = "neutral") {
   contactStatus.dataset.state = state;
 }
 
+function selectedRequestKind() {
+  const selected = requestKindRadios.find((radio) => radio instanceof HTMLInputElement && radio.checked);
+  return selected instanceof HTMLInputElement ? selected.value : "demo";
+}
+
+function syncContactSubmitLabel() {
+  if (!(contactSubmitButton instanceof HTMLButtonElement)) return;
+  const requestKind = selectedRequestKind();
+  contactSubmitButton.textContent = requestKind === "demo" ? "Request Demo" : "Request Pilot Access";
+}
+
 function focusFirstInvalidContactField() {
   if (!contactForm) return;
   const requiredFields = Array.from(contactForm.querySelectorAll("[required]"));
@@ -2063,7 +2075,7 @@ function contactPayload() {
   };
 
   if (!payload.name || !payload.email || !payload.restaurantName || !payload.posProvider) {
-    setContactStatus("Add your name, email, restaurant, and current POS first. Then choose a Pilot access option.", "error");
+    setContactStatus("Add your name, email, restaurant, and current POS first.", "error");
     focusFirstInvalidContactField();
     return null;
   }
@@ -2248,49 +2260,36 @@ async function submitContactForm(event) {
   const payload = contactPayload();
   if (!payload || payload.blocked) return;
 
-  const submitButton = contactForm?.querySelector("button[type='submit']");
+  const requestKind = selectedRequestKind();
+  const isPilotRequest = requestKind === "pilot_three_month" || requestKind === "founding_partner";
+  const submitButton = contactSubmitButton instanceof HTMLButtonElement ? contactSubmitButton : contactForm?.querySelector("button[type='submit']");
   submitButton?.setAttribute("disabled", "true");
-  setContactStatus("Sending your demo request...", "loading");
+  setContactStatus(isPilotRequest ? "Sending your Pilot access request..." : "Sending your demo request...", "loading");
 
   try {
-    await postContactEndpoint("/demo/book-demo-requests", payload);
-    setContactStatus(
-      "<strong>Demo request sent.</strong><span>Tavra has your restaurant details and pilot interest. You can keep exploring the demo from here.</span>",
-      "success"
-    );
+    if (isPilotRequest) {
+      const result = await postContactEndpoint("/demo/pilot-program/checkout-sessions", {
+        ...payload,
+        offerId: requestKind
+      });
+      if (!result.ok || result.checkoutRequiresApproval !== true) {
+        throw new Error("pilot_request_failed");
+      }
+      setContactStatus(
+        "<strong>Pilot access requested.</strong><span>Tavra has your restaurant details. If approved, we’ll send the secure checkout link directly.</span>",
+        "success"
+      );
+    } else {
+      await postContactEndpoint("/demo/book-demo-requests", payload);
+      setContactStatus(
+        "<strong>Demo request sent.</strong><span>Tavra has your restaurant details. You can keep exploring the demo from here.</span>",
+        "success"
+      );
+    }
   } catch {
-    setContactStatus("The request could not be sent. Please try again shortly.", "error");
+    setContactStatus(isPilotRequest ? "Pilot access request could not be sent. Please try again shortly." : "The request could not be sent. Please try again shortly.", "error");
   } finally {
     submitButton?.removeAttribute("disabled");
-  }
-}
-
-async function beginPilotCheckout(event) {
-  const button = event.currentTarget;
-  if (!(button instanceof HTMLElement)) return;
-  const offerId = button.dataset.pilotOffer;
-  const payload = contactPayload();
-  if (!payload || payload.blocked || !offerId) return;
-
-  pilotOfferButtons.forEach((offerButton) => offerButton.setAttribute("disabled", "true"));
-  setContactStatus("Sending Pilot access request...", "loading");
-
-  try {
-    const result = await postContactEndpoint("/demo/pilot-program/checkout-sessions", {
-      ...payload,
-      offerId
-    });
-    if (!result.ok || result.checkoutRequiresApproval !== true) {
-      throw new Error("pilot_request_failed");
-    }
-    setContactStatus(
-      "<strong>Pilot access requested.</strong><span>Tavra has your restaurant details. If approved, we’ll send the secure checkout link directly.</span>",
-      "success"
-    );
-  } catch {
-    setContactStatus("Pilot access request could not be sent. Please try again shortly.", "error");
-  } finally {
-    pilotOfferButtons.forEach((offerButton) => offerButton.removeAttribute("disabled"));
   }
 }
 
@@ -2430,14 +2429,15 @@ callButton?.addEventListener("click", openModal);
 modalClose?.addEventListener("click", closeModal);
 demoCallForm?.addEventListener("submit", submitDemoCall);
 contactForm?.addEventListener("submit", submitContactForm);
+requestKindRadios.forEach((radio) => {
+  radio.addEventListener("change", syncContactSubmitLabel);
+});
+syncContactSubmitLabel();
 signupForm?.addEventListener("submit", submitSignupForm);
 signupVenueRadios.forEach((radio) => {
   radio.addEventListener("change", syncSignupBusinessFields);
 });
 initializeSignupFlow();
-pilotOfferButtons.forEach((button) => {
-  button.addEventListener("click", beginPilotCheckout);
-});
 
 modal?.addEventListener("click", (event) => {
   if (event.target === modal) {

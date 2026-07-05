@@ -743,24 +743,31 @@
               <span>What should Tavra handle?</span>
               <textarea name="message" rows="4" placeholder="To-go orders, payments, missed calls, reservations, custom answers..."></textarea>
             </label>
-            <button class="button button-green" type="submit">Request Demo</button>
             <div class="pilot-panel">
               <div>
-                <p class="eyebrow dark">Pilot access</p>
-                <strong>Join the Tavra Pilot</strong>
-                <p>Built for restaurants ready to put missed calls, phone payments, and to-go orders on autopilot. Tavra fully supports Clover and Square today, with Toast and additional systems to follow.</p>
+                <p class="eyebrow dark">Next step</p>
+                <strong>What are you requesting?</strong>
+                <p>Choose a demo conversation or request Tavra Pilot access. Pilot checkout is sent only after Tavra approves the restaurant.</p>
               </div>
               <div class="pilot-offers" aria-label="Pilot access request options">
-                <button type="button" class="pilot-offer-card" data-pilot-offer="founding_partner">
-                  <span><strong>Founding Partner</strong><small>Prepaid first 6 months</small></span>
-                  <span><strong>Request access</strong><small>Checkout link sent after approval</small></span>
-                </button>
-                <button type="button" class="pilot-offer-card" data-pilot-offer="pilot_three_month">
+                <label class="pilot-offer-card">
+                  <input type="radio" name="requestKind" value="demo" checked>
+                  <span><strong>Request Demo</strong><small>Talk with Tavra first</small></span>
+                  <span><strong>No checkout</strong><small>We’ll follow up</small></span>
+                </label>
+                <label class="pilot-offer-card">
+                  <input type="radio" name="requestKind" value="pilot_three_month">
                   <span><strong>Pilot Program</strong><small>Prepaid first 3 months</small></span>
                   <span><strong>Request access</strong><small>Checkout link sent after approval</small></span>
-                </button>
+                </label>
+                <label class="pilot-offer-card">
+                  <input type="radio" name="requestKind" value="founding_partner">
+                  <span><strong>Founding Partner</strong><small>Prepaid first 6 months</small></span>
+                  <span><strong>Request access</strong><small>Checkout link sent after approval</small></span>
+                </label>
               </div>
             </div>
+            <button class="button button-green" type="submit" data-contact-submit>Send Request</button>
             <p class="contact-status" data-contact-status aria-live="polite"></p>
           </form>
         </div>

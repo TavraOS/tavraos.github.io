@@ -2702,6 +2702,7 @@ textarea {
 }
 
 .pilot-offer-card {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2716,6 +2717,23 @@ textarea {
   font-family: var(--mono);
   padding: 13px;
   text-align: left;
+}
+
+.pilot-offer-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pilot-offer-card:has(input:checked) {
+  background: #fff5cf;
+  outline: 4px solid var(--green);
+  outline-offset: -8px;
+}
+
+.pilot-offer-card:has(input:focus-visible) {
+  outline: 4px solid var(--blue);
+  outline-offset: 3px;
 }
 
 .pilot-offer-card:hover {
