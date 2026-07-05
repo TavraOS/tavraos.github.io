@@ -2258,19 +2258,23 @@ async function beginPilotCheckout(event) {
   if (!payload || payload.blocked || !offerId) return;
 
   pilotOfferButtons.forEach((offerButton) => offerButton.setAttribute("disabled", "true"));
-  setContactStatus("Opening secure checkout...", "loading");
+  setContactStatus("Sending Pilot access request...", "loading");
 
   try {
     const result = await postContactEndpoint("/demo/pilot-program/checkout-sessions", {
       ...payload,
       offerId
     });
-    if (typeof result.checkoutURL !== "string" || !result.checkoutURL) {
-      throw new Error("checkout_url_missing");
+    if (!result.ok || result.checkoutRequiresApproval !== true) {
+      throw new Error("pilot_request_failed");
     }
-    window.location.assign(result.checkoutURL);
+    setContactStatus(
+      "<strong>Pilot access requested.</strong><span>Tavra has your restaurant details. If approved, we’ll send the secure checkout link directly.</span>",
+      "success"
+    );
   } catch {
-    setContactStatus("Checkout could not be opened. Please try again shortly.", "error");
+    setContactStatus("Pilot access request could not be sent. Please try again shortly.", "error");
+  } finally {
     pilotOfferButtons.forEach((offerButton) => offerButton.removeAttribute("disabled"));
   }
 }
