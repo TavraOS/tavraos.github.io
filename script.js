@@ -2028,6 +2028,20 @@ function setContactStatus(message, state = "neutral") {
   contactStatus.dataset.state = state;
 }
 
+function focusFirstInvalidContactField() {
+  if (!contactForm) return;
+  const requiredFields = Array.from(contactForm.querySelectorAll("[required]"));
+  const firstInvalid = requiredFields.find((field) => {
+    return field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement
+      ? !field.checkValidity()
+      : false;
+  });
+  if (!(firstInvalid instanceof HTMLElement)) return;
+  firstInvalid.focus({ preventScroll: true });
+  firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+  contactForm.reportValidity();
+}
+
 function contactPayload() {
   if (!contactForm) return null;
   const data = new FormData(contactForm);
@@ -2049,7 +2063,8 @@ function contactPayload() {
   };
 
   if (!payload.name || !payload.email || !payload.restaurantName || !payload.posProvider) {
-    setContactStatus("Add your name, email, restaurant, and current POS first.", "error");
+    setContactStatus("Add your name, email, restaurant, and current POS first. Then choose a Pilot access option.", "error");
+    focusFirstInvalidContactField();
     return null;
   }
 
