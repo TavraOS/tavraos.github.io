@@ -58,6 +58,11 @@ const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactPhoneInput = contactForm?.querySelector("input[name='phone']");
 const contactSubmitButton = document.querySelector("[data-contact-submit]");
+const contactSubmitButtonLabel = contactSubmitButton?.textContent?.trim() || "Request Demo";
+const contactRequestState = {
+  isSubmitting: false,
+  hasSubmitted: false
+};
 const signupForm = document.querySelector("[data-signup-form]");
 const signupStatus = document.querySelector("[data-signup-status]");
 const signupCreateBusiness = document.querySelector("[data-signup-create-business]");
@@ -2033,6 +2038,23 @@ function setContactStatus(message, state = "neutral") {
   if (!contactStatus) return;
   contactStatus.innerHTML = message;
   contactStatus.dataset.state = state;
+  if (message) {
+    contactStatus.removeAttribute("hidden");
+  }
+}
+
+function setContactFormLocked(isLocked) {
+  if (!contactForm) return;
+  contactForm.querySelectorAll("input, select, textarea, button").forEach((control) => {
+    if (
+      control instanceof HTMLInputElement ||
+      control instanceof HTMLSelectElement ||
+      control instanceof HTMLTextAreaElement ||
+      control instanceof HTMLButtonElement
+    ) {
+      control.disabled = isLocked;
+    }
+  });
 }
 
 function focusFirstInvalidContactField() {
@@ -2298,23 +2320,52 @@ async function submitSignupForm(event) {
 
 async function submitContactForm(event) {
   event.preventDefault();
+  if (contactRequestState.hasSubmitted) {
+    setContactStatus(
+      "<strong>Demo request already sent.</strong><span>Tavra has your restaurant details. We will follow up from here.</span>",
+      "success"
+    );
+    return;
+  }
+  if (contactRequestState.isSubmitting) return;
+
   const payload = contactPayload();
   if (!payload || payload.blocked) return;
 
   const submitButton = contactSubmitButton instanceof HTMLButtonElement ? contactSubmitButton : contactForm?.querySelector("button[type='submit']");
-  submitButton?.setAttribute("disabled", "true");
+  contactRequestState.isSubmitting = true;
+  contactForm?.setAttribute("aria-busy", "true");
+  setContactFormLocked(true);
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.textContent = "Sending...";
+  }
   setContactStatus("Sending your demo request...", "loading");
 
   try {
     await postContactEndpoint("/demo/book-demo-requests", payload);
+    contactRequestState.hasSubmitted = true;
     setContactStatus(
-      "<strong>Demo request sent.</strong><span>Tavra has your restaurant details. You can keep exploring the demo from here.</span>",
+      "<strong>Demo request sent.</strong><span>Tavra has your restaurant details. We will follow up from here.</span>",
       "success"
     );
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.textContent = "Request Sent";
+    }
+    window.requestAnimationFrame(() => {
+      contactStatus?.setAttribute("tabindex", "-1");
+      contactStatus?.focus({ preventScroll: true });
+      contactStatus?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
   } catch {
+    contactRequestState.hasSubmitted = false;
     setContactStatus("The request could not be sent. Please try again shortly.", "error");
+    setContactFormLocked(false);
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.textContent = contactSubmitButtonLabel;
+    }
   } finally {
-    submitButton?.removeAttribute("disabled");
+    contactRequestState.isSubmitting = false;
+    contactForm?.removeAttribute("aria-busy");
   }
 }
 
