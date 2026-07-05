@@ -1,7 +1,7 @@
 const navToggle = document.querySelector("[data-nav-toggle]");
 const nav = document.querySelector("[data-nav]");
 const headerActions = document.querySelector(".header-actions");
-const navLinks = Array.from(document.querySelectorAll(".site-nav a, .site-footer a[href^='#']"));
+const navLinks = Array.from(document.querySelectorAll(".site-nav a[href^='#'], .site-footer a[href^='#']"));
 const callButton = document.querySelector("[data-call-modal]");
 const modal = document.querySelector("[data-modal]");
 const modalDialog = modal?.querySelector(".call-modal");
@@ -58,6 +58,12 @@ const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactPhoneInput = contactForm?.querySelector("input[name='phone']");
 const pilotOfferButtons = Array.from(document.querySelectorAll("[data-pilot-offer]"));
+const signupForm = document.querySelector("[data-signup-form]");
+const signupStatus = document.querySelector("[data-signup-status]");
+const signupCreateBusiness = document.querySelector("[data-signup-create-business]");
+const signupBusinessFields = document.querySelector("[data-signup-business-fields]");
+const signupBusinessNameInput = signupForm?.querySelector("[name='businessName']");
+const signupVenueRadios = Array.from(document.querySelectorAll("[name='venueType']"));
 
 const productionDemoApiHost = String.fromCharCode(
   111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
@@ -66,6 +72,7 @@ const productionDemoApiHost = String.fromCharCode(
 const demoApiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   ? "http://127.0.0.1:8787"
   : `https://${productionDemoApiHost}`;
+const portalSessionKey = "tavra.portal.session.v1";
 
 let syncedLocationName = locationInput?.value.trim() || "your restaurant";
 let lastSyncedGreeting = greetingTextarea?.value || greetingTemplate(syncedLocationName);
@@ -2060,6 +2067,129 @@ async function postContactEndpoint(path, payload) {
   return body;
 }
 
+function setSignupStatus(message, state = "neutral") {
+  if (!signupStatus) return;
+  signupStatus.textContent = message;
+  signupStatus.dataset.state = state;
+}
+
+function selectedSignupVenueType() {
+  const checked = signupVenueRadios.find((radio) => radio.checked);
+  return checked?.value || "restaurant";
+}
+
+function signupBusinessLabel(venueType) {
+  if (venueType === "coffee_shop") return "Coffee shop name";
+  if (venueType === "food_truck") return "Food truck name";
+  return "Restaurant name";
+}
+
+function syncSignupBusinessFields() {
+  if (!signupForm || !signupCreateBusiness || !signupBusinessFields) return;
+  const createBusiness = signupCreateBusiness.checked;
+  signupBusinessFields.hidden = !createBusiness;
+  signupBusinessFields.querySelectorAll("input").forEach((input) => {
+    input.disabled = !createBusiness;
+  });
+  if (signupBusinessNameInput) {
+    signupBusinessNameInput.required = createBusiness;
+    const label = signupBusinessLabel(selectedSignupVenueType());
+    signupBusinessNameInput.placeholder = label;
+    const labelText = signupForm.querySelector("[data-signup-business-label]");
+    if (labelText) {
+      labelText.textContent = label;
+    }
+  }
+}
+
+function signupPayload() {
+  if (!signupForm) return null;
+  const data = new FormData(signupForm);
+  const createBusiness = signupCreateBusiness?.checked !== false;
+  const password = String(data.get("password") || "");
+  const confirmPassword = String(data.get("confirmPassword") || "");
+  const payload = {
+    firstName: String(data.get("firstName") || "").trim(),
+    lastName: String(data.get("lastName") || "").trim(),
+    email: String(data.get("email") || "").trim().toLowerCase(),
+    password,
+    createBusiness,
+    businessName: createBusiness ? String(data.get("businessName") || "").trim() : "",
+    venueType: selectedSignupVenueType(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Chicago"
+  };
+
+  if (!payload.firstName || !payload.lastName || !payload.email || !payload.password) {
+    setSignupStatus("Add your first name, last name, email, and password.", "error");
+    return null;
+  }
+  if (createBusiness && !payload.businessName) {
+    setSignupStatus(`${signupBusinessLabel(payload.venueType)} is required when creating a new business.`, "error");
+    return null;
+  }
+  if (password !== confirmPassword) {
+    setSignupStatus("Passwords do not match.", "error");
+    return null;
+  }
+
+  return payload;
+}
+
+function signupErrorMessage(errorCode) {
+  if (errorCode === "required_signup_fields_missing") return "Add your first name, last name, email, and password.";
+  if (errorCode === "business_name_required") return "Add the business name, or turn off Create New Business if you are joining a team.";
+  if (errorCode === "email_already_registered") return "An account already exists for that email. Log in instead.";
+  return "Could not create the account. Check the fields and try again.";
+}
+
+function storeSignupSession(session) {
+  try {
+    sessionStorage.setItem(portalSessionKey, JSON.stringify(session));
+  } catch {
+    // Private browsing modes may reject storage; the account is still created.
+  }
+}
+
+async function submitSignupForm(event) {
+  event.preventDefault();
+  const payload = signupPayload();
+  if (!payload || !signupForm) return;
+
+  const submitButton = signupForm.querySelector("button[type='submit']");
+  submitButton?.setAttribute("disabled", "true");
+  signupForm.setAttribute("aria-busy", "true");
+  setSignupStatus("Creating your Tavra account...", "loading");
+
+  try {
+    const response = await fetch(`${demoApiBaseUrl}/operations/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(body.error || `status_${response.status}`);
+    }
+
+    if (body.session?.sessionToken && body.membership?.status === "active") {
+      storeSignupSession(body.session);
+      setSignupStatus("Account created. Opening the portal...", "success");
+      window.setTimeout(() => {
+        window.location.assign("../portal/");
+      }, 350);
+      return;
+    }
+
+    setSignupStatus("Account created, but no active business access was found. Ask the business owner to invite this exact email.", "success");
+  } catch (error) {
+    const errorCode = error instanceof Error ? error.message : String(error || "signup_failed");
+    setSignupStatus(signupErrorMessage(errorCode), "error");
+  } finally {
+    submitButton?.removeAttribute("disabled");
+    signupForm.removeAttribute("aria-busy");
+  }
+}
+
 async function submitContactForm(event) {
   event.preventDefault();
   const payload = contactPayload();
@@ -2243,6 +2373,11 @@ callButton?.addEventListener("click", openModal);
 modalClose?.addEventListener("click", closeModal);
 demoCallForm?.addEventListener("submit", submitDemoCall);
 contactForm?.addEventListener("submit", submitContactForm);
+signupForm?.addEventListener("submit", submitSignupForm);
+signupCreateBusiness?.addEventListener("change", syncSignupBusinessFields);
+signupVenueRadios.forEach((radio) => {
+  radio.addEventListener("change", syncSignupBusinessFields);
+});
 pilotOfferButtons.forEach((button) => {
   button.addEventListener("click", beginPilotCheckout);
 });
@@ -2303,4 +2438,5 @@ if ("IntersectionObserver" in window && observedSections.length > 0) {
   observedSections.forEach((section) => observer.observe(section));
 }
 
+syncSignupBusinessFields();
 showCheckoutReturnStatus();

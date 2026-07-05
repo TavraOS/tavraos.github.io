@@ -2473,6 +2473,196 @@ textarea {
   color: #b93216;
 }
 
+.signup-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 10%, rgba(255, 208, 94, 0.24), transparent 24rem),
+    radial-gradient(circle at 88% 18%, rgba(107, 229, 146, 0.2), transparent 24rem),
+    var(--cream);
+}
+
+.signup-main {
+  padding: 142px var(--gutter) 88px;
+}
+
+.signup-section {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(360px, 1fr);
+  gap: clamp(28px, 5vw, 70px);
+  align-items: start;
+}
+
+.signup-copy {
+  position: sticky;
+  top: 128px;
+  display: grid;
+  gap: 18px;
+}
+
+.signup-copy h1 {
+  max-width: 8ch;
+  font-size: clamp(3rem, 8vw, 6.7rem);
+  line-height: 0.9;
+}
+
+.signup-copy p:not(.eyebrow) {
+  max-width: 31rem;
+  color: var(--muted);
+  font-size: clamp(1.05rem, 2vw, 1.28rem);
+  font-weight: 700;
+}
+
+.signup-form {
+  display: grid;
+  gap: 16px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 4px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--shadow-small);
+}
+
+.signup-form label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.signup-form label > span,
+.signup-segmented legend {
+  font-size: 0.9rem;
+}
+
+.signup-form input {
+  background: var(--cream);
+}
+
+.signup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.signup-toggle {
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 3px solid var(--line);
+  border-radius: 14px;
+  background: var(--green-soft);
+  box-shadow: 3px 3px 0 var(--line);
+}
+
+.signup-toggle input {
+  width: 24px;
+  height: 24px;
+  min-width: 24px;
+  box-shadow: none;
+  accent-color: var(--green);
+}
+
+.signup-toggle span {
+  display: grid;
+  gap: 4px;
+}
+
+.signup-toggle small,
+.signup-login-link {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.signup-business-fields {
+  display: grid;
+  gap: 14px;
+}
+
+.signup-business-fields[hidden] {
+  display: none;
+}
+
+.signup-segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.signup-segmented legend {
+  grid-column: 1 / -1;
+  margin-bottom: 1px;
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.signup-segmented label {
+  display: block;
+  cursor: pointer;
+}
+
+.signup-segmented input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.signup-segmented span {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 3px 3px 0 var(--line);
+}
+
+.signup-segmented input:checked + span {
+  background: var(--green);
+}
+
+.signup-status {
+  min-height: 1.4em;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.signup-status[data-state="loading"] {
+  color: var(--blue);
+}
+
+.signup-status[data-state="success"] {
+  color: var(--green-dark);
+}
+
+.signup-status[data-state="error"] {
+  color: #b93216;
+}
+
+.signup-login-link a {
+  color: var(--blue);
+}
+
 .pilot-panel {
   display: grid;
   gap: 14px;
@@ -3046,6 +3236,28 @@ textarea {
   .builder-grid {
     grid-template-columns: 1fr;
     padding: 12px;
+  }
+
+  .signup-main {
+    padding: 118px var(--gutter) 58px;
+  }
+
+  .signup-section {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-copy {
+    position: static;
+  }
+
+  .signup-copy h1 {
+    max-width: 10ch;
+    font-size: clamp(2.75rem, 12vw, 4.6rem);
+  }
+
+  .signup-grid,
+  .signup-segmented {
+    grid-template-columns: 1fr;
   }
 
   .preview-panel.is-post-call {

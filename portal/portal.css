@@ -4389,17 +4389,36 @@ body.portal-reservations-page .portal-content {
   }
 
   .operations-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
+    width: min(100%, 430px);
+    margin: 0 auto;
   }
 
   .glass-tile {
-    min-height: 136px;
+    aspect-ratio: 1.45 / 1;
+    min-height: 122px;
     padding: 17px;
     border-radius: 20px;
   }
 
+  .glass-tile[data-module="foodOrders"],
+  .glass-tile[data-module="menu86"] {
+    background: linear-gradient(135deg, #ff8238, #d84b1f);
+  }
+
+  .glass-tile[data-module="callLogs"],
+  .glass-tile[data-module="voicemail"] {
+    background: linear-gradient(135deg, #58d7c4, #0b86a7);
+  }
+
+  .glass-tile[data-module="reservations"],
+  .glass-tile[data-module="waitList"] {
+    background: linear-gradient(135deg, #a578ff, #6150f2);
+  }
+
   .glass-tile strong {
-    font-size: clamp(1.15rem, 6vw, 1.65rem);
+    font-size: clamp(1.15rem, 5vw, 1.55rem);
   }
 
   .tile-icon {
@@ -4584,9 +4603,23 @@ body.portal-reservations-page .portal-content {
 }
 
 @media (max-width: 480px) {
-  .operations-grid,
   .permission-grid {
     grid-template-columns: 1fr;
+  }
+
+  .operations-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .glass-tile {
+    min-height: 112px;
+    padding: 13px;
+    border-radius: 18px;
+  }
+
+  .glass-tile strong {
+    font-size: clamp(1rem, 4.8vw, 1.35rem);
   }
 
   .portal-header h1 {

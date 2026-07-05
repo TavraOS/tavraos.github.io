@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      name="description"
+      content="Create a Tavra account for a restaurant, coffee shop, food truck, or invited team member."
+    >
+    <meta name="theme-color" content="#171716">
+    <meta property="og:title" content="Sign Up | Tavra">
+    <meta
+      property="og:description"
+      content="Create a Tavra account or join a restaurant team with an invited email."
+    >
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="TavraOS">
+    <meta property="og:url" content="https://www.tavraos.com/signup/">
+    <title>Sign Up | Tavra</title>
+    <link rel="canonical" href="https://www.tavraos.com/signup/">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">
+    <link rel="icon" href="/favicon.png" sizes="192x192" type="image/png">
+    <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
+    <link rel="stylesheet" href="../styles.css?v=signup-page-v1">
+    <script src="../script.js?v=signup-page-v1" defer></script>
+  </head>
+  <body class="signup-page">
+    <header class="site-header" data-header>
+      <a class="wordmark" href="../" aria-label="Tavra home">
+        <span class="logo-tile">
+          <img src="../assets/Tavra05_glyph_black2.png" alt="" width="44" height="44">
+        </span>
+        <span>Tavra</span>
+      </a>
+
+      <button class="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" data-nav-toggle>
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="site-nav" aria-label="Primary navigation" data-nav>
+        <a href="../#product">Product</a>
+        <a href="../#demo">Demo</a>
+        <a href="../#orders">Orders</a>
+        <a href="../#answers">Answers</a>
+        <a href="../#integrations">Integrations</a>
+        <a href="../#pricing">Pricing</a>
+        <a href="../faq/">FAQ</a>
+      </nav>
+
+      <div class="header-actions">
+        <a class="nav-login" href="../portal/">Log In</a>
+        <a class="button button-small button-green" href="./" aria-current="page">Sign Up</a>
+        <a class="button button-small button-orange" href="../#contact">Book a Demo</a>
+      </div>
+    </header>
+
+    <main class="signup-main">
+      <section class="signup-section" aria-labelledby="signup-title">
+        <div class="signup-copy">
+          <p class="eyebrow">Create account</p>
+          <h1 id="signup-title">Sign up for Tavra</h1>
+          <p>
+            Create a new business account, or join an existing team with the exact email address from your invite.
+          </p>
+        </div>
+
+        <form class="signup-form" data-signup-form>
+          <div class="signup-grid">
+            <label>
+              <span>First Name</span>
+              <input name="firstName" type="text" autocomplete="given-name" required>
+            </label>
+            <label>
+              <span>Last Name</span>
+              <input name="lastName" type="text" autocomplete="family-name" required>
+            </label>
+          </div>
+
+          <label class="signup-toggle">
+            <input name="createBusiness" type="checkbox" data-signup-create-business checked>
+            <span>
+              <strong>Create New Business</strong>
+              <small>Turn off if you are joining a team, including as a GM. Leave on only to create a brand-new business.</small>
+            </span>
+          </label>
+
+          <div class="signup-business-fields" data-signup-business-fields>
+            <fieldset class="signup-segmented">
+              <legend>Business Type</legend>
+              <label>
+                <input name="venueType" type="radio" value="restaurant" checked>
+                <span>Restaurant</span>
+              </label>
+              <label>
+                <input name="venueType" type="radio" value="coffee_shop">
+                <span>Coffee Shop</span>
+              </label>
+              <label>
+                <input name="venueType" type="radio" value="food_truck">
+                <span>Food Truck</span>
+              </label>
+            </fieldset>
+
+            <label>
+              <span data-signup-business-label>Restaurant name</span>
+              <input name="businessName" type="text" autocomplete="organization" placeholder="Restaurant name" required>
+            </label>
+          </div>
+
+          <div class="signup-grid">
+            <label>
+              <span>Email</span>
+              <input name="email" type="email" autocomplete="username" required>
+            </label>
+            <label>
+              <span>Password</span>
+              <input name="password" type="password" autocomplete="new-password" required>
+            </label>
+          </div>
+
+          <label>
+            <span>Re-enter Password</span>
+            <input name="confirmPassword" type="password" autocomplete="new-password" required>
+          </label>
+
+          <button class="button button-xl button-orange" type="submit">Create Account</button>
+          <p class="signup-status" data-signup-status role="status" aria-live="polite"></p>
+          <p class="signup-login-link">Already have an account? <a href="../portal/">Log in</a>.</p>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>
