@@ -113,6 +113,8 @@ let activeDemoState = null;
 let demoStatePollTimer = null;
 let postCallScrollResetSessionId = null;
 let activeOperationsTile = "callLogs";
+let previousReservationFilledState = {};
+let recentReservationFilledFields = new Set();
 const previewAudioUrls = new Map();
 
 const workflowPreviewContent = {
@@ -683,6 +685,47 @@ function renderStateRows(rows) {
     .join("");
 }
 
+function reservationFilledSnapshot(reservation = {}) {
+  return {
+    party: Boolean(reservation.partySize),
+    date: Boolean(reservation.requestedDateIso || reservation.requestedDate || reservation.dateIso || reservation.date),
+    time: Boolean(reservation.requestedTime || reservation.time),
+    guest: Boolean(reservation.guestName || reservation.name || reservation.firstName || reservation.lastName),
+    phone: Boolean(reservation.callerPhoneNumber || reservation.phoneNumber),
+    notes: Boolean(reservation.notes || reservation.notesAsked || reservation.submitted),
+    status: Boolean(reservation.submitted || reservation.status)
+  };
+}
+
+function updateRecentReservationFields(previousState, nextState) {
+  const previous = reservationFilledSnapshot(previousState?.reservation || {});
+  const next = reservationFilledSnapshot(nextState?.reservation || {});
+  recentReservationFilledFields = new Set(
+    Object.keys(next).filter((key) => next[key] && !previous[key])
+  );
+  previousReservationFilledState = next;
+}
+
+function resetReservationFieldHighlights() {
+  previousReservationFilledState = {};
+  recentReservationFilledFields = new Set();
+}
+
+function renderReservationStateRows(rows) {
+  return rows
+    .map(({ key, label, value, filled, success = false }) => {
+      const state = success ? "success" : filled ? "filled" : "waiting";
+      const recent = recentReservationFilledFields.has(key) ? " data-recent=\"true\"" : "";
+      return `
+        <li data-field-state="${state}"${recent}>
+          <strong>${escapeHTML(label)}</strong>
+          <span>${escapeHTML(value || "Waiting")}</span>
+        </li>
+      `;
+    })
+    .join("");
+}
+
 function transcriptEntriesForState(state) {
   const operations = firstObject(state?.operations, state?.postCall, state?.records);
   const callLog = firstObject(operations.callLog, operations.latestCallLog, state?.callLog, state?.latestCallLog);
@@ -847,7 +890,7 @@ function renderOrderOperationDetail(order) {
           ["Payment", order?.paymentStatus || (order?.paymentPending ? "Ready" : submitted ? "Approved" : "Waiting")],
           ["Total", formatCents(order?.totalCents ?? order?.subtotalCents)],
           ["Pickup", order?.pickupTime || order?.pickupEta || "Restaurant setup"],
-          ["Kitchen", order?.kitchenStatus || order?.printerStatus || "Configured output"]
+          ["Kitchen", order?.kitchenStatus || order?.printerStatus || "Printing"]
         ])}
       </ul>
     </div>
@@ -858,6 +901,7 @@ function renderReservationOperationDetail(reservation) {
   const guestName = reservation?.guestName || reservation?.name || [reservation?.firstName, reservation?.lastName].filter(Boolean).join(" ");
   const dateValue = reservation?.requestedDateIso || reservation?.requestedDate || reservation?.dateIso || reservation?.date;
   const timeValue = reservation?.requestedTime || reservation?.time;
+  const filled = reservationFilledSnapshot(reservation);
   const notes = [
     reservation?.notes,
     reservation?.allergies ? `Allergies: ${reservation.allergies}` : "",
@@ -874,14 +918,20 @@ function renderReservationOperationDetail(reservation) {
         <span>${created ? "Created by call" : "No reservation yet"}</span>
       </div>
       <ul class="live-state-list reservation-card">
-        ${renderStateRows([
-          ["Party", reservation?.partySize ? `${reservation.partySize} guests` : "Waiting"],
-          ["Date", formatReservationDate(dateValue)],
-          ["Time", formatReservationTime(timeValue)],
-          ["Guest", guestName || "Waiting"],
-          ["Phone", reservation?.callerPhoneNumber || reservation?.phoneNumber ? "Captured" : "Waiting"],
-          ["Notes", notes || "None"],
-          ["Status", reservation?.status || (created ? "Submitted" : "Waiting")]
+        ${renderReservationStateRows([
+          { key: "party", label: "Party", value: reservation?.partySize ? `${reservation.partySize} guests` : "Waiting", filled: filled.party },
+          { key: "date", label: "Date", value: formatReservationDate(dateValue), filled: filled.date },
+          { key: "time", label: "Time", value: formatReservationTime(timeValue), filled: filled.time },
+          { key: "guest", label: "Guest", value: guestName || "Waiting", filled: filled.guest },
+          { key: "phone", label: "Phone", value: reservation?.callerPhoneNumber || reservation?.phoneNumber ? "Captured" : "Waiting", filled: filled.phone },
+          { key: "notes", label: "Notes", value: notes || "None", filled: filled.notes },
+          {
+            key: "status",
+            label: "Status",
+            value: reservation?.status || (created ? "Submitted" : "Waiting"),
+            filled: filled.status,
+            success: /confirmed/i.test(String(reservation?.status || ""))
+          }
         ])}
       </ul>
       <a class="operation-detail-link" href="portal/?section=reservations" target="_blank" rel="noopener">Open reservation book</a>
@@ -1026,20 +1076,22 @@ function renderOrderLivePanel(state) {
 
 function renderReservationLivePanel(state) {
   const reservation = state?.reservation || {};
+  const filled = reservationFilledSnapshot(reservation);
+  const status = reservation.submitted ? reservation.status || "Submitted" : "In progress";
   return `
     <div class="live-panel-top">
       <p class="note-title">Reservation card</p>
       <span>${escapeHTML(state?.statusText || "Collecting details.")}</span>
     </div>
     <ul class="live-state-list reservation-card">
-      ${renderStateRows([
-        ["Party", reservation.partySize ? `${reservation.partySize} guests` : "Waiting"],
-        ["Date", formatReservationDate(reservation.requestedDateIso)],
-        ["Time", formatReservationTime(reservation.requestedTime)],
-        ["Guest", reservation.guestName || "Waiting"],
-        ["Phone", reservation.callerPhoneNumber ? "Captured" : "Waiting"],
-        ["Notes", reservation.notes || "None yet"],
-        ["Status", reservation.submitted ? reservation.status || "Submitted" : "In progress"]
+      ${renderReservationStateRows([
+        { key: "party", label: "Party", value: reservation.partySize ? `${reservation.partySize} guests` : "Waiting", filled: filled.party },
+        { key: "date", label: "Date", value: formatReservationDate(reservation.requestedDateIso), filled: filled.date },
+        { key: "time", label: "Time", value: formatReservationTime(reservation.requestedTime), filled: filled.time },
+        { key: "guest", label: "Guest", value: reservation.guestName || "Waiting", filled: filled.guest },
+        { key: "phone", label: "Phone", value: reservation.callerPhoneNumber ? "Captured" : "Waiting", filled: filled.phone },
+        { key: "notes", label: "Notes", value: reservation.notes || "None yet", filled: filled.notes },
+        { key: "status", label: "Status", value: status, filled: filled.status, success: /confirmed/i.test(String(status)) }
       ])}
     </ul>
     ${renderTranscriptTail(state)}
@@ -1925,7 +1977,9 @@ async function pollDemoCallState(sessionId) {
       return;
     }
     activeDemoCall.status = typeof payload.status === "string" ? payload.status : activeDemoCall.status;
-    activeDemoState = payload.uiState && typeof payload.uiState === "object" ? payload.uiState : activeDemoState;
+    const nextDemoState = payload.uiState && typeof payload.uiState === "object" ? payload.uiState : activeDemoState;
+    updateRecentReservationFields(activeDemoState, nextDemoState);
+    activeDemoState = nextDemoState;
     renderWorkflowPreview();
 
     if (!terminalDemoStatus(activeDemoCall.status)) {
@@ -1989,6 +2043,7 @@ async function submitDemoCall(event) {
   };
   postCallScrollResetSessionId = null;
   activeOperationsTile = "callLogs";
+  resetReservationFieldHighlights();
   activeDemoState = {
     activeWorkflow: "waiting",
     statusText: "Placing the demo call...",
@@ -2027,6 +2082,7 @@ async function submitDemoCall(event) {
     };
     postCallScrollResetSessionId = null;
     activeOperationsTile = "callLogs";
+    resetReservationFieldHighlights();
     activeDemoState = {
       activeWorkflow: "waiting",
       statusText: "Waiting for the caller's first answer.",
@@ -2042,6 +2098,7 @@ async function submitDemoCall(event) {
     const message = error instanceof Error && error.message ? error.message : demoCallErrorMessage();
     activeDemoCall = null;
     activeDemoState = null;
+    resetReservationFieldHighlights();
     renderWorkflowPreview();
     openModal();
     setDemoCallStatus(message, "error");
@@ -2437,6 +2494,7 @@ workflowToggles.forEach((toggle) => {
     activeDemoCall = null;
     activeDemoState = null;
     activeOperationsTile = "callLogs";
+    resetReservationFieldHighlights();
     stopDemoStatePolling();
     syncGreetingToLocation();
     renderConfigSummaries();
@@ -2457,6 +2515,7 @@ sessionToggles.forEach((toggle) => {
     activeDemoCall = null;
     activeDemoState = null;
     activeOperationsTile = "callLogs";
+    resetReservationFieldHighlights();
     stopDemoStatePolling();
     syncGreetingToLocation();
     renderConfigSummaries();
@@ -2473,6 +2532,7 @@ configModules?.addEventListener("change", () => {
   activeDemoCall = null;
   activeDemoState = null;
   activeOperationsTile = "callLogs";
+  resetReservationFieldHighlights();
   stopDemoStatePolling();
   syncGreetingToLocation();
   renderConfigSummaries();

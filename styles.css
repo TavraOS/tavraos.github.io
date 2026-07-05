@@ -1551,6 +1551,32 @@ textarea {
   padding: 10px;
 }
 
+.reservation-card li[data-field-state="waiting"] strong,
+.reservation-card li[data-field-state="waiting"] span {
+  color: #a8a29a;
+}
+
+.reservation-card li[data-field-state="filled"] strong,
+.reservation-card li[data-field-state="filled"] span {
+  color: var(--ink);
+}
+
+.reservation-card li[data-field-state="success"] strong,
+.reservation-card li[data-field-state="success"] span {
+  color: #16834a;
+}
+
+.reservation-card li[data-recent="true"] {
+  border-radius: 6px;
+  margin: -2px -4px 0;
+  padding: 2px 4px 8px;
+  background: rgba(52, 184, 114, 0.14);
+}
+
+.reservation-card li[data-recent="true"]:last-child {
+  padding-bottom: 2px;
+}
+
 .live-waiting {
   display: grid;
   min-height: 172px;
