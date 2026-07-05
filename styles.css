@@ -2673,87 +2673,6 @@ textarea {
   color: var(--blue);
 }
 
-.pilot-panel {
-  display: grid;
-  gap: 14px;
-  margin-top: 6px;
-  padding: 16px;
-  border: 3px solid var(--line);
-  border-radius: 14px;
-  background: var(--yellow);
-}
-
-.pilot-panel strong {
-  display: block;
-  font-family: var(--mono);
-  font-size: 1.35rem;
-}
-
-.pilot-panel p:not(.eyebrow) {
-  max-width: none;
-  margin-top: 6px;
-  color: var(--ink);
-  font-size: 1rem;
-}
-
-.pilot-offers {
-  display: grid;
-  gap: 10px;
-}
-
-.pilot-offer-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  width: 100%;
-  border: 3px solid var(--line);
-  border-radius: 12px;
-  background: var(--paper);
-  color: var(--ink);
-  box-shadow: 5px 5px 0 #000;
-  cursor: pointer;
-  font-family: var(--mono);
-  padding: 13px;
-  text-align: left;
-}
-
-.pilot-offer-card input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.pilot-offer-card:has(input:checked) {
-  background: #fff5cf;
-  outline: 4px solid var(--green);
-  outline-offset: -8px;
-}
-
-.pilot-offer-card:has(input:focus-visible) {
-  outline: 4px solid var(--blue);
-  outline-offset: 3px;
-}
-
-.pilot-offer-card:hover {
-  transform: translate(2px, 2px);
-  box-shadow: 3px 3px 0 #000;
-}
-
-.pilot-offer-card:active {
-  transform: translate(5px, 5px);
-  box-shadow: none;
-}
-
-.pilot-offer-card small {
-  display: block;
-  margin-top: 4px;
-  color: var(--muted);
-  font-family: var(--body);
-  font-weight: 800;
-}
-
 .site-footer {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -3343,11 +3262,6 @@ textarea {
 
   .contact-grid {
     grid-template-columns: 1fr;
-  }
-
-  .pilot-offer-card {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .config-row {
