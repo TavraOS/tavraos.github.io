@@ -581,7 +581,7 @@ async function ensureDemoConfigLoaded() {
   }
 
   demoConfigLoadState = "loading";
-  demoConfigLoadPromise = fetch(`${demoApiBaseUrl}/demo/config`, { method: "GET" })
+  demoConfigLoadPromise = fetch(`${demoApiBaseUrl}/demo/config`, { method: "GET", cache: "no-store" })
     .then(async (response) => {
       if (!response.ok) {
         throw new Error(`Demo config request failed with ${response.status}`);
@@ -1280,7 +1280,7 @@ async function ensureDemoMenuLoaded() {
   renderDemoMenu();
 
   try {
-    const response = await fetch(`${demoApiBaseUrl}/demo/menu`, { method: "GET" });
+    const response = await fetch(`${demoApiBaseUrl}/demo/menu`, { method: "GET", cache: "no-store" });
     if (!response.ok) {
       throw new Error(`Demo menu request failed with ${response.status}`);
     }
@@ -1346,7 +1346,7 @@ function buildVoiceOption(record) {
 }
 
 async function fetchTavraVoices() {
-  const response = await fetch(`${demoApiBaseUrl}/demo/voices`, { method: "GET" });
+  const response = await fetch(`${demoApiBaseUrl}/demo/voices`, { method: "GET", cache: "no-store" });
 
   if (!response.ok) {
     throw new Error(`Voice catalog request failed with ${response.status}`);
@@ -1913,7 +1913,10 @@ async function pollDemoCallState(sessionId) {
   }
 
   try {
-    const response = await fetch(`${demoApiBaseUrl}/demo/calls/${encodeURIComponent(sessionId)}/state`, { method: "GET" });
+    const response = await fetch(`${demoApiBaseUrl}/demo/calls/${encodeURIComponent(sessionId)}/state`, {
+      method: "GET",
+      cache: "no-store"
+    });
     if (!response.ok) {
       throw new Error(`Demo state request failed with ${response.status}`);
     }
@@ -1971,19 +1974,29 @@ async function submitDemoCall(event) {
   }
 
   demoCallSubmit?.setAttribute("disabled", "true");
-  setDemoCallStatus("Preparing the demo call...", "loading");
-  await ensureVoiceOptionsLoaded();
-  try {
-    await ensureDemoConfigLoaded();
-  } catch {
-    await ensureDemoMenuLoaded();
-  }
+  setDemoCallStatus("Placing the demo call...", "loading");
   const voice = selectedVoicePayload();
   const workflowConfig = workflowConfigPayload();
   const demoToggles = demoTogglePayload();
   const sessionConfig = collectSessionConfigPayload();
 
-  setDemoCallStatus("Placing the demo call...", "loading");
+  activeDemoCall = {
+    sessionId: null,
+    callSid: null,
+    status: "requesting",
+    workflowConfig,
+    postCallPolls: 0
+  };
+  postCallScrollResetSessionId = null;
+  activeOperationsTile = "callLogs";
+  activeDemoState = {
+    activeWorkflow: "waiting",
+    statusText: "Placing the demo call...",
+    transcriptTail: []
+  };
+  renderWorkflowPreview();
+  closeModal();
+  window.requestAnimationFrame(scrollActiveDemoCallIntoView);
 
   try {
     const response = await fetch(`${demoApiBaseUrl}/demo/voice/calls`, {
@@ -2021,13 +2034,16 @@ async function submitDemoCall(event) {
     };
     renderWorkflowPreview();
     setDemoCallStatus("Call requested. Your phone should ring shortly.", "success");
-    closeModal();
     window.requestAnimationFrame(scrollActiveDemoCallIntoView);
     if (activeDemoCall.sessionId) {
       scheduleDemoStatePoll(activeDemoCall.sessionId, 900);
     }
   } catch (error) {
     const message = error instanceof Error && error.message ? error.message : demoCallErrorMessage();
+    activeDemoCall = null;
+    activeDemoState = null;
+    renderWorkflowPreview();
+    openModal();
     setDemoCallStatus(message, "error");
   } finally {
     demoCallSubmit?.removeAttribute("disabled");
@@ -2393,9 +2409,12 @@ contactPhoneInput?.addEventListener("blur", () => {
   contactPhoneInput.value = formatUSPhone(contactPhoneInput.value);
 });
 
-voiceTrigger?.addEventListener("click", async () => {
-  await Promise.allSettled([ensureVoiceOptionsLoaded(), ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded())]);
-  setVoiceMenuOpen(Boolean(voiceMenu?.hidden));
+voiceTrigger?.addEventListener("click", () => {
+  const shouldOpen = Boolean(voiceMenu?.hidden);
+  setVoiceMenuOpen(shouldOpen);
+  if (shouldOpen) {
+    void Promise.allSettled([ensureVoiceOptionsLoaded(), ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded())]);
+  }
 });
 voiceTrigger?.addEventListener("focus", hydrateDemoOnInteraction);
 document.querySelectorAll("a[href='#demo'], [data-scroll-target='demo']").forEach((link) => {
