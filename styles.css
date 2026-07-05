@@ -2730,6 +2730,55 @@ textarea {
   color: #b93216;
 }
 
+.signup-app-download {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 3px solid var(--line);
+  border-radius: 16px;
+  background: var(--green-soft);
+  box-shadow: 3px 3px 0 var(--line);
+}
+
+.signup-app-download[hidden] {
+  display: none;
+}
+
+.signup-app-download strong,
+.signup-app-download small,
+.signup-secondary-link {
+  font-family: var(--mono);
+  font-weight: 700;
+}
+
+.signup-app-download strong {
+  font-size: 1.05rem;
+}
+
+.signup-app-download small {
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.app-store-badge {
+  width: fit-content;
+  max-width: 100%;
+  line-height: 0;
+}
+
+.app-store-badge img {
+  display: block;
+  width: min(190px, 100%);
+  height: auto;
+}
+
+.signup-secondary-link {
+  width: fit-content;
+  color: var(--blue);
+  font-size: 0.82rem;
+}
+
 .signup-login-link a {
   color: var(--blue);
 }

@@ -66,7 +66,13 @@ const signupBusinessNameInput = signupForm?.querySelector("[name='businessName']
 const signupVenueRadios = Array.from(document.querySelectorAll("[name='venueType']"));
 const signupPilotSessionInput = document.querySelector("[data-signup-pilot-session]");
 const signupFlowNote = document.querySelector("[data-signup-flow-note]");
+const signupAppDownload = document.querySelector("[data-signup-app-download]");
+const signupAppDownloadTitle = document.querySelector("[data-signup-app-download-title]");
+const signupAppDownloadText = document.querySelector("[data-signup-app-download-text]");
+const signupAppDownloadLink = document.querySelector("[data-app-download-link]");
 const signupPilotSessionStorageKey = "tavraPilotCheckoutSessionId";
+const tavraTestFlightUrl = "https://testflight.apple.com/join/Mp4kv8eE";
+const tavraFutureAppStoreUrl = "https://apps.apple.com/app/id6767875512";
 
 const productionDemoApiHost = String.fromCharCode(
   111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
@@ -2161,7 +2167,28 @@ function initializeSignupFlow() {
       signupFlowNote.innerHTML = "<strong>Invited team signup</strong><small>Use the exact email address from Team Access. New businesses must purchase Tavra Pilot access before account creation.</small>";
     }
   }
+  syncSignupAppDownload(Boolean(pilotSessionId), "pending");
   syncSignupBusinessFields();
+}
+
+function syncSignupAppDownload(visible, state = "pending") {
+  if (!signupAppDownload) return;
+  signupAppDownload.hidden = !visible;
+  if (!visible) return;
+
+  if (signupAppDownloadTitle) {
+    signupAppDownloadTitle.textContent = state === "success" ? "Account created" : "Install Tavra on iPhone";
+  }
+  if (signupAppDownloadText) {
+    signupAppDownloadText.textContent =
+      state === "success"
+        ? "Install Tavra, then log in with this account to finish setup and configuration."
+        : "After creating this owner account, install Tavra and log in with the same email to finish setup.";
+  }
+  if (signupAppDownloadLink) {
+    signupAppDownloadLink.href = tavraTestFlightUrl;
+    signupAppDownloadLink.dataset.futureAppStoreUrl = tavraFutureAppStoreUrl;
+  }
 }
 
 function signupPayload() {
@@ -2247,6 +2274,11 @@ async function submitSignupForm(event) {
       try {
         sessionStorage.removeItem(signupPilotSessionStorageKey);
       } catch {}
+      if (payload.createBusiness) {
+        syncSignupAppDownload(true, "success");
+        setSignupStatus("Account created. Install Tavra on iPhone and log in with this email to finish setup.", "success");
+        return;
+      }
       setSignupStatus("Account created. Opening the portal...", "success");
       window.setTimeout(() => {
         window.location.assign("../portal/");
