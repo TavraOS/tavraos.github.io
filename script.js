@@ -66,6 +66,7 @@ const signupBusinessNameInput = signupForm?.querySelector("[name='businessName']
 const signupVenueRadios = Array.from(document.querySelectorAll("[name='venueType']"));
 const signupPilotSessionInput = document.querySelector("[data-signup-pilot-session]");
 const signupFlowNote = document.querySelector("[data-signup-flow-note]");
+const signupPilotSessionStorageKey = "tavraPilotCheckoutSessionId";
 
 const productionDemoApiHost = String.fromCharCode(
   111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
@@ -2123,10 +2124,27 @@ function signupPilotCheckoutSessionId() {
   const params = new URLSearchParams(window.location.search);
   const status = params.get("pilot_checkout");
   const sessionId = params.get("session_id");
-  if (status !== "success" || !sessionId) {
+  if (status === "cancel") {
+    try {
+      sessionStorage.removeItem(signupPilotSessionStorageKey);
+    } catch {}
     return "";
   }
-  return sessionId.trim();
+  if (status === "success" && sessionId) {
+    const trimmed = sessionId.trim();
+    try {
+      sessionStorage.setItem(signupPilotSessionStorageKey, trimmed);
+    } catch {}
+    if (window.history?.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    return trimmed;
+  }
+  try {
+    return sessionStorage.getItem(signupPilotSessionStorageKey)?.trim() || "";
+  } catch {
+    return "";
+  }
 }
 
 function initializeSignupFlow() {
@@ -2226,6 +2244,9 @@ async function submitSignupForm(event) {
 
     if (body.session?.sessionToken && body.membership?.status === "active") {
       storeSignupSession(body.session);
+      try {
+        sessionStorage.removeItem(signupPilotSessionStorageKey);
+      } catch {}
       setSignupStatus("Account created. Opening the portal...", "success");
       window.setTimeout(() => {
         window.location.assign("../portal/");
