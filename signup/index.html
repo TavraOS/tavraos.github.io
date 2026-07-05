@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Create a Tavra account for a restaurant, coffee shop, food truck, or invited team member."
+      content="Create a Tavra account with an invited team email, or finish setup after a Tavra Pilot checkout."
     >
     <meta name="theme-color" content="#171716">
     <meta property="og:title" content="Sign Up | Tavra">
     <meta
       property="og:description"
-      content="Create a Tavra account or join a restaurant team with an invited email."
+      content="Join a restaurant team with an invited email or finish setup after Tavra Pilot checkout."
     >
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="TavraOS">
@@ -25,8 +25,8 @@
     <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
-    <link rel="stylesheet" href="../styles.css?v=signup-page-v1">
-    <script src="../script.js?v=signup-page-v1" defer></script>
+    <link rel="stylesheet" href="../styles.css?v=pilot-gated-signup-v1">
+    <script src="../script.js?v=pilot-gated-signup-v1" defer></script>
   </head>
   <body class="signup-page">
     <header class="site-header" data-header>
@@ -66,7 +66,7 @@
           <p class="eyebrow">Create account</p>
           <h1 id="signup-title">Sign up for Tavra</h1>
           <p>
-            Create a new business account, or join an existing team with the exact email address from your invite.
+            Join an existing team with the exact email address from your invite, or finish setup after purchasing Pilot access.
           </p>
         </div>
 
@@ -82,13 +82,12 @@
             </label>
           </div>
 
-          <label class="signup-toggle">
-            <input name="createBusiness" type="checkbox" data-signup-create-business checked>
-            <span>
-              <strong>Create New Business</strong>
-              <small>Turn off if you are joining a team, including as a GM. Leave on only to create a brand-new business.</small>
-            </span>
-          </label>
+          <div class="signup-flow-note" data-signup-flow-note>
+            <strong>Invited team signup</strong>
+            <small>Use the exact email address from Team Access. New businesses must purchase Tavra Pilot access before account creation.</small>
+          </div>
+          <input name="createBusiness" type="checkbox" data-signup-create-business hidden>
+          <input name="pilotCheckoutSessionId" type="hidden" data-signup-pilot-session>
 
           <div class="signup-business-fields" data-signup-business-fields>
             <fieldset class="signup-segmented">

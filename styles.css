@@ -2548,7 +2548,8 @@ textarea {
   gap: 12px;
 }
 
-.signup-toggle {
+.signup-toggle,
+.signup-flow-note {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 12px;
   align-items: center;
@@ -2557,6 +2558,14 @@ textarea {
   border-radius: 14px;
   background: var(--green-soft);
   box-shadow: 3px 3px 0 var(--line);
+}
+
+.signup-flow-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  background: var(--green-soft);
+  font-family: var(--mono);
+  font-weight: 700;
 }
 
 .signup-toggle input {
@@ -2573,6 +2582,7 @@ textarea {
 }
 
 .signup-toggle small,
+.signup-flow-note small,
 .signup-login-link {
   color: var(--muted);
   font-family: var(--mono);

@@ -64,6 +64,8 @@ const signupCreateBusiness = document.querySelector("[data-signup-create-busines
 const signupBusinessFields = document.querySelector("[data-signup-business-fields]");
 const signupBusinessNameInput = signupForm?.querySelector("[name='businessName']");
 const signupVenueRadios = Array.from(document.querySelectorAll("[name='venueType']"));
+const signupPilotSessionInput = document.querySelector("[data-signup-pilot-session]");
+const signupFlowNote = document.querySelector("[data-signup-flow-note]");
 
 const productionDemoApiHost = String.fromCharCode(
   111, 98, 115, 99, 117, 114, 101, 45, 116, 97, 105, 103, 97, 45, 57, 52, 50, 50, 52, 45, 98, 54, 48,
@@ -2086,7 +2088,7 @@ function signupBusinessLabel(venueType) {
 
 function syncSignupBusinessFields() {
   if (!signupForm || !signupCreateBusiness || !signupBusinessFields) return;
-  const createBusiness = signupCreateBusiness.checked;
+  const createBusiness = signupCreateBusiness.checked === true;
   signupBusinessFields.hidden = !createBusiness;
   signupBusinessFields.querySelectorAll("input").forEach((input) => {
     input.disabled = !createBusiness;
@@ -2102,10 +2104,37 @@ function syncSignupBusinessFields() {
   }
 }
 
+function signupPilotCheckoutSessionId() {
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get("pilot_checkout");
+  const sessionId = params.get("session_id");
+  if (status !== "success" || !sessionId) {
+    return "";
+  }
+  return sessionId.trim();
+}
+
+function initializeSignupFlow() {
+  if (!signupForm || !signupCreateBusiness) return;
+  const pilotSessionId = signupPilotCheckoutSessionId();
+  signupCreateBusiness.checked = Boolean(pilotSessionId);
+  if (signupPilotSessionInput) {
+    signupPilotSessionInput.value = pilotSessionId;
+  }
+  if (signupFlowNote) {
+    if (pilotSessionId) {
+      signupFlowNote.innerHTML = "<strong>Pilot checkout complete</strong><small>Create the owner account for this paid Pilot business. Use the same email address used at checkout.</small>";
+    } else {
+      signupFlowNote.innerHTML = "<strong>Invited team signup</strong><small>Use the exact email address from Team Access. New businesses must purchase Tavra Pilot access before account creation.</small>";
+    }
+  }
+  syncSignupBusinessFields();
+}
+
 function signupPayload() {
   if (!signupForm) return null;
   const data = new FormData(signupForm);
-  const createBusiness = signupCreateBusiness?.checked !== false;
+  const createBusiness = signupCreateBusiness?.checked === true;
   const password = String(data.get("password") || "");
   const confirmPassword = String(data.get("confirmPassword") || "");
   const payload = {
@@ -2116,7 +2145,8 @@ function signupPayload() {
     createBusiness,
     businessName: createBusiness ? String(data.get("businessName") || "").trim() : "",
     venueType: selectedSignupVenueType(),
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Chicago"
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Chicago",
+    pilotCheckoutSessionId: createBusiness ? String(data.get("pilotCheckoutSessionId") || "").trim() : ""
   };
 
   if (!payload.firstName || !payload.lastName || !payload.email || !payload.password) {
@@ -2125,6 +2155,10 @@ function signupPayload() {
   }
   if (createBusiness && !payload.businessName) {
     setSignupStatus(`${signupBusinessLabel(payload.venueType)} is required when creating a new business.`, "error");
+    return null;
+  }
+  if (createBusiness && !payload.pilotCheckoutSessionId) {
+    setSignupStatus("Purchase Tavra Pilot access before creating a new business.", "error");
     return null;
   }
   if (password !== confirmPassword) {
@@ -2137,7 +2171,11 @@ function signupPayload() {
 
 function signupErrorMessage(errorCode) {
   if (errorCode === "required_signup_fields_missing") return "Add your first name, last name, email, and password.";
-  if (errorCode === "business_name_required") return "Add the business name, or turn off Create New Business if you are joining a team.";
+  if (errorCode === "business_name_required") return "Add the business name.";
+  if (errorCode === "pilot_purchase_required") return "Purchase Tavra Pilot access before creating a new business.";
+  if (errorCode === "pilot_checkout_not_paid") return "Pilot checkout is not paid yet. Refresh after checkout completes.";
+  if (errorCode === "pilot_checkout_email_mismatch") return "Use the same email address used at Pilot checkout.";
+  if (errorCode === "pilot_checkout_not_website_pilot") return "That checkout session cannot create a Tavra business.";
   if (errorCode === "email_already_registered") return "An account already exists for that email. Log in instead.";
   return "Could not create the account. Check the fields and try again.";
 }
@@ -2374,10 +2412,10 @@ modalClose?.addEventListener("click", closeModal);
 demoCallForm?.addEventListener("submit", submitDemoCall);
 contactForm?.addEventListener("submit", submitContactForm);
 signupForm?.addEventListener("submit", submitSignupForm);
-signupCreateBusiness?.addEventListener("change", syncSignupBusinessFields);
 signupVenueRadios.forEach((radio) => {
   radio.addEventListener("change", syncSignupBusinessFields);
 });
+initializeSignupFlow();
 pilotOfferButtons.forEach((button) => {
   button.addEventListener("click", beginPilotCheckout);
 });
