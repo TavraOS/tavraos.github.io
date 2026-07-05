@@ -1153,15 +1153,13 @@ textarea {
   display: grid;
   gap: 14px;
   align-self: start;
-  max-height: min(860px, calc(100vh - 124px));
   border: 4px solid var(--line);
   border-radius: 18px;
   background: var(--dark-2);
   color: var(--paper);
   padding: 16px;
   overflow-x: hidden;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
+  overflow-y: visible;
 }
 
 .preview-phone {
@@ -1340,6 +1338,69 @@ textarea {
 .demo-menu-expand {
   width: 100%;
   margin-top: 10px;
+}
+
+@media (min-width: 901px) {
+  .preview-panel {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .preview-phone {
+    padding: 14px;
+  }
+
+  .phone-speaker {
+    height: 6px;
+    margin-bottom: 12px;
+  }
+
+  .phone-label {
+    margin-bottom: 8px;
+  }
+
+  .waveform {
+    height: 58px;
+    margin-bottom: 10px;
+  }
+
+  .preview-phone ul {
+    gap: 5px;
+  }
+
+  .preview-phone li {
+    padding-bottom: 5px;
+    font-size: 0.84rem;
+  }
+
+  .preview-notes,
+  .demo-menu-card,
+  .live-workflow-panel {
+    padding: 10px;
+  }
+
+  .preview-notes p:not(.note-title) {
+    font-size: 0.95rem;
+    line-height: 1.28;
+  }
+
+  .demo-menu-card-top {
+    margin-bottom: 7px;
+  }
+
+  .demo-menu-list {
+    max-height: clamp(174px, 22vh, 230px);
+    gap: 5px;
+  }
+
+  .demo-menu-list article,
+  .demo-menu-helper {
+    padding: 7px;
+  }
+
+  .demo-menu-expand {
+    margin-top: 7px;
+  }
 }
 
 .call-progress-card[hidden] {
