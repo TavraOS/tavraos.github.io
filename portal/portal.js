@@ -3850,6 +3850,20 @@ function renderCallLogsInbox() {
   const selectedDetail = selectedId ? portalState.callLogDetails.get(selectedId) : null;
   const selectedSummary = selectedId ? portalState.callLogs.find((call) => callLogId(call) === selectedId) : null;
 
+  if (selectedId && isPortalCallLogMobileLayout()) {
+    portalContent.innerHTML = `
+      <section class="call-logs-page detail-open mobile-detail" aria-label="Call detail">
+        <div class="call-logs-shell">
+          <main class="call-log-detail-panel" aria-label="Call detail">
+            ${renderCallLogDetail(selectedId, selectedDetail, selectedSummary)}
+          </main>
+        </div>
+      </section>
+    `;
+    wireCallLogsEvents();
+    return;
+  }
+
   portalContent.innerHTML = `
     <section class="call-logs-page ${selectedId ? "detail-open" : ""}" aria-labelledby="call-logs-title">
       <div class="call-logs-shell">
@@ -3885,6 +3899,10 @@ function renderCallLogsInbox() {
     </section>
   `;
   wireCallLogsEvents();
+}
+
+function isPortalCallLogMobileLayout() {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 760px)").matches;
 }
 
 function renderCallLogPreview(call) {
@@ -4051,7 +4069,7 @@ function wireCallLogsEvents() {
 }
 
 function scrollPortalCallLogsToTopOnMobile() {
-  if (!window.matchMedia("(max-width: 760px)").matches) {
+  if (!isPortalCallLogMobileLayout()) {
     return;
   }
   portalContent?.querySelector(".call-logs-page")?.scrollIntoView({ block: "start" });
