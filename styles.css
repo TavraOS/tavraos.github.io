@@ -2212,8 +2212,9 @@ textarea {
   display: block;
   margin-bottom: 10px;
   font-family: var(--mono);
-  font-size: clamp(2rem, 4vw, 3.5rem);
+  font-size: clamp(2rem, 3.1vw, 3rem);
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .metric-grid span {
