@@ -4504,6 +4504,19 @@ body.portal-reservations-page .portal-content {
     grid-template-columns: 1fr;
   }
 
+  .call-logs-page:not(.detail-open) .call-log-detail-panel {
+    display: none;
+  }
+
+  .call-logs-page.detail-open .call-logs-top,
+  .call-logs-page.detail-open .call-log-list {
+    display: none;
+  }
+
+  .call-logs-page.detail-open .call-logs-shell {
+    padding-top: 0;
+  }
+
   .call-log-detail-head {
     display: grid;
   }

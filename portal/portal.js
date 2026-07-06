@@ -3851,7 +3851,7 @@ function renderCallLogsInbox() {
   const selectedSummary = selectedId ? portalState.callLogs.find((call) => callLogId(call) === selectedId) : null;
 
   portalContent.innerHTML = `
-    <section class="call-logs-page" aria-labelledby="call-logs-title">
+    <section class="call-logs-page ${selectedId ? "detail-open" : ""}" aria-labelledby="call-logs-title">
       <div class="call-logs-shell">
         <div class="call-logs-top">
           <div>
@@ -4039,13 +4039,22 @@ function wireCallLogsEvents() {
       if (callLogId && !portalState.callLogDetails.has(callLogId)) {
         void loadPortalCallLogDetail(callLogId);
       }
+      scrollPortalCallLogsToTopOnMobile();
     });
   });
   portalContent.querySelector("[data-call-log-back]")?.addEventListener("click", () => {
     portalState.selectedCallLogId = null;
     portalState.callLogDetailError = "";
     renderCallLogsInbox();
+    scrollPortalCallLogsToTopOnMobile();
   });
+}
+
+function scrollPortalCallLogsToTopOnMobile() {
+  if (!window.matchMedia("(max-width: 760px)").matches) {
+    return;
+  }
+  portalContent?.querySelector(".call-logs-page")?.scrollIntoView({ block: "start" });
 }
 
 function sortedCallLogs() {
