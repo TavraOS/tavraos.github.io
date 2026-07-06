@@ -2217,6 +2217,12 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.metric-grid strong.metric-word-tight {
+  font-size: clamp(1.85rem, 2.65vw, 2.55rem);
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
 .metric-grid span {
   color: var(--muted);
   font-family: var(--mono);
