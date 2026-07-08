@@ -87,6 +87,7 @@ const demoApiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostn
   ? "http://127.0.0.1:8787"
   : `https://${productionDemoApiHost}`;
 const portalSessionKey = "tavra.portal.session.v1";
+const websiteDemoVisibleMenuCategory = "damn good tacos";
 
 let syncedLocationName = locationInput?.value.trim() || "your restaurant";
 let lastSyncedGreeting = greetingTextarea?.value || greetingTemplate(syncedLocationName);
@@ -489,9 +490,11 @@ function applyDemoConfigPayload(payload) {
       .map((item) => ({
         name: item.name.trim(),
         category: typeof item.category === "string" && item.category.trim() ? item.category.trim() : null,
+        categoryPath: Array.isArray(item.categoryPath) ? item.categoryPath.filter((category) => typeof category === "string" && category.trim()) : [],
         priceCents: typeof item.priceCents === "number" ? item.priceCents : null,
         description: typeof item.description === "string" && item.description.trim() ? item.description.trim() : null
-      }));
+      }))
+      .filter(isVisibleWebsiteDemoMenuItem);
     demoMenuLoadState = demoMenuRecords.length > 0 ? "ready" : "error";
   }
 
@@ -1040,7 +1043,10 @@ function renderOperationsPanel() {
 function renderOrderLivePanel(state) {
   const order = state?.order || {};
   const items = Array.isArray(order.items) ? order.items : [];
-  const suggestions = Array.isArray(state?.menuSuggestions) && state.menuSuggestions.length ? state.menuSuggestions : demoMenuRecords.slice(0, 8);
+  const stateSuggestions = Array.isArray(state?.menuSuggestions)
+    ? state.menuSuggestions.filter(isVisibleWebsiteDemoMenuItem)
+    : [];
+  const suggestions = stateSuggestions.length ? stateSuggestions : demoMenuRecords.slice(0, 8);
 
   return `
     <div class="live-panel-top">
@@ -1251,6 +1257,17 @@ function formatPrice(cents) {
   return typeof cents === "number" && Number.isFinite(cents) ? `$${(cents / 100).toFixed(2)}` : "";
 }
 
+function normalizedWebsiteDemoMenuCategory(value) {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().toLowerCase() : "";
+}
+
+function isVisibleWebsiteDemoMenuItem(item) {
+  const categoryPath = Array.isArray(item?.categoryPath) ? item.categoryPath : [];
+  return [item?.category, ...categoryPath].some(
+    (category) => normalizedWebsiteDemoMenuCategory(category) === websiteDemoVisibleMenuCategory
+  );
+}
+
 function menuRecordSubtitle(item) {
   const parts = [item.category, formatPrice(item.priceCents)].filter(Boolean);
   return parts.join(" · ") || "Configured menu item";
@@ -1343,8 +1360,10 @@ async function ensureDemoMenuLoaded() {
       .map((item) => ({
         name: item.name.trim(),
         category: typeof item.category === "string" && item.category.trim() ? item.category.trim() : null,
+        categoryPath: Array.isArray(item.categoryPath) ? item.categoryPath.filter((category) => typeof category === "string" && category.trim()) : [],
         priceCents: typeof item.priceCents === "number" ? item.priceCents : null
-      }));
+      }))
+      .filter(isVisibleWebsiteDemoMenuItem);
     demoMenuLoadState = demoMenuRecords.length > 0 ? "ready" : "error";
   } catch {
     demoMenuLoadState = "error";
