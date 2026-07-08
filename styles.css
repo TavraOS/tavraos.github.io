@@ -3142,6 +3142,72 @@ textarea {
   padding: 10px 12px;
 }
 
+.legal-document .seo-hero h1 {
+  font-size: clamp(2.4rem, 6vw, 4.8rem);
+}
+
+.legal-document .seo-section {
+  width: min(calc(100% - 32px), 980px);
+}
+
+.legal-section {
+  border-top: 3px solid var(--line);
+}
+
+.legal-section h3 {
+  margin-top: 22px;
+  font-family: var(--mono);
+  font-size: 1.18rem;
+}
+
+.legal-section address {
+  border: 3px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: var(--shadow-small);
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.65;
+  padding: 18px;
+}
+
+.legal-toc {
+  align-items: flex-start;
+}
+
+.legal-table-wrap {
+  max-width: 100%;
+  margin: 18px 0;
+  overflow-x: auto;
+}
+
+.legal-table {
+  width: 100%;
+  min-width: 880px;
+  border-collapse: collapse;
+  border: 3px solid var(--line);
+  background: var(--cream);
+  box-shadow: var(--shadow-small);
+}
+
+.legal-table th,
+.legal-table td {
+  border: 2px solid var(--line);
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 750;
+  line-height: 1.45;
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal-table th {
+  color: var(--ink);
+  font-family: var(--mono);
+}
+
 @media (max-width: 860px) {
   .seo-card-grid {
     grid-template-columns: 1fr;
