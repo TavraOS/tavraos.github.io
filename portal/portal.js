@@ -6201,7 +6201,6 @@ function renderOnboardingAdmin() {
 
   const profile = settings.profile || {};
   const menuItems = Array.isArray(profile.menuItems) ? profile.menuItems : [];
-  const upsellItems = Array.isArray(profile.upsellItems) ? profile.upsellItems : [];
 
   portalContent.innerHTML = `
     <section class="ios-form-page admin-onboarding-page">
@@ -6215,7 +6214,7 @@ function renderOnboardingAdmin() {
         detailsAttributes: `data-admin-onboarding-module="status"`,
         content: `
           <p class="ios-status-text ok">Loaded restaurant settings from Parse.</p>
-          ${menuItems.length ? `<p class="ios-footnote">Menu items: ${menuItems.length}, Upsell candidates: ${upsellItems.length}</p>` : ""}
+          ${menuItems.length ? `<p class="ios-footnote">Menu Knowledge items: ${menuItems.length}</p>` : ""}
         `
       })}
     </section>
