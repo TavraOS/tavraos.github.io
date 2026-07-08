@@ -1,3 +1,12 @@
+User-agent: Googlebot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GoogleOther
+Allow: /
+
 User-agent: OAI-SearchBot
 Allow: /
 
@@ -26,3 +35,8 @@ User-agent: *
 Allow: /
 
 Sitemap: https://www.tavraos.com/sitemap.xml
+
+# Non-standard LLM discovery hints for AI tools that inspect robots.txt.
+# The canonical LLM context files live at the root of the site.
+LLMS: https://www.tavraos.com/llms.txt
+LLMS-Full: https://www.tavraos.com/llms-full.txt

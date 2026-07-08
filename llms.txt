@@ -1,5 +1,7 @@
 # Tavra
 
+> Tavra is a restaurant AI phone operations platform that answers calls and turns restaurant phone conversations into handled workflows: to-go orders, secure checkout, menu questions, reservation requests, custom caller answers, routing, notes, and staff-facing operations.
+
 Tavra is a restaurant AI phone operations platform. It is built for restaurants that need phone calls to become handled workflows, not mystery voicemails or generic chatbot conversations.
 
 ## What Tavra Does
@@ -32,3 +34,9 @@ Tavra public pages must distinguish active Tavra workflow capabilities from inte
 - https://www.tavraos.com/facts/tavra-workflows.md
 - https://www.tavraos.com/facts/tavra-integrations-status.md
 - https://www.tavraos.com/facts/tavra-safety-and-accuracy.md
+
+## Machine-Readable Discovery
+
+- https://www.tavraos.com/llms.txt
+- https://www.tavraos.com/llms-full.txt
+- https://www.tavraos.com/sitemap.xml
