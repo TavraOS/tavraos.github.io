@@ -4220,7 +4220,13 @@ body.portal-reservations-page .portal-content {
 
 .reservation-progress b {
   position: absolute;
-  top: 25px;
+  top: 0;
+  left: 50%;
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  transform: translateX(-50%);
   color: #ffffff;
   font-size: 16px;
 }
