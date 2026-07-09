@@ -5328,6 +5328,37 @@ function formNumber(form, name, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
+function normalizeNorthAmericanHandoffPhone(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits === "911") {
+    return null;
+  }
+
+  const nationalNumber = digits.length === 10
+    ? digits
+    : digits.length === 11 && digits.startsWith("1")
+      ? digits.slice(1)
+      : "";
+  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalNumber)) {
+    return null;
+  }
+  return `+1${nationalNumber}`;
+}
+
+function handoffPhoneValidationMessage(label, value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return "";
+  }
+  return normalizeNorthAmericanHandoffPhone(trimmed)
+    ? ""
+    : `${label} must be a U.S. or Canadian 10-digit phone number. International numbers and 911 are not allowed.`;
+}
+
 function formNullableNumber(form, name) {
   const text = formString(form, name);
   if (!text) {
@@ -5390,7 +5421,7 @@ function syncAdminMiscRequestCategoriesDraftFromDom() {
       handlingMode: formString(form, `misc-${key}-handlingMode`) || category.handlingMode,
       sourceType: formString(form, `misc-${key}-sourceType`) || category.sourceType,
       routingTargetType: formString(form, `misc-${key}-routingTargetType`) || category.routingTargetType,
-      routingTargetPhone: formString(form, `misc-${key}-routingTargetPhone`) || null,
+      routingTargetPhone: normalizeNorthAmericanHandoffPhone(formString(form, `misc-${key}-routingTargetPhone`)) || null,
       publicAnswerTemplate: formString(form, `misc-${key}-publicAnswerTemplate`) || null,
       routingInstructions: formString(form, `misc-${key}-routingInstructions`) || null,
       agentInstructions: formString(form, `misc-${key}-agentInstructions`) || null
@@ -5407,12 +5438,53 @@ function syncAdminHandoffRoutesDraftFromDom() {
   draft.handoffRoutes = handoffRoutesWithDefaults(draft.handoffRoutes || []).map((route) => ({
     ...route,
     enabled: formBoolean(form, `handoff-${route.id}-enabled`),
-    phoneNumber: formString(form, `handoff-${route.id}-phoneNumber`),
+    phoneNumber: normalizeNorthAmericanHandoffPhone(formString(form, `handoff-${route.id}-phoneNumber`)) || "",
     description: formString(form, `handoff-${route.id}-description`) || null,
     timeoutSeconds: formNumber(form, `handoff-${route.id}-timeoutSeconds`, route.timeoutSeconds || 20),
     fallback: formString(form, `handoff-${route.id}-fallback`) || route.fallback || "take_message",
     liveTransferPolicy: formString(form, `handoff-${route.id}-liveTransferPolicy`) || route.liveTransferPolicy || "all_matches"
   }));
+}
+
+function validateAdminMiscRequestPhonesFromDom() {
+  const form = portalContent?.querySelector("[data-admin-misc-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return "";
+  }
+  const draft = currentConfigureDraft();
+  const categories = Array.isArray(draft.miscRequestCategories) ? draft.miscRequestCategories : [];
+  for (const category of categories) {
+    const key = category.categoryKey || "";
+    if (!key) {
+      continue;
+    }
+    const message = handoffPhoneValidationMessage(
+      `${category.displayName || key} custom route phone`,
+      formString(form, `misc-${key}-routingTargetPhone`)
+    );
+    if (message) {
+      return message;
+    }
+  }
+  return "";
+}
+
+function validateAdminHandoffPhonesFromDom() {
+  const form = portalContent?.querySelector("[data-admin-handoff-form]");
+  if (!(form instanceof HTMLFormElement)) {
+    return "";
+  }
+  const routes = handoffRoutesWithDefaults(currentConfigureDraft().handoffRoutes || []);
+  for (const route of routes) {
+    const message = handoffPhoneValidationMessage(
+      `${route.label || route.id} handoff number`,
+      formString(form, `handoff-${route.id}-phoneNumber`)
+    );
+    if (message) {
+      return message;
+    }
+  }
+  return "";
 }
 
 function syncAdminPosPrintingDraftFromDom() {
@@ -5586,6 +5658,12 @@ async function savePortalAdminReservationConfig() {
 }
 
 async function savePortalAdminMiscRequestCategories() {
+  const validationMessage = validateAdminMiscRequestPhonesFromDom();
+  if (validationMessage) {
+    setAdminSaveStatus("miscRequestCategories", validationMessage, true);
+    renderConfigureAdmin();
+    return;
+  }
   syncAdminMiscRequestCategoriesDraftFromDom();
   const draft = configureDraftForEdit();
   await savePortalAdminConfigureModule("miscRequestCategories", "/operations/admin/misc-request-categories", {
@@ -5594,6 +5672,12 @@ async function savePortalAdminMiscRequestCategories() {
 }
 
 async function savePortalAdminHandoffRoutes() {
+  const validationMessage = validateAdminHandoffPhonesFromDom();
+  if (validationMessage) {
+    setAdminSaveStatus("handoffRoutes", validationMessage, true);
+    renderConfigureAdmin();
+    return;
+  }
   syncAdminHandoffRoutesDraftFromDom();
   const draft = configureDraftForEdit();
   await savePortalAdminConfigureModule("handoffRoutes", "/operations/admin/handoff-routes", {
@@ -5729,7 +5813,9 @@ function adminSaveErrorMessage(error) {
     menu_items_not_found: "The synced menu changed. Reload and try again.",
     reservation_config_required: "Reservation settings are missing.",
     misc_request_categories_required: "Other caller question settings are missing.",
+    misc_request_custom_phone_invalid: "Custom route phones must be U.S. or Canadian 10-digit numbers. International numbers and 911 are not allowed.",
     handoff_routes_required: "Handoff routes are missing.",
+    handoff_route_phone_invalid: "Live handoff route phones must be U.S. or Canadian 10-digit numbers. International numbers and 911 are not allowed.",
     pos_printing_required: "Printer settings are missing.",
     system_fallbacks_required: "System fallback settings are missing."
   };
