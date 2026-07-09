@@ -5343,7 +5343,7 @@ function normalizeNorthAmericanHandoffPhone(value) {
     : digits.length === 11 && digits.startsWith("1")
       ? digits.slice(1)
       : "";
-  if (!/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalNumber)) {
+  if (nationalNumber.startsWith("911") || !/^[2-9]\d{2}[2-9]\d{6}$/.test(nationalNumber)) {
     return null;
   }
   return `+1${nationalNumber}`;
