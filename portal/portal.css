@@ -4193,6 +4193,8 @@ body.portal-reservations-page .portal-content {
 }
 
 .reservation-progress {
+  --reservation-ring-size: 76px;
+  --reservation-ring-inset: calc((100% - var(--reservation-ring-size)) / 2);
   position: relative;
   width: 92px;
   display: grid;
@@ -4200,8 +4202,8 @@ body.portal-reservations-page .portal-content {
 }
 
 .reservation-progress svg {
-  width: 76px;
-  height: 76px;
+  width: var(--reservation-ring-size);
+  height: var(--reservation-ring-size);
   transform: rotate(-90deg);
 }
 
@@ -4221,14 +4223,16 @@ body.portal-reservations-page .portal-content {
 .reservation-progress b {
   position: absolute;
   top: 0;
-  left: 50%;
-  width: 76px;
-  height: 76px;
-  display: grid;
-  place-items: center;
-  transform: translateX(-50%);
+  left: var(--reservation-ring-inset);
+  width: var(--reservation-ring-size);
+  height: var(--reservation-ring-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: none;
   color: #ffffff;
   font-size: 16px;
+  text-align: center;
 }
 
 .reservation-progress span {
