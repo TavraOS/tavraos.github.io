@@ -461,6 +461,11 @@ function escapeHTML(value) {
     .replaceAll("'", "&#039;");
 }
 
+function removedFoodOrderModifierDisplayName(value) {
+  const trimmed = String(value || "modifier").trim();
+  return trimmed.replace(/^(?:no|without|hold|remove|skip)\s+/i, "") || trimmed;
+}
+
 function setLoginStatus(message, isError = false) {
   if (!loginStatus) {
     return;
@@ -3670,7 +3675,7 @@ function renderFoodOrderLineItem(item) {
       ${(selectedModifiers.length || removedModifiers.length) ? `
         <ul>
           ${selectedModifiers.map((modifier) => `<li>${escapeHTML(modifier.name || "Modifier")}</li>`).join("")}
-          ${removedModifiers.map((modifier) => `<li>No ${escapeHTML(modifier.name || "modifier")}</li>`).join("")}
+          ${removedModifiers.map((modifier) => `<li>No ${escapeHTML(removedFoodOrderModifierDisplayName(modifier.name))}</li>`).join("")}
         </ul>
       ` : ""}
     </div>
