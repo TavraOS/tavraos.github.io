@@ -2645,12 +2645,6 @@ function renderReservationsBook() {
             <button class="date-step" type="button" aria-label="Next day" data-reservation-date-step="1">›</button>
           </div>
 
-          <div class="reservation-status-legend" aria-label="Reservation status legend">
-            ${renderReservationLegendItem("confirmed", "Confirmed")}
-            ${renderReservationLegendItem("requested", "Requested")}
-            ${renderReservationLegendItem("declined", "Declined")}
-            ${renderReservationLegendItem("cancelled", "Cancelled")}
-          </div>
         </div>
 
         ${renderServiceWindowPicker(model)}
@@ -2682,8 +2676,12 @@ function renderReservationsBook() {
 
           <article class="reservation-legend-card">
             <h2>Legend</h2>
-            <p><span aria-hidden="true">♧</span> Max ${model.settings.maxCoversPerSlot} covers / ${model.settings.slotMinutes} min</p>
-            <p><span aria-hidden="true">♧</span> Max ${model.settings.maxPartiesPerSlot} parties / ${model.settings.slotMinutes} min</p>
+            <div class="reservation-load-legend-grid">
+              ${renderReservationLoadLegendItem("load-light", "Light", "0-49% full")}
+              ${renderReservationLoadLegendItem("load-steady", "Moderate", "50-79% full")}
+              ${renderReservationLoadLegendItem("load-heavy", "Almost full", "80-94% full")}
+              ${renderReservationLoadLegendItem("load-full", "Full", "95%+ full")}
+            </div>
           </article>
         </div>
 
@@ -2765,12 +2763,15 @@ function renderReservationTimeSlot(label) {
   `;
 }
 
-function renderReservationLegendItem(status, label) {
+function renderReservationLoadLegendItem(tone, label, detail) {
   return `
-    <span>
-      <i class="legend-dot ${escapeHTML(status)}" aria-hidden="true"></i>
-      ${escapeHTML(label)}
-    </span>
+    <p class="reservation-load-legend-item">
+      <i class="legend-dot ${escapeHTML(tone)}" aria-hidden="true"></i>
+      <span>
+        <strong>${escapeHTML(label)}</strong>
+        <em>${escapeHTML(detail)}</em>
+      </span>
+    </p>
   `;
 }
 

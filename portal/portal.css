@@ -3356,7 +3356,6 @@ body.portal-reservations-page .portal-content {
 .reservation-controls-row,
 .reservation-top-actions,
 .reservation-date-controls,
-.reservation-status-legend,
 .reservation-view-switch,
 .reservation-bottom-row {
   display: flex;
@@ -3496,19 +3495,6 @@ body.portal-reservations-page .portal-content {
   min-width: 84px;
 }
 
-.reservation-status-legend {
-  gap: 24px;
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 15px;
-}
-
-.reservation-status-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
-}
-
 .reservation-service-switch {
   display: flex;
   flex-wrap: wrap;
@@ -3576,6 +3562,22 @@ body.portal-reservations-page .portal-content {
 
 .legend-dot.cancelled {
   background: #8e8e93;
+}
+
+.legend-dot.load-light {
+  background: linear-gradient(180deg, #34c759, #0c6d29);
+}
+
+.legend-dot.load-steady {
+  background: linear-gradient(180deg, #ffcc00, #9d7000);
+}
+
+.legend-dot.load-heavy {
+  background: linear-gradient(180deg, #ff9f0a, #ad5b02);
+}
+
+.legend-dot.load-full {
+  background: linear-gradient(180deg, #ff453a, #96171c);
 }
 
 .reservation-timeline-card {
@@ -4140,6 +4142,7 @@ body.portal-reservations-page .portal-content {
 }
 
 .reservation-bottom-row {
+  align-items: stretch;
   gap: 12px;
   margin-top: 28px;
 }
@@ -4307,7 +4310,7 @@ body.portal-reservations-page .portal-content {
 }
 
 .reservation-legend-card h2 {
-  margin-bottom: 23px;
+  margin-bottom: 16px;
   color: #ffffff;
   font-weight: 700;
 }
@@ -4316,8 +4319,42 @@ body.portal-reservations-page .portal-content {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 17px;
+  margin: 0;
   font-size: 16px;
+}
+
+.reservation-load-legend-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 14px;
+  row-gap: 11px;
+}
+
+.reservation-load-legend-item .legend-dot {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.reservation-load-legend-item span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.reservation-load-legend-item strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.reservation-load-legend-item em {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 650;
+  line-height: 1.1;
 }
 
 .reservation-timezone {
