@@ -19,6 +19,7 @@ const apiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   ? "http://127.0.0.1:8787"
   : `https://${productionApiHost}`;
 const sessionKey = "tavra.portal.session.v1";
+const pendingPilotPurchaseSessionKey = "tavraPilotCheckoutSessionId";
 const adminOnboardingModulesStoragePrefix = "tavra.portal.adminOnboardingModules.v1";
 
 const operationModules = [
@@ -496,6 +497,22 @@ function clearStoredSession() {
     sessionStorage.removeItem(sessionKey);
   } catch {
     // Ignore storage cleanup failures and keep the visible login state authoritative.
+  }
+}
+
+function pendingPilotCheckoutSessionId() {
+  try {
+    return sessionStorage.getItem(pendingPilotPurchaseSessionKey)?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+function clearPendingPilotCheckoutSession() {
+  try {
+    sessionStorage.removeItem(pendingPilotPurchaseSessionKey);
+  } catch {
+    // The successful claim is authoritative even if browser storage cleanup is unavailable.
   }
 }
 
@@ -2223,6 +2240,59 @@ async function logIn(email, password) {
     throw new Error("no_active_portal_access");
   }
   storeSession(payload.session);
+  return claimPendingPilotPurchase();
+}
+
+async function claimPendingPilotPurchase() {
+  const checkoutSessionId = pendingPilotCheckoutSessionId();
+  if (!checkoutSessionId || !portalState.session?.sessionToken || !portalState.business?.objectId) {
+    return { claimed: false, message: "" };
+  }
+  if (portalState.membership?.role !== "owner" && portalState.membership?.role !== "gm") {
+    return {
+      claimed: false,
+      message: "This paid purchase needs an Owner or General Manager account. Contact your Tavra salesperson for help."
+    };
+  }
+
+  const businessName = portalState.business?.name || "this restaurant";
+  const confirmed = window.confirm(
+    `Apply your paid Tavra Pilot purchase to ${businessName}? Existing restaurant configuration will be preserved.`
+  );
+  if (!confirmed) {
+    return { claimed: false, message: "Your paid purchase was not applied. You can log in again when you are ready." };
+  }
+
+  try {
+    const payload = await apiRequest("/operations/auth/claim-purchase", {
+      method: "POST",
+      body: JSON.stringify({ pilotCheckoutSessionId: checkoutSessionId })
+    });
+    clearPendingPilotCheckoutSession();
+    applyPortalBusinessContext(payload);
+    return {
+      claimed: true,
+      message: `Tavra Pilot access is now applied to ${payload?.business?.name || businessName}.`
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === "pilot_checkout_email_mismatch") {
+      return {
+        claimed: false,
+        message: "This Tavra account uses a different email than the paid Checkout. Contact your Tavra salesperson to attach the purchase manually."
+      };
+    }
+    if (message === "service_activation_already_claimed") {
+      return {
+        claimed: false,
+        message: "This paid purchase is already attached to another restaurant. Contact your Tavra salesperson for help."
+      };
+    }
+    return {
+      claimed: false,
+      message: "Tavra could not apply the paid purchase yet. Your payment remains recorded; contact your Tavra salesperson for help."
+    };
+  }
 }
 
 async function refreshMembership({ resetOnBusinessChange = false } = {}) {
@@ -7748,9 +7818,12 @@ loginForm?.addEventListener("submit", async (event) => {
   loginSubmit.disabled = true;
   setLoginStatus("Checking account access...");
   try {
-    await logIn(email, password);
+    const purchaseClaim = await logIn(email, password);
     setLoginStatus("");
     renderShell();
+    if (purchaseClaim?.message) {
+      window.alert(purchaseClaim.message);
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message === "no_active_portal_access") {
@@ -7792,7 +7865,11 @@ async function boot() {
   portalState.session = stored;
   try {
     await refreshMembership();
+    const purchaseClaim = await claimPendingPilotPurchase();
     renderShell();
+    if (purchaseClaim?.message) {
+      window.alert(purchaseClaim.message);
+    }
   } catch {
     showLogin();
     setLoginStatus("Your portal session expired. Log in again.", true);

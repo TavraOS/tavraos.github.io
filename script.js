@@ -2350,6 +2350,7 @@ function signupErrorMessage(errorCode) {
   if (errorCode === "pilot_checkout_not_paid") return "Pilot checkout is not paid yet. Refresh after checkout completes.";
   if (errorCode === "pilot_checkout_email_mismatch") return "Use the same email address used at Pilot checkout.";
   if (errorCode === "pilot_checkout_not_website_pilot") return "That checkout session cannot create a Tavra business.";
+  if (errorCode === "pilot_account_business_link_failed") return "Your account was created, but Tavra could not attach the paid restaurant yet. Log in with this account to finish applying the purchase.";
   if (errorCode === "email_already_registered") return "An account already exists for that email. Log in instead.";
   return "Could not create the account. Check the fields and try again.";
 }
