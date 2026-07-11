@@ -5882,6 +5882,7 @@ function adminSaveErrorMessage(error) {
   const labels = {
     restaurant_name_required: "Restaurant name is required.",
     twilioNumberE164_invalid: "Agent number must be a valid phone number.",
+    twilioNumberE164_provisioning_managed: "Agent Number is managed through Tavra phone-number provisioning.",
     phoneNumberE164_invalid: "Business phone must be a valid phone number.",
     business_hours_invalid_windows: "Business hours must end after they start.",
     menu_knowledge_updates_required: "Choose at least one menu knowledge change.",
@@ -5907,7 +5908,7 @@ function syncAdminProfileDraftFromDom() {
   portalState.adminProfileDraft = {
     name: String(formData.get("name") || "").trim(),
     timezone: String(formData.get("timezone") || "America/Chicago"),
-    twilioNumberE164: String(formData.get("twilioNumberE164") || "").trim(),
+    twilioNumberE164: String(portalState.adminProfileDraft?.twilioNumberE164 || "").trim(),
     phoneNumberE164: String(formData.get("phoneNumberE164") || "").trim()
   };
 }
@@ -6707,8 +6708,8 @@ function renderRestaurantProfileModule() {
       <form data-admin-profile-form>
         ${renderEditableInputRow("Restaurant Name", "name", draft.name || "", { required: true })}
         ${renderEditableSelectRow("Timezone", "timezone", draft.timezone || "America/Chicago", adminTimezoneOptions)}
-        ${renderEditableInputRow("Agent Number", "twilioNumberE164", draft.twilioNumberE164 || "", { type: "tel", placeholder: "+15551234567" })}
-        ${renderActionButton("Browse Agent Numbers", "phone.badge.plus")}
+        ${renderReadOnlyInputRow("Agent Number", draft.twilioNumberE164 || "Not provisioned")}
+        <p class="ios-footnote">Agent Number is managed through Tavra provisioning. To receive calls on an existing restaurant number, arrange forwarding through the current phone provider; Tavra cannot perform or verify that change.</p>
         ${renderEditableInputRow("Business Phone", "phoneNumberE164", draft.phoneNumberE164 || "", { type: "tel", placeholder: "+15551234567" })}
         ${adminSaveStatusMarkup("profile")}
         <button class="ios-action-button primary" type="submit" ${portalState.adminSaving ? "disabled" : ""}>
