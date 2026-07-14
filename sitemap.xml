@@ -67,6 +67,12 @@
     <priority>0.5</priority>
   </url>
   <url>
+    <loc>https://www.tavraos.com/legal/EULA/</loc>
+    <lastmod>2026-07-14</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://www.tavraos.com/llms.txt</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>weekly</changefreq>
