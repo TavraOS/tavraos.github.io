@@ -643,6 +643,15 @@ function resetBusinessScopedPortalState() {
   portalState.reservationCheckInPrompt = null;
 }
 
+function currentBusinessIdForRequest() {
+  return String(
+    portalState.business?.objectId
+      || portalState.membership?.businessId
+      || portalState.adminSettings?.business?.objectId
+      || ""
+  ).trim();
+}
+
 async function apiRequest(path, options = {}) {
   const headers = {
     "Content-Type": "application/json",
@@ -651,6 +660,10 @@ async function apiRequest(path, options = {}) {
   };
   if (portalState.session?.sessionToken) {
     headers.Authorization = `Bearer ${portalState.session.sessionToken}`;
+  }
+  const businessId = currentBusinessIdForRequest();
+  if (businessId) {
+    headers["X-Tavra-Business-Id"] = businessId;
   }
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -676,6 +689,10 @@ async function apiBlobRequest(path, options = {}) {
   };
   if (portalState.session?.sessionToken) {
     headers.Authorization = `Bearer ${portalState.session.sessionToken}`;
+  }
+  const businessId = currentBusinessIdForRequest();
+  if (businessId) {
+    headers["X-Tavra-Business-Id"] = businessId;
   }
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
