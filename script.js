@@ -69,13 +69,15 @@ const signupCreateBusiness = document.querySelector("[data-signup-create-busines
 const signupBusinessFields = document.querySelector("[data-signup-business-fields]");
 const signupBusinessNameInput = signupForm?.querySelector("[name='businessName']");
 const signupVenueRadios = Array.from(document.querySelectorAll("[name='venueType']"));
-const signupPilotSessionInput = document.querySelector("[data-signup-pilot-session]");
+const signupPurchaseSessionInput = document.querySelector("[data-signup-purchase-session]");
 const signupFlowNote = document.querySelector("[data-signup-flow-note]");
 const signupAppDownload = document.querySelector("[data-signup-app-download]");
 const signupAppDownloadTitle = document.querySelector("[data-signup-app-download-title]");
 const signupAppDownloadText = document.querySelector("[data-signup-app-download-text]");
 const signupAppDownloadLink = document.querySelector("[data-app-download-link]");
-const signupPilotSessionStorageKey = "tavraPilotCheckoutSessionId";
+const purchaseCheckoutSessionStorageKey = "tavraPurchaseCheckoutSessionId";
+const purchaseKindStorageKey = "tavraPurchaseKind";
+const legacyPilotCheckoutSessionStorageKey = "tavraPilotCheckoutSessionId";
 const tavraTestFlightUrl = "https://testflight.apple.com/join/Mp4kv8eE";
 const tavraFutureAppStoreUrl = "https://apps.apple.com/app/id6767875512";
 
@@ -2240,48 +2242,97 @@ function syncSignupBusinessFields() {
   }
 }
 
-function signupPilotCheckoutSessionId() {
+function normalizePurchaseKind(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "core_evaluation") return "core_evaluation";
+  if (normalized === "pilot" || normalized === "pilot_program") return "pilot";
+  return "";
+}
+
+function storePendingPurchase({ sessionId, kind }) {
+  const normalizedSessionId = String(sessionId || "").trim();
+  const normalizedKind = normalizePurchaseKind(kind);
+  if (!normalizedSessionId || !normalizedKind) return;
+  try {
+    sessionStorage.setItem(purchaseCheckoutSessionStorageKey, normalizedSessionId);
+    sessionStorage.setItem(purchaseKindStorageKey, normalizedKind);
+    if (normalizedKind === "pilot") {
+      sessionStorage.setItem(legacyPilotCheckoutSessionStorageKey, normalizedSessionId);
+    } else {
+      sessionStorage.removeItem(legacyPilotCheckoutSessionStorageKey);
+    }
+  } catch {}
+}
+
+function clearPendingPurchase() {
+  try {
+    sessionStorage.removeItem(purchaseCheckoutSessionStorageKey);
+    sessionStorage.removeItem(purchaseKindStorageKey);
+    sessionStorage.removeItem(legacyPilotCheckoutSessionStorageKey);
+  } catch {}
+}
+
+function pendingSignupPurchase() {
   const params = new URLSearchParams(window.location.search);
-  const status = params.get("pilot_checkout");
-  const sessionId = params.get("session_id");
-  if (status === "cancel") {
-    try {
-      sessionStorage.removeItem(signupPilotSessionStorageKey);
-    } catch {}
-    return "";
+  const purchaseKind = normalizePurchaseKind(params.get("purchase"));
+  const pilotStatus = params.get("pilot_checkout");
+  const returnedSessionId = params.get("session_id")?.trim() || "";
+
+  if (pilotStatus === "cancel" || params.get("purchase") === "cancel") {
+    clearPendingPurchase();
+    return { sessionId: "", kind: "" };
   }
-  if (status === "success" && sessionId) {
-    const trimmed = sessionId.trim();
-    try {
-      sessionStorage.setItem(signupPilotSessionStorageKey, trimmed);
-    } catch {}
+
+  const returnedKind = purchaseKind || (pilotStatus === "success" ? "pilot" : "");
+  if (returnedKind && returnedSessionId) {
+    storePendingPurchase({ sessionId: returnedSessionId, kind: returnedKind });
     if (window.history?.replaceState) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-    return trimmed;
+    return { sessionId: returnedSessionId, kind: returnedKind };
   }
+
   try {
-    return sessionStorage.getItem(signupPilotSessionStorageKey)?.trim() || "";
+    const sessionId = sessionStorage.getItem(purchaseCheckoutSessionStorageKey)?.trim() || "";
+    const kind = normalizePurchaseKind(sessionStorage.getItem(purchaseKindStorageKey));
+    if (sessionId && kind) return { sessionId, kind };
+
+    const legacyPilotSessionId = sessionStorage.getItem(legacyPilotCheckoutSessionStorageKey)?.trim() || "";
+    if (legacyPilotSessionId) {
+      storePendingPurchase({ sessionId: legacyPilotSessionId, kind: "pilot" });
+      return { sessionId: legacyPilotSessionId, kind: "pilot" };
+    }
   } catch {
-    return "";
+    // Continue to the empty purchase below when browser storage is unavailable.
   }
+  return { sessionId: "", kind: "" };
+}
+
+function purchaseProductName(kind) {
+  const normalizedKind = normalizePurchaseKind(kind);
+  if (normalizedKind === "core_evaluation") return "Tavra Core";
+  if (normalizedKind === "pilot") return "Tavra Pilot";
+  return "";
 }
 
 function initializeSignupFlow() {
   if (!signupForm || !signupCreateBusiness) return;
-  const pilotSessionId = signupPilotCheckoutSessionId();
-  signupCreateBusiness.checked = Boolean(pilotSessionId);
-  if (signupPilotSessionInput) {
-    signupPilotSessionInput.value = pilotSessionId;
+  const purchase = pendingSignupPurchase();
+  signupCreateBusiness.checked = Boolean(purchase.sessionId);
+  if (signupPurchaseSessionInput) {
+    signupPurchaseSessionInput.value = purchase.sessionId;
   }
   if (signupFlowNote) {
-    if (pilotSessionId) {
-      signupFlowNote.innerHTML = "<strong>Pilot checkout complete</strong><small>Create the owner account for this paid Pilot business. Use the same email address used at checkout.</small>";
+    if (purchase.kind === "core_evaluation") {
+      signupFlowNote.innerHTML = "<strong>Tavra Core purchase return — $399/month</strong><small>Create the owner account for this restaurant using the contact email from your demo request. Tavra will verify the returned Checkout before applying regular Tavra Core; your Stripe receipt email may be different. This is not the Pilot Program.</small>";
+    } else if (purchase.kind === "pilot") {
+      signupFlowNote.innerHTML = "<strong>Pilot purchase return</strong><small>Create the owner account using the contact email from your demo request. Tavra will verify the returned Checkout before applying Pilot access.</small>";
     } else {
-      signupFlowNote.innerHTML = "<strong>Invited team signup</strong><small>Use the exact email address from Team Access. New businesses must purchase Tavra Pilot access before account creation.</small>";
+      signupFlowNote.innerHTML = "<strong>Invited team signup</strong><small>Use the exact email address from Team Access. New owner accounts require a completed Tavra checkout.</small>";
     }
   }
-  syncSignupAppDownload(Boolean(pilotSessionId), "pending");
+  signupForm.dataset.purchaseKind = purchase.kind;
+  syncSignupAppDownload(Boolean(purchase.sessionId), "pending");
   syncSignupBusinessFields();
 }
 
@@ -2311,6 +2362,10 @@ function signupPayload() {
   const createBusiness = signupCreateBusiness?.checked === true;
   const password = String(data.get("password") || "");
   const confirmPassword = String(data.get("confirmPassword") || "");
+  const purchaseKind = normalizePurchaseKind(signupForm.dataset.purchaseKind);
+  const purchaseCheckoutSessionId = createBusiness
+    ? String(data.get("purchaseCheckoutSessionId") || "").trim()
+    : "";
   const payload = {
     firstName: String(data.get("firstName") || "").trim(),
     lastName: String(data.get("lastName") || "").trim(),
@@ -2320,7 +2375,8 @@ function signupPayload() {
     businessName: createBusiness ? String(data.get("businessName") || "").trim() : "",
     venueType: selectedSignupVenueType(),
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Chicago",
-    pilotCheckoutSessionId: createBusiness ? String(data.get("pilotCheckoutSessionId") || "").trim() : ""
+    purchaseCheckoutSessionId,
+    pilotCheckoutSessionId: createBusiness && purchaseKind === "pilot" ? purchaseCheckoutSessionId : ""
   };
 
   if (!payload.firstName || !payload.lastName || !payload.email || !payload.password) {
@@ -2331,8 +2387,8 @@ function signupPayload() {
     setSignupStatus(`${signupBusinessLabel(payload.venueType)} is required when creating a new business.`, "error");
     return null;
   }
-  if (createBusiness && !payload.pilotCheckoutSessionId) {
-    setSignupStatus("Purchase Tavra Pilot access before creating a new business.", "error");
+  if (createBusiness && !payload.purchaseCheckoutSessionId) {
+    setSignupStatus("Complete your Tavra checkout before creating a new business.", "error");
     return null;
   }
   if (password !== confirmPassword) {
@@ -2348,9 +2404,17 @@ function signupErrorMessage(errorCode) {
   if (errorCode === "business_name_required") return "Add the business name.";
   if (errorCode === "pilot_purchase_required") return "Purchase Tavra Pilot access before creating a new business.";
   if (errorCode === "pilot_checkout_not_paid") return "Pilot checkout is not paid yet. Refresh after checkout completes.";
-  if (errorCode === "pilot_checkout_email_mismatch") return "Use the same email address used at Pilot checkout.";
+  if (errorCode === "pilot_checkout_email_mismatch" || errorCode === "pilot_account_email_mismatch") return "Use the contact email from your demo request for this owner account. Your Stripe receipt email may be different.";
+  if (errorCode === "pilot_checkout_stripe_email_mismatch") return "The billing email no longer matches the confirmed Stripe email. Contact your Tavra salesperson before continuing.";
   if (errorCode === "pilot_checkout_not_website_pilot") return "That checkout session cannot create a Tavra business.";
   if (errorCode === "pilot_account_business_link_failed") return "Your account was created, but Tavra could not attach the paid restaurant yet. Log in with this account to finish applying the purchase.";
+  if (errorCode === "core_evaluation_purchase_required") return "Complete the Tavra Core checkout before creating this owner account.";
+  if (errorCode === "core_evaluation_checkout_not_complete") return "Tavra Core checkout is not complete yet. Refresh after checkout finishes.";
+  if (errorCode === "core_evaluation_checkout_not_paid") return "Tavra Core checkout is not paid yet. Refresh after payment completes.";
+  if (errorCode === "core_evaluation_account_email_mismatch") return "Use the contact email from your demo request for this owner account. Your Stripe receipt email may be different.";
+  if (errorCode === "core_evaluation_checkout_stripe_email_mismatch") return "The billing email no longer matches the confirmed Stripe email. Contact your Tavra salesperson before continuing.";
+  if (errorCode === "core_evaluation_account_business_link_failed") return "Your account was created, but Tavra could not attach the paid Core restaurant yet. Log in with this account to finish applying the purchase.";
+  if (errorCode === "core_evaluation_business_subscription_conflict") return "This restaurant already has a different active Tavra subscription. Contact your Tavra salesperson before applying this purchase.";
   if (errorCode === "email_already_registered") return "An account already exists for that email. Log in instead.";
   return "Could not create the account. Check the fields and try again.";
 }
@@ -2386,12 +2450,17 @@ async function submitSignupForm(event) {
 
     if (body.session?.sessionToken && body.membership?.status === "active") {
       storeSignupSession(body.session);
-      try {
-        sessionStorage.removeItem(signupPilotSessionStorageKey);
-      } catch {}
+      clearPendingPurchase();
       if (payload.createBusiness) {
         syncSignupAppDownload(true, "success");
-        setSignupStatus("Account created. Install Tavra on iPhone and log in with this email to finish setup.", "success");
+        const fulfilledPurchaseKind = normalizePurchaseKind(body?.purchaseKind);
+        const productName = purchaseProductName(fulfilledPurchaseKind);
+        if (!productName) {
+          setSignupStatus("Account created and your paid Tavra purchase is applied, but Tavra could not confirm the product type in this response. Contact your Tavra salesperson before continuing.", "error");
+          return;
+        }
+        const productDetail = fulfilledPurchaseKind === "core_evaluation" ? " at $399/month" : "";
+        setSignupStatus(`${productName}${productDetail} is applied. Install Tavra on iPhone and log in with this owner email to finish setup.`, "success");
         return;
       }
       setSignupStatus("Account created. Opening the portal...", "success");
@@ -2465,9 +2534,14 @@ async function submitContactForm(event) {
 function showCheckoutReturnStatus() {
   if (!contactStatus) return;
   const params = new URLSearchParams(window.location.search);
+  const coreEvaluationStatus = params.get("core_evaluation_checkout");
+  if (coreEvaluationStatus === "cancel") {
+    setContactStatus("Tavra Core checkout was canceled. Your demo request is unchanged.", "neutral");
+    return;
+  }
   const status = params.get("pilot_checkout");
   if (status === "success") {
-    setContactStatus("Checkout complete. Tavra has your pilot request.", "success");
+    setContactStatus("Checkout return received. Tavra will verify the Pilot purchase during account setup.", "success");
   } else if (status === "cancel") {
     setContactStatus("Checkout was canceled. Your demo request form is still here.", "neutral");
   }

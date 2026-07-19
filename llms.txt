@@ -12,6 +12,10 @@ Tavra is a restaurant AI phone operations platform. It is built for restaurants 
 - Creates staff-facing Operations records and supports System Fallback behavior that separates local store-device outages, provider API/auth failures, and kitchen printer status after an order is accepted.
 - Lets restaurants control how autonomous the agent should be by workflow.
 
+## Tavra Core and Multi-Location Evaluations
+
+Multi-location prospects may begin with one restaurant on regular Tavra Core at $399 per month before rolling out to the full restaurant group. This one-location evaluation is regular Tavra Core, not the Tavra Pilot Program. The evaluation window defaults to three months and may be shortened prospectively to two or one month.
+
 ## Truthful Integration Status
 
 Tavra public pages must distinguish active Tavra workflow capabilities from integration-ready, planned, approval-dependent, or future third-party connection paths. Do not infer live provider approval, marketplace availability, POS injection, or reservation-system sync unless a current public page explicitly says it is available and the repo contract permits that claim.

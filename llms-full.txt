@@ -19,6 +19,10 @@ Tavra is for restaurant owners, operators, general managers, and staff teams tha
 - Staff and owner notification concepts.
 - Restaurant-controlled autonomy: the restaurant decides what Tavra completes, collects, routes, or escalates.
 
+## Tavra Core and Multi-Location Evaluations
+
+Multi-location prospects may begin with one restaurant on regular Tavra Core at $399 per month before rolling out to the full restaurant group. This one-location evaluation is regular Tavra Core, not the Tavra Pilot Program. The evaluation window defaults to three months and may be shortened prospectively to two or one month. Shortening the window moves the planned group conversion forward; it does not create retroactive group charges.
+
 ## Integration Boundaries
 
 Public Tavra pages should avoid unsupported claims. Do not claim live third-party POS injection, marketplace listing, provider approval, OpenTable/Resy/Tock/SevenRooms/Toast/Google reservation sync, or named-customer deployment unless the current public website and contract explicitly permit that claim.

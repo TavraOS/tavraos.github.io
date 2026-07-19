@@ -19,7 +19,9 @@ const apiBaseUrl = ["localhost", "127.0.0.1"].includes(window.location.hostname)
   ? "http://127.0.0.1:8787"
   : `https://${productionApiHost}`;
 const sessionKey = "tavra.portal.session.v1";
-const pendingPilotPurchaseSessionKey = "tavraPilotCheckoutSessionId";
+const pendingPurchaseSessionKey = "tavraPurchaseCheckoutSessionId";
+const pendingPurchaseKindKey = "tavraPurchaseKind";
+const legacyPilotPurchaseSessionKey = "tavraPilotCheckoutSessionId";
 const adminOnboardingModulesStoragePrefix = "tavra.portal.adminOnboardingModules.v1";
 
 const operationModules = [
@@ -500,20 +502,73 @@ function clearStoredSession() {
   }
 }
 
-function pendingPilotCheckoutSessionId() {
-  try {
-    return sessionStorage.getItem(pendingPilotPurchaseSessionKey)?.trim() || "";
-  } catch {
-    return "";
-  }
+function normalizePendingPurchaseKind(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "core_evaluation") return "core_evaluation";
+  if (normalized === "pilot" || normalized === "pilot_program") return "pilot";
+  return "";
 }
 
-function clearPendingPilotCheckoutSession() {
+function storePendingPurchase({ sessionId, kind }) {
+  const normalizedSessionId = String(sessionId || "").trim();
+  const normalizedKind = normalizePendingPurchaseKind(kind);
+  if (!normalizedSessionId || !normalizedKind) return;
   try {
-    sessionStorage.removeItem(pendingPilotPurchaseSessionKey);
+    sessionStorage.setItem(pendingPurchaseSessionKey, normalizedSessionId);
+    sessionStorage.setItem(pendingPurchaseKindKey, normalizedKind);
+    if (normalizedKind === "pilot") {
+      sessionStorage.setItem(legacyPilotPurchaseSessionKey, normalizedSessionId);
+    } else {
+      sessionStorage.removeItem(legacyPilotPurchaseSessionKey);
+    }
+  } catch {}
+}
+
+function pendingPurchase() {
+  try {
+    const sessionId = sessionStorage.getItem(pendingPurchaseSessionKey)?.trim() || "";
+    const kind = normalizePendingPurchaseKind(sessionStorage.getItem(pendingPurchaseKindKey));
+    if (sessionId && kind) return { sessionId, kind };
+
+    const legacyPilotSessionId = sessionStorage.getItem(legacyPilotPurchaseSessionKey)?.trim() || "";
+    if (legacyPilotSessionId) {
+      storePendingPurchase({ sessionId: legacyPilotSessionId, kind: "pilot" });
+      return { sessionId: legacyPilotSessionId, kind: "pilot" };
+    }
+  } catch {
+    // Continue to the empty purchase when browser storage is unavailable.
+  }
+  return { sessionId: "", kind: "" };
+}
+
+function capturePurchaseReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const kind = normalizePendingPurchaseKind(params.get("purchase"));
+  const sessionId = params.get("session_id")?.trim() || "";
+  if (!kind || !sessionId) return;
+  storePendingPurchase({ sessionId, kind });
+  params.delete("purchase");
+  params.delete("session_id");
+  const query = params.toString();
+  const nextUrl = `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`;
+  window.history?.replaceState?.({}, document.title, nextUrl);
+}
+
+function clearPendingPurchase() {
+  try {
+    sessionStorage.removeItem(pendingPurchaseSessionKey);
+    sessionStorage.removeItem(pendingPurchaseKindKey);
+    sessionStorage.removeItem(legacyPilotPurchaseSessionKey);
   } catch {
     // The successful claim is authoritative even if browser storage cleanup is unavailable.
   }
+}
+
+function pendingPurchaseProductName(kind) {
+  const normalizedKind = normalizePendingPurchaseKind(kind);
+  if (normalizedKind === "core_evaluation") return "Tavra Core";
+  if (normalizedKind === "pilot") return "Tavra Pilot";
+  return "";
 }
 
 function adminOnboardingModulesStorageKey() {
@@ -2257,12 +2312,12 @@ async function logIn(email, password) {
     throw new Error("no_active_portal_access");
   }
   storeSession(payload.session);
-  return claimPendingPilotPurchase();
+  return claimPendingPurchase();
 }
 
-async function claimPendingPilotPurchase() {
-  const checkoutSessionId = pendingPilotCheckoutSessionId();
-  if (!checkoutSessionId || !portalState.session?.sessionToken || !portalState.business?.objectId) {
+async function claimPendingPurchase() {
+  const purchase = pendingPurchase();
+  if (!purchase.sessionId || !portalState.session?.sessionToken || !portalState.business?.objectId) {
     return { claimed: false, message: "" };
   }
   if (portalState.membership?.role !== "owner" && portalState.membership?.role !== "gm") {
@@ -2274,29 +2329,69 @@ async function claimPendingPilotPurchase() {
 
   const businessName = portalState.business?.name || "this restaurant";
   const confirmed = window.confirm(
-    `Apply your paid Tavra Pilot purchase to ${businessName}? Existing restaurant configuration will be preserved.`
+    `Verify and apply this paid Tavra purchase return to ${businessName}? Tavra will confirm the Checkout and preserve the existing restaurant configuration.`
   );
   if (!confirmed) {
-    return { claimed: false, message: "Your paid purchase was not applied. You can log in again when you are ready." };
+    return { claimed: false, message: "This purchase return was not applied. You can log in again when you are ready." };
   }
 
   try {
     const payload = await apiRequest("/operations/auth/claim-purchase", {
       method: "POST",
-      body: JSON.stringify({ pilotCheckoutSessionId: checkoutSessionId })
+      body: JSON.stringify({
+        purchaseCheckoutSessionId: purchase.sessionId,
+        ...(purchase.kind === "pilot" ? { pilotCheckoutSessionId: purchase.sessionId } : {})
+      })
     });
-    clearPendingPilotCheckoutSession();
+    clearPendingPurchase();
     applyPortalBusinessContext(payload);
+    const claimedKind = normalizePendingPurchaseKind(payload?.purchaseKind);
+    const claimedProductName = pendingPurchaseProductName(claimedKind);
+    if (!claimedProductName) {
+      return {
+        claimed: true,
+        message: `Your paid Tavra purchase is applied to ${payload?.business?.name || businessName}, but Tavra could not confirm the product type in this response. Contact your Tavra salesperson before continuing.`
+      };
+    }
+    const claimedProductDetail = claimedKind === "core_evaluation" ? " at $399/month" : "";
     return {
       claimed: true,
-      message: `Tavra Pilot access is now applied to ${payload?.business?.name || businessName}.`
+      message: `${claimedProductName}${claimedProductDetail} is now applied to ${payload?.business?.name || businessName}.`
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    if (message === "pilot_checkout_email_mismatch") {
+    if (
+      message === "pilot_checkout_email_mismatch" ||
+      message === "pilot_account_email_mismatch" ||
+      message === "core_evaluation_account_email_mismatch"
+    ) {
       return {
         claimed: false,
-        message: "This Tavra account uses a different email than the paid Checkout. Contact your Tavra salesperson to attach the purchase manually."
+        message: "This Tavra account does not use the contact email on the demo request. Log in with that owner account or contact your Tavra salesperson."
+      };
+    }
+    if (
+      message === "purchase_claim_exact_owner_required" ||
+      message === "core_evaluation_claim_exact_business_owner_required"
+    ) {
+      return {
+        claimed: false,
+        message: "Only this restaurant's exact owner account can apply the Tavra Core evaluation. A General Manager cannot claim it. Contact your Tavra salesperson."
+      };
+    }
+    if (
+      message === "pilot_checkout_stripe_email_mismatch" ||
+      message === "core_evaluation_checkout_stripe_email_mismatch"
+    ) {
+      return {
+        claimed: false,
+        message: "The billing email no longer matches the confirmed Stripe email. Contact your Tavra salesperson before applying this purchase."
+      };
+    }
+    if (message === "core_evaluation_business_subscription_conflict") {
+      return {
+        claimed: false,
+        message: "This restaurant already has a different active Tavra subscription. Contact your Tavra salesperson before applying this purchase."
       };
     }
     if (message === "service_activation_already_claimed") {
@@ -7821,6 +7916,12 @@ function showLogin() {
   portalApp.hidden = true;
   portalApp.setAttribute("aria-hidden", "true");
   portalApp.style.display = "";
+  const purchase = pendingPurchase();
+  if (purchase.kind === "core_evaluation") {
+    setLoginStatus("This return indicates Tavra Core at $399/month. Log in with the owner contact email from your demo request; Tavra will verify the Checkout before applying it. Your Stripe receipt email may be different.");
+  } else if (purchase.kind === "pilot") {
+    setLoginStatus("This return indicates a Tavra Pilot purchase. Log in with the owner contact email from your demo request; Tavra will verify the Checkout before applying it.");
+  }
 }
 
 loginForm?.addEventListener("submit", async (event) => {
@@ -7883,7 +7984,7 @@ async function boot() {
   portalState.session = stored;
   try {
     await refreshMembership();
-    const purchaseClaim = await claimPendingPilotPurchase();
+    const purchaseClaim = await claimPendingPurchase();
     renderShell();
     if (purchaseClaim?.message) {
       window.alert(purchaseClaim.message);
@@ -7894,6 +7995,7 @@ async function boot() {
   }
 }
 
+capturePurchaseReturn();
 boot();
 
 window.addEventListener("focus", () => {
