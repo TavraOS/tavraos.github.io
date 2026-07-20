@@ -754,6 +754,14 @@
                 <span>Locations</span>
                 <input name="locationCount" type="number" min="1" max="500" inputmode="numeric">
               </label>
+              <label>
+                <span>Business state</span>
+                <input name="businessRegion" type="text" autocomplete="address-level1" inputmode="text" maxlength="2" pattern="[A-Za-z]{2}" placeholder="TX" required>
+              </label>
+              <label>
+                <span>Business ZIP code</span>
+                <input name="businessPostalCode" type="text" autocomplete="postal-code" inputmode="numeric" maxlength="10" pattern="[0-9]{5}(?:-[0-9]{4})?" placeholder="78620" required>
+              </label>
             </div>
             <label>
               <span>Website</span>

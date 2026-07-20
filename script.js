@@ -2181,12 +2181,14 @@ function contactPayload() {
     restaurantWebsite: String(data.get("restaurantWebsite") || "").trim(),
     posProvider: String(data.get("posProvider") || "").trim(),
     locationCount: String(data.get("locationCount") || "").trim(),
+    businessRegion: String(data.get("businessRegion") || "").trim().toUpperCase(),
+    businessPostalCode: String(data.get("businessPostalCode") || "").trim(),
     role: String(data.get("role") || "").trim(),
     message: String(data.get("message") || "").trim()
   };
 
-  if (!payload.name || !payload.email || !payload.restaurantName || !payload.posProvider) {
-    setContactStatus("Add your name, email, restaurant, and current POS first.", "error");
+  if (!payload.name || !payload.email || !payload.restaurantName || !payload.posProvider || !payload.businessRegion || !payload.businessPostalCode) {
+    setContactStatus("Add your name, email, restaurant, current POS, business state, and ZIP code first.", "error");
     focusFirstInvalidContactField();
     return null;
   }
