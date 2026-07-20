@@ -63,6 +63,15 @@ function signupHelpers({ search, stored = {} }) {
 }
 
 {
+  const flow = signupHelpers({ search: "?purchase=core&session_id=cs_core_single_123" });
+  const purchase = flow.api.pendingSignupPurchase();
+  assert.equal(purchase.sessionId, "cs_core_single_123");
+  assert.equal(purchase.kind, "core");
+  assert.equal(flow.api.purchaseProductName(purchase.kind), "Tavra Core");
+  assert.equal(flow.sessionStorage.getItem("tavraPurchaseKind"), "core");
+}
+
+{
   const flow = signupHelpers({ search: "?purchase=core_evaluation&session_id=cs_core_123" });
   const purchase = flow.api.pendingSignupPurchase();
   assert.equal(purchase.sessionId, "cs_core_123");
@@ -135,6 +144,18 @@ function portalHelpers({ search, stored = {}, hash = "" }) {
     context
   );
   return { api: context.purchaseApi, sessionStorage, replacedUrl: () => replacedUrl };
+}
+
+{
+  const flow = portalHelpers({
+    search: "?purchase=core&session_id=cs_core_single_portal",
+    hash: ""
+  });
+  flow.api.capturePurchaseReturn();
+  const purchase = flow.api.pendingPurchase();
+  assert.equal(purchase.sessionId, "cs_core_single_portal");
+  assert.equal(purchase.kind, "core");
+  assert.equal(flow.api.pendingPurchaseProductName(purchase.kind), "Tavra Core");
 }
 
 {

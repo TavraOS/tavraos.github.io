@@ -2246,6 +2246,7 @@ function syncSignupBusinessFields() {
 
 function normalizePurchaseKind(value) {
   const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "core") return "core";
   if (normalized === "core_evaluation") return "core_evaluation";
   if (normalized === "pilot" || normalized === "pilot_program") return "pilot";
   return "";
@@ -2312,7 +2313,7 @@ function pendingSignupPurchase() {
 
 function purchaseProductName(kind) {
   const normalizedKind = normalizePurchaseKind(kind);
-  if (normalizedKind === "core_evaluation") return "Tavra Core";
+  if (normalizedKind === "core" || normalizedKind === "core_evaluation") return "Tavra Core";
   if (normalizedKind === "pilot") return "Tavra Pilot";
   return "";
 }
@@ -2325,7 +2326,9 @@ function initializeSignupFlow() {
     signupPurchaseSessionInput.value = purchase.sessionId;
   }
   if (signupFlowNote) {
-    if (purchase.kind === "core_evaluation") {
+    if (purchase.kind === "core") {
+      signupFlowNote.innerHTML = "<strong>Tavra Core purchase return — $399/month</strong><small>Create the owner account for this single restaurant using the contact email from your demo request. Tavra will verify the returned Checkout before activating regular Tavra Core; your Stripe receipt email may be different.</small>";
+    } else if (purchase.kind === "core_evaluation") {
       signupFlowNote.innerHTML = "<strong>Tavra Core purchase return — $399/month</strong><small>Create the owner account for this restaurant using the contact email from your demo request. Tavra will verify the returned Checkout before applying regular Tavra Core; your Stripe receipt email may be different. This is not the Pilot Program.</small>";
     } else if (purchase.kind === "pilot") {
       signupFlowNote.innerHTML = "<strong>Pilot purchase return</strong><small>Create the owner account using the contact email from your demo request. Tavra will verify the returned Checkout before applying Pilot access.</small>";
@@ -2408,6 +2411,13 @@ function signupErrorMessage(errorCode) {
   if (errorCode === "pilot_checkout_not_paid") return "Pilot checkout is not paid yet. Refresh after checkout completes.";
   if (errorCode === "pilot_checkout_email_mismatch" || errorCode === "pilot_account_email_mismatch") return "Use the contact email from your demo request for this owner account. Your Stripe receipt email may be different.";
   if (errorCode === "pilot_checkout_stripe_email_mismatch") return "The billing email no longer matches the confirmed Stripe email. Contact your Tavra salesperson before continuing.";
+  if (errorCode === "core_purchase_required") return "Complete the Tavra Core checkout before creating this owner account.";
+  if (errorCode === "core_checkout_not_complete") return "Tavra Core checkout is not complete yet. Refresh after checkout finishes.";
+  if (errorCode === "core_checkout_not_paid") return "Tavra Core checkout is not paid yet. Refresh after payment completes.";
+  if (errorCode === "core_account_email_mismatch") return "Use the contact email from your demo request for this owner account. Your Stripe receipt email may be different.";
+  if (errorCode === "core_checkout_stripe_email_mismatch") return "The billing email no longer matches the confirmed Stripe email. Contact your Tavra salesperson before continuing.";
+  if (errorCode === "core_account_business_link_failed") return "Your account was created, but Tavra could not attach the paid Core restaurant yet. Log in with this account to finish applying the purchase.";
+  if (errorCode === "core_business_subscription_conflict") return "This restaurant already has a different active Tavra subscription. Contact your Tavra salesperson before applying this purchase.";
   if (errorCode === "pilot_checkout_not_website_pilot") return "That checkout session cannot create a Tavra business.";
   if (errorCode === "pilot_account_business_link_failed") return "Your account was created, but Tavra could not attach the paid restaurant yet. Log in with this account to finish applying the purchase.";
   if (errorCode === "core_evaluation_purchase_required") return "Complete the Tavra Core checkout before creating this owner account.";
@@ -2461,7 +2471,7 @@ async function submitSignupForm(event) {
           setSignupStatus("Account created and your paid Tavra purchase is applied, but Tavra could not confirm the product type in this response. Contact your Tavra salesperson before continuing.", "error");
           return;
         }
-        const productDetail = fulfilledPurchaseKind === "core_evaluation" ? " at $399/month" : "";
+        const productDetail = fulfilledPurchaseKind === "core" || fulfilledPurchaseKind === "core_evaluation" ? " at $399/month" : "";
         setSignupStatus(`${productName}${productDetail} is applied. Install Tavra on iPhone and log in with this owner email to finish setup.`, "success");
         return;
       }
@@ -2536,6 +2546,11 @@ async function submitContactForm(event) {
 function showCheckoutReturnStatus() {
   if (!contactStatus) return;
   const params = new URLSearchParams(window.location.search);
+  const coreStatus = params.get("core_checkout");
+  if (coreStatus === "cancel") {
+    setContactStatus("Tavra Core checkout was canceled. Your demo request is unchanged.", "neutral");
+    return;
+  }
   const coreEvaluationStatus = params.get("core_evaluation_checkout");
   if (coreEvaluationStatus === "cancel") {
     setContactStatus("Tavra Core checkout was canceled. Your demo request is unchanged.", "neutral");

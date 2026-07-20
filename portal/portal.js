@@ -504,6 +504,7 @@ function clearStoredSession() {
 
 function normalizePendingPurchaseKind(value) {
   const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "core") return "core";
   if (normalized === "core_evaluation") return "core_evaluation";
   if (normalized === "pilot" || normalized === "pilot_program") return "pilot";
   return "";
@@ -566,7 +567,7 @@ function clearPendingPurchase() {
 
 function pendingPurchaseProductName(kind) {
   const normalizedKind = normalizePendingPurchaseKind(kind);
-  if (normalizedKind === "core_evaluation") return "Tavra Core";
+  if (normalizedKind === "core" || normalizedKind === "core_evaluation") return "Tavra Core";
   if (normalizedKind === "pilot") return "Tavra Pilot";
   return "";
 }
@@ -2353,7 +2354,7 @@ async function claimPendingPurchase() {
         message: `Your paid Tavra purchase is applied to ${payload?.business?.name || businessName}, but Tavra could not confirm the product type in this response. Contact your Tavra salesperson before continuing.`
       };
     }
-    const claimedProductDetail = claimedKind === "core_evaluation" ? " at $399/month" : "";
+    const claimedProductDetail = claimedKind === "core" || claimedKind === "core_evaluation" ? " at $399/month" : "";
     return {
       claimed: true,
       message: `${claimedProductName}${claimedProductDetail} is now applied to ${payload?.business?.name || businessName}.`
@@ -2363,6 +2364,7 @@ async function claimPendingPurchase() {
     if (
       message === "pilot_checkout_email_mismatch" ||
       message === "pilot_account_email_mismatch" ||
+      message === "core_account_email_mismatch" ||
       message === "core_evaluation_account_email_mismatch"
     ) {
       return {
@@ -2372,6 +2374,7 @@ async function claimPendingPurchase() {
     }
     if (
       message === "purchase_claim_exact_owner_required" ||
+      message === "core_claim_exact_business_owner_required" ||
       message === "core_evaluation_claim_exact_business_owner_required"
     ) {
       return {
@@ -2381,6 +2384,7 @@ async function claimPendingPurchase() {
     }
     if (
       message === "pilot_checkout_stripe_email_mismatch" ||
+      message === "core_checkout_stripe_email_mismatch" ||
       message === "core_evaluation_checkout_stripe_email_mismatch"
     ) {
       return {
@@ -2388,7 +2392,7 @@ async function claimPendingPurchase() {
         message: "The billing email no longer matches the confirmed Stripe email. Contact your Tavra salesperson before applying this purchase."
       };
     }
-    if (message === "core_evaluation_business_subscription_conflict") {
+    if (message === "core_business_subscription_conflict" || message === "core_evaluation_business_subscription_conflict") {
       return {
         claimed: false,
         message: "This restaurant already has a different active Tavra subscription. Contact your Tavra salesperson before applying this purchase."
@@ -7917,7 +7921,7 @@ function showLogin() {
   portalApp.setAttribute("aria-hidden", "true");
   portalApp.style.display = "";
   const purchase = pendingPurchase();
-  if (purchase.kind === "core_evaluation") {
+  if (purchase.kind === "core" || purchase.kind === "core_evaluation") {
     setLoginStatus("This return indicates Tavra Core at $399/month. Log in with the owner contact email from your demo request; Tavra will verify the Checkout before applying it. Your Stripe receipt email may be different.");
   } else if (purchase.kind === "pilot") {
     setLoginStatus("This return indicates a Tavra Pilot purchase. Log in with the owner contact email from your demo request; Tavra will verify the Checkout before applying it.");
