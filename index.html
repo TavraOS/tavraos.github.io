@@ -771,10 +771,94 @@
               <span>Role</span>
               <input name="role" type="text" autocomplete="organization-title" placeholder="Owner, GM, operator...">
             </label>
-            <label>
-              <span>What should Tavra handle?</span>
-              <textarea name="message" rows="4" placeholder="To-go orders, payments, missed calls, reservations, custom answers..."></textarea>
-            </label>
+            <fieldset class="contact-capabilities" data-contact-capabilities>
+              <legend>What should Tavra handle?</legend>
+              <p id="contact-capabilities-help">Select everything you would like Tavra to help with.</p>
+
+              <div class="contact-capability-group">
+                <h3>Core phone operations</h3>
+                <div class="contact-capability-grid" aria-describedby="contact-capabilities-help">
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Menu-aware to-go ordering with POS modifiers and substitutions">
+                    <span>Menu-aware to-go ordering<small>Use your POS menu, modifiers, and complex substitutions.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Reservations and guest details">
+                    <span>Reservations and guest details<small>Take reservations and capture the information your team needs.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Live wait times and walk-in questions">
+                    <span>Live wait times and walk-ins<small>Share current waits and answer walk-in questions.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Real-time sold-out item updates">
+                    <span>Real-time sold-out updates<small>Keep the voice agent current when items or ingredients run out.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Smart call escalation to the host stand or manager">
+                    <span>Smart staff handoff<small>Escalate calls to the host stand or manager when the situation requires it.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Live food-order monitoring for staff">
+                    <span>Live food-order monitoring<small>Let staff see incoming phone orders as they happen.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Call logs, recordings, and transcripts">
+                    <span>Call logs and transcripts<small>Review call history, recordings, and full transcripts.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Manager voicemail">
+                    <span>Manager voicemail<small>Capture messages that need a manager's follow-up.</small></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="contact-capability-group">
+                <h3>Other caller questions</h3>
+                <div class="contact-capability-grid">
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Hours, directions, parking, and accessibility">
+                    <span>Hours, directions, and parking<small>Include open status, location details, and accessibility.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Dietary and allergy questions">
+                    <span>Dietary and allergy questions<small>Answer conservatively from restaurant-provided information.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Large parties, private events, and catering">
+                    <span>Large parties, events, and catering<small>Answer questions, collect details, and route follow-up.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Gift cards, loyalty, and rewards">
+                    <span>Gift cards and rewards<small>Handle gift card, loyalty, membership, and points questions.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Lost and found">
+                    <span>Lost and found<small>Collect the details staff need to locate and return an item.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Complaints and guest feedback">
+                    <span>Complaints and feedback<small>Capture the issue and route it to the right person.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Jobs and hiring">
+                    <span>Jobs and hiring<small>Answer applicant questions and share the correct next step.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Events and entertainment">
+                    <span>Events and entertainment<small>Share restaurant-provided schedules and event information.</small></span>
+                  </label>
+                  <label class="contact-capability-option">
+                    <input type="checkbox" name="capabilities" value="Other" data-contact-capability-other-toggle>
+                    <span>Other<small>Tell us about another caller workflow you have in mind.</small></span>
+                  </label>
+                </div>
+                <label class="contact-capability-other" data-contact-capability-other hidden>
+                  <span>What else should Tavra handle?</span>
+                  <input name="message" type="text" maxlength="160" disabled data-contact-capability-other-input>
+                </label>
+              </div>
+            </fieldset>
             <button class="button button-green" type="submit" data-contact-submit>Request Demo</button>
             <p class="contact-status" data-contact-status aria-live="polite"></p>
           </form>

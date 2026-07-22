@@ -57,6 +57,9 @@ const configKitchenSummary = document.querySelector("[data-config-kitchen-summar
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactPhoneInput = contactForm?.querySelector("input[name='phone']");
+const contactCapabilityOtherToggle = contactForm?.querySelector("[data-contact-capability-other-toggle]");
+const contactCapabilityOtherField = contactForm?.querySelector("[data-contact-capability-other]");
+const contactCapabilityOtherInput = contactForm?.querySelector("[data-contact-capability-other-input]");
 const contactSubmitButton = document.querySelector("[data-contact-submit]");
 const contactSubmitButtonLabel = contactSubmitButton?.textContent?.trim() || "Request Demo";
 const contactRequestState = {
@@ -2137,6 +2140,19 @@ function setContactStatus(message, state = "neutral") {
   }
 }
 
+function syncContactCapabilityOtherField() {
+  const isSelected = contactCapabilityOtherToggle instanceof HTMLInputElement && contactCapabilityOtherToggle.checked;
+  if (contactCapabilityOtherField instanceof HTMLElement) {
+    contactCapabilityOtherField.hidden = !isSelected;
+  }
+  if (contactCapabilityOtherInput instanceof HTMLInputElement) {
+    contactCapabilityOtherInput.disabled = !isSelected;
+    if (!isSelected) {
+      contactCapabilityOtherInput.value = "";
+    }
+  }
+}
+
 function setContactFormLocked(isLocked) {
   if (!contactForm) return;
   contactForm.querySelectorAll("input, select, textarea, button").forEach((control) => {
@@ -2173,6 +2189,12 @@ function contactPayload() {
     return { blocked: true };
   }
 
+  const otherCapability = String(data.get("message") || "").trim();
+  const selectedCapabilities = data.getAll("capabilities")
+    .map((value) => String(value || "").trim())
+    .map((value) => value === "Other" && otherCapability ? `Other: ${otherCapability}` : value)
+    .filter(Boolean);
+
   const payload = {
     name: String(data.get("name") || "").trim(),
     email: String(data.get("email") || "").trim(),
@@ -2184,12 +2206,33 @@ function contactPayload() {
     businessRegion: String(data.get("businessRegion") || "").trim().toUpperCase(),
     businessPostalCode: String(data.get("businessPostalCode") || "").trim(),
     role: String(data.get("role") || "").trim(),
-    message: String(data.get("message") || "").trim()
+    message: selectedCapabilities.length > 0
+      ? `Requested capabilities:\n${selectedCapabilities.map((capability) => `• ${capability}`).join("\n")}`
+      : ""
   };
 
   if (!payload.name || !payload.email || !payload.restaurantName || !payload.posProvider || !payload.businessRegion || !payload.businessPostalCode) {
     setContactStatus("Add your name, email, restaurant, current POS, business state, and ZIP code first.", "error");
     focusFirstInvalidContactField();
+    return null;
+  }
+
+  if (selectedCapabilities.length === 0) {
+    setContactStatus("Select at least one thing you would like Tavra to handle.", "error");
+    const firstCapability = contactForm.querySelector("input[name='capabilities']");
+    if (firstCapability instanceof HTMLInputElement) {
+      firstCapability.focus({ preventScroll: true });
+      firstCapability.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+    return null;
+  }
+
+  if (data.getAll("capabilities").includes("Other") && !otherCapability) {
+    setContactStatus("Tell us what else you would like Tavra to handle.", "error");
+    if (contactCapabilityOtherInput instanceof HTMLInputElement) {
+      contactCapabilityOtherInput.focus({ preventScroll: true });
+      contactCapabilityOtherInput.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
     return null;
   }
 
@@ -2695,6 +2738,8 @@ callButton?.addEventListener("click", openModal);
 modalClose?.addEventListener("click", closeModal);
 demoCallForm?.addEventListener("submit", submitDemoCall);
 contactForm?.addEventListener("submit", submitContactForm);
+contactCapabilityOtherToggle?.addEventListener("change", syncContactCapabilityOtherField);
+syncContactCapabilityOtherField();
 signupForm?.addEventListener("submit", submitSignupForm);
 signupVenueRadios.forEach((radio) => {
   radio.addEventListener("change", syncSignupBusinessFields);
