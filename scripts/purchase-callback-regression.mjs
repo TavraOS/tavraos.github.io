@@ -230,7 +230,7 @@ assert.doesNotMatch(publicContactPayload, /stripeEmail/i);
 assert.match(indexHtml, /<h2 id="pricing-title">Tavra pricing shaped around your restaurant<\/h2>/);
 assert.doesNotMatch(indexHtml, /<h2 id="pricing-title">[^<]*Pilot/i);
 assert.doesNotMatch(indexHtml, /aria-label="Pilot benefits"/i);
-assert.match(indexHtml, /<script src="script\.js\?v=core-evaluation-return-v1" defer><\/script>/);
+assert.match(indexHtml, /<script src="script\.js\?v=demo-capabilities-v1" defer><\/script>/);
 
 assert.match(signupHtml, /name="purchaseCheckoutSessionId"[^>]+data-signup-purchase-session/);
 assert.match(signupSource, /purchaseCheckoutSessionId,/);
