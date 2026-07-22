@@ -2569,9 +2569,9 @@ textarea {
   font-weight: 800;
 }
 
-.contact-capabilities > p {
+.contact-card .contact-capabilities > p {
   margin: -4px 0 0;
-  color: var(--muted);
+  color: var(--ink);
   font-size: 0.92rem;
   font-weight: 700;
 }
