@@ -217,6 +217,26 @@ const miscSourceTypeOptions = [
   { value: "uploaded_file", label: "Uploaded file" },
   { value: "pos", label: "POS" }
 ];
+const miscSmsLinkSourceOptions = [
+  { value: "source_url", label: "Use website source URL" },
+  { value: "custom_url", label: "Use a custom URL" },
+  { value: "none", label: "No link" }
+];
+const miscSmsMessages = {
+  business_hours: "View our hours here:",
+  directions_parking: "Get directions and parking information here:",
+  wait_times: "Check our wait-time and walk-in information here:",
+  dietary_allergies: "Review our dietary and allergy information here:",
+  large_party: "Review our large-party information here:",
+  private_events: "Review our private-events information here:",
+  catering: "View our catering information here:",
+  gift_cards: "Purchase a gift card here:",
+  loyalty_rewards: "Join or review our Rewards program here:",
+  lost_and_found: "Review our lost-and-found information here:",
+  complaints_feedback: "Share feedback with our team here:",
+  jobs_hiring: "Apply for a position here:",
+  events_entertainment: "View our events and entertainment schedule here:"
+};
 const miscRoutingTargetOptions = [
   { value: "none", label: "No routing" },
   { value: "host_stand", label: "Host stand" },
@@ -5612,11 +5632,16 @@ function syncAdminMiscRequestCategoriesDraftFromDom() {
       enabled: formBoolean(form, `misc-${key}-enabled`),
       handlingMode: formString(form, `misc-${key}-handlingMode`) || category.handlingMode,
       sourceType: formString(form, `misc-${key}-sourceType`) || category.sourceType,
+      sourceUrl: formString(form, `misc-${key}-sourceUrl`) || null,
       routingTargetType: formString(form, `misc-${key}-routingTargetType`) || category.routingTargetType,
       routingTargetPhone: normalizeNorthAmericanHandoffPhone(formString(form, `misc-${key}-routingTargetPhone`)) || null,
       publicAnswerTemplate: formString(form, `misc-${key}-publicAnswerTemplate`) || null,
       routingInstructions: formString(form, `misc-${key}-routingInstructions`) || null,
-      agentInstructions: formString(form, `misc-${key}-agentInstructions`) || null
+      agentInstructions: formString(form, `misc-${key}-agentInstructions`) || null,
+      smsEnabled: formBoolean(form, `misc-${key}-smsEnabled`),
+      smsQuestion: formString(form, `misc-${key}-smsQuestion`) || null,
+      smsLinkSource: formString(form, `misc-${key}-smsLinkSource`) || "source_url",
+      smsCustomUrl: formString(form, `misc-${key}-smsCustomUrl`) || null
     };
   });
 }
@@ -7637,18 +7662,35 @@ function renderMiscRequestCategoriesModule(categories) {
 
 function renderMiscRequestCategory(category) {
   const key = category.categoryKey || "";
+  const smsLinkSource = category.smsLinkSource || "source_url";
+  const smsPreviewLink = smsLinkSource === "custom_url"
+    ? category.smsCustomUrl || "https://example.com"
+    : smsLinkSource === "source_url"
+      ? category.sourceUrl || "https://example.com"
+      : "";
+  const smsMessage = miscSmsMessages[key] || "More information:";
+  const smsPreview = `Tavra for [Restaurant]: ${smsMessage}${smsPreviewLink ? ` ${smsPreviewLink}` : ""} Reply STOP to opt out or HELP for help.`;
   return renderNestedDisclosure(
     category.displayName || category.categoryKey || "Caller question",
     `
       ${renderEditableToggleRow("Enabled", `misc-${key}-enabled`, category.enabled !== false)}
       ${renderEditableSelectRow("Handling", `misc-${key}-handlingMode`, category.handlingMode || "answer_only", miscHandlingModeOptions)}
       ${renderEditableSelectRow("Source", `misc-${key}-sourceType`, category.sourceType || "manual", miscSourceTypeOptions)}
+      ${renderEditableInputRow("Source URL", `misc-${key}-sourceUrl`, category.sourceUrl || "", { type: "url", placeholder: "https://example.com" })}
       ${renderEditableSelectRow("Routing target", `misc-${key}-routingTargetType`, category.routingTargetType || "none", miscRoutingTargetOptions)}
       ${renderEditableInputRow("Custom route phone", `misc-${key}-routingTargetPhone`, category.routingTargetPhone || "", { type: "tel", placeholder: "+15551234567" })}
       ${renderValueRow("Required caller fields", Array.isArray(category.requiredCallerFields) && category.requiredCallerFields.length ? category.requiredCallerFields.map(formatSettingLabel).join(", ") : "None")}
       ${renderEditableTextareaRow("Public answer", `misc-${key}-publicAnswerTemplate`, category.publicAnswerTemplate || category.ownerProvidedKnowledge || "", { rows: 4, placeholder: "Answer the agent can give callers." })}
       ${renderEditableTextareaRow("Routing instructions", `misc-${key}-routingInstructions`, category.routingInstructions || "", { rows: 3, placeholder: "Instructions before routing or collecting a message." })}
       ${renderEditableTextareaRow("Agent instructions", `misc-${key}-agentInstructions`, category.agentInstructions || "", { rows: 3, placeholder: "Extra internal guidance for the agent." })}
+      ${renderEditableToggleRow("Offer a text follow-up", `misc-${key}-smsEnabled`, category.smsEnabled === true)}
+      <p class="ios-footnote">Tavra asks the exact editable SMS question and sends only after a clear yes. No, ambiguity, silence, or a new request sends nothing.</p>
+      ${renderEditableTextareaRow("SMS Question", `misc-${key}-smsQuestion`, category.smsQuestion || "", { rows: 3, placeholder: "Would you like me to text you the link?" })}
+      ${renderEditableSelectRow("Link to send", `misc-${key}-smsLinkSource`, smsLinkSource, miscSmsLinkSourceOptions)}
+      ${renderEditableInputRow("Custom SMS URL", `misc-${key}-smsCustomUrl`, category.smsCustomUrl || "", { type: "url", placeholder: "https://example.com" })}
+      ${renderValueRow("Message preview", smsPreview)}
+      <p class="ios-footnote">The text-message wording is a fixed Tavra transactional template. The spoken SMS Question and selected link remain configurable here.</p>
+      ${smsLinkSource !== "none" ? `<p class="ios-footnote">Link texts are offered only after Tavra's messaging campaign is approved for embedded links.</p>` : ""}
       ${category.lastSyncStatus ? renderValueRow("Last sync", formatSettingLabel(category.lastSyncStatus), category.lastSyncedAt || "") : ""}
     `,
     false,
