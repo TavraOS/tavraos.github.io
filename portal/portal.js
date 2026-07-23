@@ -5284,6 +5284,16 @@ function modifierPresentationDraftFromGroup(group) {
   return {
     displayName: typeof presentation.displayName === "string" ? presentation.displayName : "",
     askBehavior: normalizedModifierAskBehavior(presentation.askBehavior),
+    defaultSelectionMode: normalizedModifierDefaultSelectionMode(presentation.defaultSelectionMode),
+    restaurantDefaultOptionIds: Array.isArray(presentation.restaurantDefaultOptionIds)
+      ? presentation.restaurantDefaultOptionIds.filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim())
+      : [],
+    suggestedDefaultOptionIds: Array.isArray(presentation.suggestedDefaultOptionIds)
+      ? presentation.suggestedDefaultOptionIds.filter((value) => typeof value === "string" && value.trim()).map((value) => value.trim())
+      : [],
+    defaultSuggestionSource: presentation.defaultSuggestionSource === "group_name" || presentation.defaultSuggestionSource === "option_order"
+      ? presentation.defaultSuggestionSource
+      : null,
     questionTemplate: typeof presentation.questionTemplate === "string" ? presentation.questionTemplate : "",
     confirmationTemplate: typeof presentation.confirmationTemplate === "string" ? presentation.confirmationTemplate : "",
     readbackTemplate: typeof presentation.readbackTemplate === "string" ? presentation.readbackTemplate : "",
@@ -5982,6 +5992,10 @@ async function savePortalAdminMenuKnowledge() {
             presentation: {
               displayName: draft.displayName || "",
               askBehavior: normalizedModifierAskBehavior(draft.askBehavior),
+              defaultSelectionMode: normalizedModifierDefaultSelectionMode(draft.defaultSelectionMode),
+              restaurantDefaultOptionIds: Array.isArray(draft.restaurantDefaultOptionIds)
+                ? draft.restaurantDefaultOptionIds
+                : [],
               questionTemplate: draft.questionTemplate || "",
               confirmationTemplate: draft.confirmationTemplate || "",
               readbackTemplate: draft.readbackTemplate || "",
@@ -6029,6 +6043,9 @@ function adminSaveErrorMessage(error) {
     menu_knowledge_updates_required: "Choose at least one menu knowledge change.",
     menu_visibility_updates_required: "Choose at least one menu visibility change.",
     menu_items_not_found: "The synced menu changed. Reload and try again.",
+    modifier_default_options_required: "Choose at least one verified default option.",
+    modifier_default_option_not_found: "A verified default is no longer available. Reload and choose again.",
+    modifier_default_selection_limit_exceeded: "The selected defaults exceed this modifier group's limit.",
     reservation_config_required: "Reservation settings are missing.",
     misc_request_categories_required: "Other caller question settings are missing.",
     misc_request_custom_phone_invalid: "Custom route phones must be U.S. or Canadian 10-digit numbers. International numbers and 911 are not allowed.",
@@ -6117,6 +6134,38 @@ function syncAdminMenuKnowledgeDraftFromDom() {
       groupDraft.displayName = value;
     } else if (fieldName === "askBehavior") {
       groupDraft.askBehavior = normalizedModifierAskBehavior(value);
+    } else if (fieldName === "defaultSelectionMode") {
+      if (field instanceof HTMLInputElement && !field.checked) {
+        return;
+      }
+      groupDraft.defaultSelectionMode = normalizedModifierDefaultSelectionMode(value);
+      groupDraft.restaurantDefaultOptionIds = [];
+    } else if (fieldName === "restaurantDefaultOption") {
+      const optionId = field.dataset.adminModifierOptionId || "";
+      const checked = field instanceof HTMLInputElement && field.checked;
+      if (!checked && normalizedModifierDefaultSelectionMode(groupDraft.defaultSelectionMode) !== "options") {
+        return;
+      }
+      const maximumValue = group?.maxAllowed ?? group?.maxSelections;
+      const maximumAllowed = typeof maximumValue === "number" && Number.isFinite(maximumValue) ? maximumValue : null;
+      const allowsMultiple = maximumAllowed === null || maximumAllowed > 1;
+      const selected = new Set(
+        normalizedModifierDefaultSelectionMode(groupDraft.defaultSelectionMode) === "options"
+          ? groupDraft.restaurantDefaultOptionIds || []
+          : []
+      );
+      if (checked && optionId) {
+        if (!allowsMultiple) {
+          selected.clear();
+        }
+        selected.add(optionId);
+      } else {
+        selected.delete(optionId);
+      }
+      groupDraft.restaurantDefaultOptionIds = (Array.isArray(group?.options) ? group.options : [])
+        .map((option) => option?.id)
+        .filter((id) => typeof id === "string" && selected.has(id));
+      groupDraft.defaultSelectionMode = groupDraft.restaurantDefaultOptionIds.length ? "options" : "none";
     } else if (fieldName === "questionTemplate") {
       groupDraft.questionTemplate = value;
     } else if (fieldName === "confirmationTemplate") {
@@ -6366,7 +6415,12 @@ function wireOnboardingAdminEvents() {
     menuKnowledgeDetails.addEventListener("change", (event) => {
       syncMenuKnowledgeAndClearStatus();
       const target = event.target;
-      if (target instanceof HTMLSelectElement && target.dataset.adminModifierField === "askBehavior") {
+      if (
+        (target instanceof HTMLSelectElement && target.dataset.adminModifierField === "askBehavior") ||
+        (target instanceof HTMLInputElement &&
+          (target.dataset.adminModifierField === "defaultSelectionMode" ||
+            target.dataset.adminModifierField === "restaurantDefaultOption"))
+      ) {
         syncAdminOnboardingModuleStateFromDom();
         syncAdminMenuDisclosureStateFromDom();
         renderOnboardingAdmin();
@@ -7166,6 +7220,8 @@ function renderModifierPresentationEditor(item, group, itemName) {
       </div>
       <p class="menu-modifier-muted" data-admin-modifier-help>${escapeHTML(modifierDefaultHandlingHelpText(askBehavior))}</p>
 
+      ${renderModifierDefaultVerification(itemId, effectiveGroup)}
+
       <div class="menu-modifier-examples">
         <h5>What the caller will hear</h5>
         ${renderModifierExampleLine("Agent will ask", questionExample, "ask", "data-admin-modifier-ask-example", !shouldShowAskExample)}
@@ -7268,9 +7324,156 @@ function modifierDefaultHandlingHelpText(askBehavior) {
     return "The agent will always ask the caller before choosing one.";
   }
   if (askBehavior === "ask_if_no_default") {
-    return "The agent will use a default when Clover provides one, otherwise it will ask.";
+    return "The agent will use a verified default when one exists; otherwise it will ask.";
   }
-  return "The agent will use the Clover default unless the caller asks for something different.";
+  return "The agent silently uses only the verified default below. Without one, optional groups add nothing and required groups are asked.";
+}
+
+function normalizedModifierDefaultSelectionMode(value) {
+  return value === "none" || value === "options" ? value : "pos";
+}
+
+function modifierProviderDefaultOptions(group) {
+  if (String(group?.providerRef?.provider || "").toLowerCase() === "clover") {
+    return [];
+  }
+  const options = Array.isArray(group?.options) ? group.options : [];
+  const defaultIds = new Set([
+    typeof group?.defaultOptionId === "string" ? group.defaultOptionId : "",
+    ...(Array.isArray(group?.defaultOptionIds) ? group.defaultOptionIds : [])
+  ].filter(Boolean));
+  return options.filter((option) =>
+    defaultIds.has(option?.id) || option?.isDefault === true || option?.defaultSelected === true
+  );
+}
+
+function modifierVerifiedDefaultOptions(group) {
+  const mode = normalizedModifierDefaultSelectionMode(group?.presentation?.defaultSelectionMode);
+  const options = Array.isArray(group?.options) ? group.options : [];
+  if (mode === "none") {
+    return [];
+  }
+  if (mode === "options") {
+    const selectedIds = new Set(
+      Array.isArray(group?.presentation?.restaurantDefaultOptionIds)
+        ? group.presentation.restaurantDefaultOptionIds
+        : []
+    );
+    return options.filter((option) => selectedIds.has(option?.id));
+  }
+  return modifierProviderDefaultOptions(group);
+}
+
+function modifierSuggestedDefaultOption(group) {
+  if (
+    normalizedModifierDefaultSelectionMode(group?.presentation?.defaultSelectionMode) !== "pos" ||
+    modifierProviderDefaultOptions(group).length
+  ) {
+    return null;
+  }
+  const suggestionIds = Array.isArray(group?.presentation?.suggestedDefaultOptionIds)
+    ? group.presentation.suggestedDefaultOptionIds
+    : [];
+  const options = Array.isArray(group?.options) ? group.options : [];
+  return suggestionIds.map((optionId) => options.find((option) => option?.id === optionId)).find(Boolean) || null;
+}
+
+function modifierDefaultVerificationHelpText(group) {
+  const mode = normalizedModifierDefaultSelectionMode(group?.presentation?.defaultSelectionMode);
+  const verified = modifierVerifiedDefaultOptions(group);
+  if (mode === "none") {
+    return "The standard item does not require a modifier selection from this group.";
+  }
+  if (mode === "options") {
+    return verified.length
+      ? "These choices were explicitly verified for this item and may be applied without asking."
+      : "The saved option is no longer available. Tavra will treat this group as having no verified default.";
+  }
+  if (verified.length) {
+    return "The connected POS explicitly identifies this default.";
+  }
+  return modifierSuggestedDefaultOption(group)
+    ? "Tavra found an unverified menu-pattern suggestion. It will not be applied unless you select it below."
+    : "The connected POS does not identify a default. Tavra will not guess from list order.";
+}
+
+function renderModifierDefaultVerification(itemId, group) {
+  const options = Array.isArray(group?.options) ? group.options : [];
+  if (!options.length) {
+    return "";
+  }
+  const groupId = typeof group?.id === "string" ? group.id : "";
+  const mode = normalizedModifierDefaultSelectionMode(group?.presentation?.defaultSelectionMode);
+  const selectedIds = new Set(
+    mode === "options" && Array.isArray(group?.presentation?.restaurantDefaultOptionIds)
+      ? group.presentation.restaurantDefaultOptionIds
+      : []
+  );
+  const maximumValue = group?.maxAllowed ?? group?.maxSelections;
+  const maximumAllowed = typeof maximumValue === "number" && Number.isFinite(maximumValue) ? maximumValue : null;
+  const allowsMultiple = maximumAllowed === null || maximumAllowed > 1;
+  const suggestion = modifierSuggestedDefaultOption(group);
+  const suggestionSource = group?.presentation?.defaultSuggestionSource;
+
+  return `
+    <div class="menu-modifier-field menu-modifier-default-verification">
+      <h5>Restaurant default</h5>
+      <label class="menu-modifier-default-choice">
+        <input
+          type="radio"
+          name="modifier-default-${escapeHTML(itemId)}-${escapeHTML(groupId)}"
+          value="pos"
+          data-admin-modifier-item-id="${escapeHTML(itemId)}"
+          data-admin-modifier-group-id="${escapeHTML(groupId)}"
+          data-admin-modifier-field="defaultSelectionMode"
+          ${mode === "pos" ? "checked" : ""}
+          ${portalState.adminSaving ? "disabled" : ""}
+        >
+        <span>Use POS-provided default</span>
+      </label>
+      <label class="menu-modifier-default-choice">
+        <input
+          type="radio"
+          name="modifier-default-${escapeHTML(itemId)}-${escapeHTML(groupId)}"
+          value="none"
+          data-admin-modifier-item-id="${escapeHTML(itemId)}"
+          data-admin-modifier-group-id="${escapeHTML(groupId)}"
+          data-admin-modifier-field="defaultSelectionMode"
+          ${mode === "none" ? "checked" : ""}
+          ${portalState.adminSaving ? "disabled" : ""}
+        >
+        <span>Standard item — no selected modifier</span>
+      </label>
+      <div class="menu-modifier-default-option-list">
+        ${options.map((option) => {
+          const optionId = typeof option?.id === "string" ? option.id : "";
+          const isSuggestion = suggestion?.id === optionId;
+          const suggestionLabel = isSuggestion
+            ? suggestionSource === "group_name"
+              ? " — unverified name suggestion"
+              : " — unverified first-option suggestion"
+            : "";
+          return `
+            <label class="menu-modifier-default-choice">
+              <input
+                type="${allowsMultiple ? "checkbox" : "radio"}"
+                ${allowsMultiple ? "" : `name="modifier-default-${escapeHTML(itemId)}-${escapeHTML(groupId)}"`}
+                value="${escapeHTML(optionId)}"
+                data-admin-modifier-item-id="${escapeHTML(itemId)}"
+                data-admin-modifier-group-id="${escapeHTML(groupId)}"
+                data-admin-modifier-option-id="${escapeHTML(optionId)}"
+                data-admin-modifier-field="restaurantDefaultOption"
+                ${selectedIds.has(optionId) ? "checked" : ""}
+                ${portalState.adminSaving ? "disabled" : ""}
+              >
+              <span>${escapeHTML(modifierOptionDisplayName(group, option))}${escapeHTML(suggestionLabel)}</span>
+            </label>
+          `;
+        }).join("")}
+      </div>
+      <p class="menu-modifier-muted">${escapeHTML(modifierDefaultVerificationHelpText(group))}</p>
+    </div>
+  `;
 }
 
 function modifierShouldAskForPreview(item, group) {
@@ -7286,43 +7489,14 @@ function modifierShouldAskForPreview(item, group) {
 }
 
 function modifierHasDefaultSelection(item, group) {
-  if (isIngredientModifierGroup(group)) {
-    return defaultIngredientModifierOptions(item, group).length > 0;
-  }
-  return Boolean(defaultModifierOption(group));
+  return modifierVerifiedDefaultOptions(group).length > 0;
 }
 
 function defaultModifierOption(group) {
-  const options = Array.isArray(group?.options) ? group.options : [];
-  const defaultId = typeof group?.defaultOptionId === "string" ? group.defaultOptionId : "";
-  return (defaultId ? options.find((option) => option.id === defaultId) : null) ||
-    options.find((option) => option.isDefault === true || option.defaultSelected === true) ||
-    null;
-}
-
-function defaultIngredientModifierOptions(item, group) {
-  if (!isIngredientModifierGroup(group)) {
-    return [];
-  }
-  const description = descriptionWithoutDietaryContains(item?.description || "");
-  const normalizedDescription = normalizedMenuKnowledgeText(description);
-  if (!normalizedDescription) {
-    return [];
-  }
-  return (Array.isArray(group?.options) ? group.options : []).filter((option) =>
-    modifierAliasesForPreview(group, option).some((alias) =>
-      containsNormalizedMenuKnowledgePhrase(normalizedDescription, normalizedMenuKnowledgeText(alias))
-    )
-  );
+  return modifierVerifiedDefaultOptions(group)[0] || null;
 }
 
 function modifierQuestionTemplateOptionName(item, group) {
-  if (modifierAskBehavior(group) === "always_ask" && isIngredientModifierGroup(group)) {
-    const defaultIngredientOption = defaultIngredientModifierOptions(item, group)[0] || null;
-    if (defaultIngredientOption) {
-      return modifierOptionDisplayName(group, defaultIngredientOption);
-    }
-  }
   return "";
 }
 
@@ -7358,7 +7532,7 @@ function modifierOptionDisplayName(group, option) {
 
 function modifierSampleOption(group) {
   const options = Array.isArray(group?.options) ? group.options : [];
-  return modifierOptionDisplayName(group, defaultModifierOption(group) || options[0] || null);
+  return modifierOptionDisplayName(group, defaultModifierOption(group) || modifierSuggestedDefaultOption(group) || options[0] || null);
 }
 
 function modifierOptionsSummary(group) {

@@ -1449,6 +1449,34 @@ body.portal-admin-page .portal-main-shell {
   line-height: 1;
 }
 
+.menu-modifier-default-verification {
+  padding: 12px;
+  border: 1px solid rgba(45, 168, 255, 0.22);
+  border-radius: 12px;
+  background: rgba(45, 168, 255, 0.06);
+}
+
+.menu-modifier-default-option-list {
+  display: grid;
+  gap: 7px;
+  padding-left: 12px;
+}
+
+.menu-modifier-default-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 14px;
+  font-weight: 620;
+  line-height: 1.35;
+}
+
+.menu-modifier-default-choice input {
+  margin-top: 2px;
+  accent-color: #2da8ff;
+}
+
 .menu-modifier-examples {
   display: grid;
   gap: 9px;
