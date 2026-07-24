@@ -223,19 +223,19 @@ const miscSmsLinkSourceOptions = [
   { value: "none", label: "No link" }
 ];
 const miscSmsMessages = {
-  business_hours: "View our hours here:",
-  directions_parking: "Get directions and parking information here:",
-  wait_times: "Check our wait-time and walk-in information here:",
-  dietary_allergies: "Review our dietary and allergy information here:",
-  large_party: "Review our large-party information here:",
-  private_events: "Review our private-events information here:",
-  catering: "View our catering information here:",
-  gift_cards: "Purchase a gift card here:",
-  loyalty_rewards: "Join or review our Rewards program here:",
-  lost_and_found: "Review our lost-and-found information here:",
-  complaints_feedback: "Share feedback with our team here:",
-  jobs_hiring: "Apply for a position here:",
-  events_entertainment: "View our events and entertainment schedule here:"
+  business_hours: "Here are the hours for [BusinessName]:",
+  directions_parking: "Here are directions and parking information for [BusinessName]:",
+  wait_times: "Here is the wait-time and walk-in information for [BusinessName]:",
+  dietary_allergies: "Here is the dietary and allergy information for [BusinessName]:",
+  large_party: "Here is the large-party information for [BusinessName]:",
+  private_events: "Here is the private dining and event information for [BusinessName]:",
+  catering: "Here is the catering information for [BusinessName]:",
+  gift_cards: "You can purchase a [BusinessName] gift card here:",
+  loyalty_rewards: "You can join or review the [BusinessName] Rewards program here:",
+  lost_and_found: "Here is the lost-and-found information for [BusinessName]:",
+  complaints_feedback: "You can share feedback with the [BusinessName] team here:",
+  jobs_hiring: "You can apply for a position at [BusinessName] here:",
+  events_entertainment: "Here is the events and entertainment schedule for [BusinessName]:"
 };
 const miscRoutingTargetOptions = [
   { value: "none", label: "No routing" },
@@ -7842,8 +7842,12 @@ function renderMiscRequestCategory(category) {
     : smsLinkSource === "source_url"
       ? category.sourceUrl || "https://example.com"
       : "";
-  const smsMessage = miscSmsMessages[key] || "More information:";
-  const smsPreview = `Tavra for [Restaurant]: ${smsMessage}${smsPreviewLink ? ` ${smsPreviewLink}` : ""} Reply STOP to opt out or HELP for help.`;
+  const smsMessage = (miscSmsMessages[key] || "Here is more information for [BusinessName]:")
+    .replaceAll("[BusinessName]", "[Restaurant]");
+  const renderedSmsMessage = !smsPreviewLink && smsMessage.endsWith(":")
+    ? `${smsMessage.slice(0, -1)}.`
+    : smsMessage;
+  const smsPreview = `${renderedSmsMessage}${smsPreviewLink ? ` ${smsPreviewLink}` : ""}\nReply STOP to opt out or HELP for help.`;
   return renderNestedDisclosure(
     category.displayName || category.categoryKey || "Caller question",
     `
