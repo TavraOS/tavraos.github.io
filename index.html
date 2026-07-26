@@ -118,8 +118,8 @@
     <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=demo-checkout-upsell-v2">
-    <script src="script.js?v=demo-checkout-upsell-v2" defer></script>
+    <link rel="stylesheet" href="styles.css?v=demo-capabilities-v1">
+    <script src="script.js?v=demo-capabilities-v1" defer></script>
   </head>
   <body>
     <header class="site-header" data-header>
@@ -301,13 +301,29 @@
                   </label>
                 </fieldset>
 
-                <div class="quick-buttons" aria-label="Add configuration items">
-                  <button type="button">+ Menu Item</button>
-                  <button type="button">+ Custom Answers</button>
-                  <button type="button">+ Events URL</button>
-                  <button type="button">+ Hours</button>
-                  <button type="button">+ Reservation Rules</button>
-                </div>
+                <fieldset class="quick-buttons" aria-label="On-call capabilities">
+                  <legend class="sr-only">On-call capabilities</legend>
+                  <label>
+                    <input type="checkbox" checked data-capability-toggle="menuItems">
+                    <span>Menu Items</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" checked data-capability-toggle="customAnswers">
+                    <span>Custom Answers</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" checked data-capability-toggle="eventsUrl">
+                    <span>Events URL</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" checked data-capability-toggle="hours">
+                    <span>Hours</span>
+                  </label>
+                  <label>
+                    <input type="checkbox" checked data-capability-toggle="reservationRules">
+                    <span>Reservation Rules</span>
+                  </label>
+                </fieldset>
 
                 <div class="toggle-row" aria-label="Demo toggles">
                   <label><input type="checkbox" checked data-session-toggle="delivery"> <span>Delivery</span></label>

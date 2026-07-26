@@ -29,6 +29,7 @@ const locationInput = document.querySelector("#location-name");
 const greetingTextarea = document.querySelector("#ai-greeting");
 const greetingHighlight = document.querySelector("[data-greeting-highlight]");
 const workflowToggles = Array.from(document.querySelectorAll("[data-workflow-toggle]"));
+const capabilityToggles = Array.from(document.querySelectorAll("[data-capability-toggle]"));
 const sessionToggles = Array.from(document.querySelectorAll("[data-session-toggle]"));
 const consolePreview = document.querySelector("[data-console-preview]");
 const previewStatus = document.querySelector("[data-preview-status]");
@@ -116,6 +117,7 @@ let demoMenuExpanded = false;
 let demoConfig = null;
 let demoConfigLoadState = "idle";
 let demoConfigLoadPromise = null;
+let capabilityConfigTouched = false;
 let activeWorkflow = "orders";
 let activeDemoCall = null;
 let activeDemoState = null;
@@ -207,9 +209,12 @@ function escapeRegExp(value) {
 
 function reservationsEnabledForGreeting() {
   const workflowEnabled = workflowToggles.some((toggle) => toggle.dataset.workflow === "reservations" && toggle.checked);
+  const reservationRulesEnabled = capabilityToggles.some(
+    (toggle) => toggle.dataset.capabilityToggle === "reservationRules" && toggle.checked
+  );
   const nativeBookEnabled = sessionToggles.some((toggle) => toggle.dataset.sessionToggle === "nativeBook" && toggle.checked);
   const configEnabled = configReservationsEnabled ? configReservationsEnabled.checked : true;
-  return workflowEnabled && nativeBookEnabled && configEnabled;
+  return workflowEnabled && reservationRulesEnabled && nativeBookEnabled && configEnabled;
 }
 
 function greetingTemplate(locationName) {
@@ -257,6 +262,16 @@ function workflowConfigPayload() {
     addedInfo: workflowToggles.some((toggle) => toggle.dataset.workflow === "addedInfo" && toggle.checked),
     reservations: workflowToggles.some((toggle) => toggle.dataset.workflow === "reservations" && toggle.checked)
   };
+}
+
+function capabilityConfigPayload() {
+  return capabilityToggles.reduce((payload, toggle) => {
+    const key = toggle.dataset.capabilityToggle;
+    if (key) {
+      payload[key] = toggle.checked;
+    }
+    return payload;
+  }, {});
 }
 
 function demoTogglePayload() {
@@ -481,6 +496,19 @@ function renderKitchenConfig(kitchenPrinting) {
 function applyDemoConfigPayload(payload) {
   demoConfig = payload && typeof payload === "object" ? payload : null;
   const sessionConfig = activeSessionConfig();
+  const capabilityConfig =
+    payload?.capabilityConfig && typeof payload.capabilityConfig === "object"
+      ? payload.capabilityConfig
+      : null;
+
+  if (!capabilityConfigTouched && capabilityConfig) {
+    capabilityToggles.forEach((toggle) => {
+      const key = toggle.dataset.capabilityToggle;
+      if (key && typeof capabilityConfig[key] === "boolean") {
+        toggle.checked = capabilityConfig[key];
+      }
+    });
+  }
 
   if (configReservationsEnabled) {
     configReservationsEnabled.checked = sessionConfig.reservations.reservationsEnabled !== false;
@@ -2084,6 +2112,7 @@ async function submitDemoCall(event) {
   setDemoCallStatus("Placing the demo call...", "loading");
   const voice = selectedVoicePayload();
   const workflowConfig = workflowConfigPayload();
+  const capabilityConfig = capabilityConfigPayload();
   const demoToggles = demoTogglePayload();
   const sessionConfig = collectSessionConfigPayload();
 
@@ -2092,6 +2121,7 @@ async function submitDemoCall(event) {
     callSid: null,
     status: "requesting",
     workflowConfig,
+    capabilityConfig,
     postCallPolls: 0
   };
   postCallScrollResetSessionId = null;
@@ -2116,6 +2146,7 @@ async function submitDemoCall(event) {
         voiceId: voice.voiceId,
         voiceLabel: voice.voiceLabel,
         workflowConfig,
+        capabilityConfig,
         demoToggles,
         sessionConfig
       })
@@ -2131,6 +2162,7 @@ async function submitDemoCall(event) {
       callSid: typeof payload.callSid === "string" ? payload.callSid : null,
       status: typeof payload.status === "string" ? payload.status : "requested",
       workflowConfig,
+      capabilityConfig,
       postCallPolls: 0
     };
     postCallScrollResetSessionId = null;
@@ -2690,6 +2722,34 @@ workflowToggles.forEach((toggle) => {
     ensureDemoConfigLoaded().catch(() => undefined);
     activeWorkflow = toggle.dataset.workflow || activeWorkflow;
     renderWorkflowPreview();
+  });
+});
+capabilityToggles.forEach((toggle) => {
+  toggle.addEventListener("change", () => {
+    capabilityConfigTouched = true;
+    ensureDemoConfigLoaded().catch(() => ensureDemoMenuLoaded());
+    const capabilityWorkflow = {
+      menuItems: "orders",
+      customAnswers: "addedInfo",
+      eventsUrl: "addedInfo",
+      hours: "addedInfo",
+      reservationRules: "reservations"
+    };
+    activeWorkflow = capabilityWorkflow[toggle.dataset.capabilityToggle] || activeWorkflow;
+    activeDemoCall = null;
+    activeDemoState = null;
+    activeOperationsTile = "callLogs";
+    resetReservationFieldHighlights();
+    stopDemoStatePolling();
+    syncGreetingToLocation();
+    renderConfigSummaries();
+    renderWorkflowPreview();
+    if (activeWorkflow === "orders" && toggle.checked) {
+      ensureDemoMenuLoaded();
+    }
+  });
+  toggle.addEventListener("focus", () => {
+    ensureDemoConfigLoaded().catch(() => undefined);
   });
 });
 sessionToggles.forEach((toggle) => {
