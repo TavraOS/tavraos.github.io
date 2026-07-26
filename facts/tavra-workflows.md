@@ -5,6 +5,8 @@ Tavra public pages may describe these restaurant phone workflows:
 - Phone answering for restaurant calls.
 - Rush-hour and after-hours call coverage.
 - To-go order taking, menu-question handling, modifiers, readback, and secure checkout.
+- Restaurant-configured Upsell offers for eligible same-item paid add-ons, with one optional prompt after required choices are resolved.
+- Automatic English and Spanish call handling across ordering, reservations, confirmations, checkout prompts, and common restaurant questions while preserving configured menu item names.
 - Reservation request capture.
 - Native Tavra Reservation Book workflows.
 - Custom caller questions about hours, directions, parking, accessibility, wait times, walk-ins, dietary needs, large parties, private dining, catering, gift cards, loyalty, lost and found, complaints, jobs, events, and entertainment.

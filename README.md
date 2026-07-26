@@ -26,6 +26,7 @@ Current page structure:
 - Demo builder scaffold
 - Voice + text workflow section
 - Restaurant capability/proof band
+- Upsell Engine and English/Spanish feature spotlight
 - Phone operations feature grid
 - Workflow list
 - Tavra agent/persona cards
