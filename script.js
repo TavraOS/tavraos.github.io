@@ -50,10 +50,13 @@ const configQuestionsList = document.querySelector("[data-config-questions-list]
 const configHandoffList = document.querySelector("[data-config-handoff-list]");
 const configKitchenEnabled = document.querySelector("[data-config-kitchen-enabled]");
 const configKitchenTargets = document.querySelector("[data-config-kitchen-targets]");
+const configSalesTaxEnabled = document.querySelector("[data-config-sales-tax-enabled]");
+const configSalesTaxRate = document.querySelector("[data-config-sales-tax-rate]");
 const configReservationsSummary = document.querySelector("[data-config-reservations-summary]");
 const configQuestionsSummary = document.querySelector("[data-config-questions-summary]");
 const configHandoffSummary = document.querySelector("[data-config-handoff-summary]");
 const configKitchenSummary = document.querySelector("[data-config-kitchen-summary]");
+const configSalesTaxSummary = document.querySelector("[data-config-sales-tax-summary]");
 const contactForm = document.querySelector("[data-contact-form]");
 const contactStatus = document.querySelector("[data-contact-status]");
 const contactPhoneInput = contactForm?.querySelector("input[name='phone']");
@@ -267,6 +270,9 @@ function demoTogglePayload() {
 }
 
 function numberFromInput(input, fallback) {
+  if (!input || String(input.value).trim() === "") {
+    return fallback;
+  }
   const value = Number(input?.value);
   return Number.isFinite(value) ? value : fallback;
 }
@@ -312,6 +318,10 @@ function fallbackSessionConfig() {
     kitchenPrinting: {
       enabled: true,
       targets: []
+    },
+    salesTax: {
+      enabled: true,
+      ratePercent: 8.25
     }
   };
 }
@@ -484,6 +494,13 @@ function applyDemoConfigPayload(payload) {
   if (configMaxParty) {
     configMaxParty.value = sessionConfig.reservations.maxPartySize ?? 12;
   }
+  const salesTax = sessionConfig.salesTax || fallbackSessionConfig().salesTax;
+  if (configSalesTaxEnabled) {
+    configSalesTaxEnabled.checked = salesTax.enabled !== false;
+  }
+  if (configSalesTaxRate) {
+    configSalesTaxRate.value = salesTax.ratePercent ?? 8.25;
+  }
 
   renderQuestionConfig(Array.isArray(sessionConfig.otherQuestions) ? sessionConfig.otherQuestions : []);
   renderHandoffConfig(Array.isArray(sessionConfig.handoffRoutes) ? sessionConfig.handoffRoutes : []);
@@ -530,6 +547,11 @@ function renderConfigSummaries() {
       ? `${enabledTargets || "Default"} target${enabledTargets === 1 ? "" : "s"}`
       : "Off this call";
   }
+  if (configSalesTaxSummary) {
+    configSalesTaxSummary.textContent = config.salesTax.enabled
+      ? `${Number(config.salesTax.ratePercent.toFixed(4))}%`
+      : "Off this call";
+  }
 }
 
 function collectSessionConfigPayload() {
@@ -542,6 +564,13 @@ function collectSessionConfigPayload() {
       defaultReservationStatus: configReservationStatus?.value || base.reservations.defaultReservationStatus || "requested",
       minPartySize: numberFromInput(configMinParty, base.reservations.minPartySize ?? 1),
       maxPartySize: numberFromInput(configMaxParty, base.reservations.maxPartySize ?? 12)
+    },
+    salesTax: {
+      enabled: configSalesTaxEnabled ? configSalesTaxEnabled.checked : base.salesTax?.enabled !== false,
+      ratePercent: Math.min(
+        25,
+        Math.max(0, numberFromInput(configSalesTaxRate, base.salesTax?.ratePercent ?? 8.25))
+      )
     },
     otherQuestions: Array.from(document.querySelectorAll("[data-question-key]")).map((row) => {
       const categoryKey = row.dataset.questionKey;

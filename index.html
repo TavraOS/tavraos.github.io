@@ -95,7 +95,7 @@
                 "name": "How does Tavra help increase average tickets?",
                 "acceptedAnswer": {
                   "@type": "Answer",
-                  "text": "Restaurants configure the exact paid add-ons Tavra may offer for eligible ordered items. Tavra makes one natural upsell offer after required choices are resolved and applies an accepted option to the correct item."
+                  "text": "Restaurants configure the exact paid add-ons Tavra may offer for eligible ordered items. After required choices are resolved, Tavra makes a concise, line-specific offer for each eligible item and applies every accepted add-on to the correct order line."
                 }
               },
               {
@@ -118,8 +118,8 @@
     <link rel="icon" href="/favicon-48.png" sizes="48x48" type="image/png">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     <link rel="manifest" href="/site.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=upsell-bilingual-sms-v1">
-    <script src="script.js?v=upsell-bilingual-sms-v1" defer></script>
+    <link rel="stylesheet" href="styles.css?v=demo-checkout-upsell-v2">
+    <script src="script.js?v=demo-checkout-upsell-v2" defer></script>
   </head>
   <body>
     <header class="site-header" data-header>
@@ -365,6 +365,23 @@
                     </div>
                   </details>
 
+                  <details class="config-module" open>
+                    <summary>
+                      <span>Sales tax</span>
+                      <small data-config-sales-tax-summary>Demo total</small>
+                    </summary>
+                    <div class="config-grid">
+                      <label class="config-switch">
+                        <input type="checkbox" data-config-sales-tax-enabled checked>
+                        <span>Apply sales tax during this demo call</span>
+                      </label>
+                      <label>
+                        <span>Tax rate (%)</span>
+                        <input type="number" min="0" max="25" step="0.001" inputmode="decimal" value="8.25" data-config-sales-tax-rate>
+                      </label>
+                    </div>
+                  </details>
+
                   <details class="config-module">
                     <summary>
                       <span>Kitchen printing</span>
@@ -579,8 +596,8 @@
               <span class="spotlight-icon" aria-hidden="true">↗</span>
               <span class="spotlight-tag">Ticket growth</span>
             </div>
-            <h3>Your best upsell, offered on every eligible call</h3>
-            <p>Owners choose the eligible menu item, the exact paid add-ons Tavra should promote, and how the question should sound. Tavra waits until required choices are resolved, makes one natural offer, and applies an accepted add-on to the right item.</p>
+            <h3>Your best upsell, offered on every eligible item</h3>
+            <p>Owners choose the eligible menu item, the exact paid add-ons, and how the question should sound. Once required choices are resolved, Tavra makes a concise offer for each eligible order line and attaches every yes to the right item—creating more chances to lift the ticket without adding another task for staff.</p>
             <ul class="spotlight-points">
               <li>Promote the add-ons your restaurant actually wants to sell.</li>
               <li>Keep suggestive selling consistent—even in the middle of the rush.</li>
@@ -776,7 +793,7 @@
           <dt>Does Tavra replace staff?</dt>
           <dd>No. Tavra helps handle phone work and routes calls to humans when the restaurant wants staff involved.</dd>
           <dt>How does Tavra help increase average tickets?</dt>
-          <dd>Restaurants configure the exact paid add-ons Tavra may offer for eligible ordered items. Tavra waits until required choices are resolved, makes one natural upsell offer, and applies an accepted option to the correct item without continuing to push after a decline.</dd>
+          <dd>Restaurants configure the exact paid add-ons Tavra may offer for eligible ordered items. Once required choices are resolved, Tavra makes a concise, line-specific offer for each eligible item, applies accepted add-ons to the correct order line, and moves on when a guest declines.</dd>
           <dt>Can Tavra handle calls in Spanish?</dt>
           <dd>Yes. Tavra supports automatic English and Spanish call handling across to-go ordering, modifier choices, checkout prompts, reservations, confirmations, and common restaurant questions while preserving configured menu item names.</dd>
         </dl>

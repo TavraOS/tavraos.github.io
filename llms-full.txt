@@ -10,7 +10,7 @@ Tavra is for restaurant owners, operators, general managers, and staff teams tha
 
 - Restaurant phone answering.
 - To-go order taking, menu-question handling, modifiers, readback, and secure checkout.
-- Restaurant-configured Upsell rules for eligible same-item paid add-ons. Tavra may make one optional offer after required choices are resolved and applies an accepted add-on to the correct ordered item. This is not a claim of cross-sells, bundles, or AI-generated offers.
+- Restaurant-configured Upsell rules for eligible same-item paid add-ons. After required choices are resolved, Tavra may make a concise, line-specific offer for each eligible ordered item and applies every accepted add-on to the correct line. A decline closes that line. This is not a claim of cross-sells, bundles, or AI-generated offers.
 - Automatic English and Spanish call handling for ordering, modifier choices, totals, checkout prompts, reservations, confirmations, and common restaurant questions. Configured menu item names are preserved; this should not be described as unrestricted translation of arbitrary owner-provided content.
 - Reservation request capture, including party size, date, time, guest name, callback number, notes, allergies, and special requests.
 - Native Tavra Reservation Book workflows.

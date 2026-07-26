@@ -8,7 +8,7 @@ Tavra is a restaurant AI phone operations platform. It is built for restaurants 
 
 - Answers restaurant phone calls.
 - Handles phone workflows for to-go orders, secure checkout, menu questions, reservation requests, custom caller questions, routing, notes, and staff or owner notifications.
-- Supports restaurant-configured Upsell rules for eligible same-item paid add-ons. Owners choose the eligible ordered item, paid modifier options, and optional wording; Tavra makes one natural offer after required choices are resolved and does not keep pushing after a decline.
+- Supports restaurant-configured Upsell rules for eligible same-item paid add-ons. Owners choose the eligible ordered item, paid modifier options, and optional wording; after required choices are resolved, Tavra makes a concise, line-specific offer for each eligible item, applies accepted add-ons to the correct line, and closes a line after a decline.
 - Supports automatic English and Spanish call handling across ordering, modifier choices, checkout prompts, reservations, confirmations, and common restaurant questions while preserving configured menu item names.
 - Supports a Native Tavra Reservation Book for restaurants that need a Tavra-owned reservation workflow.
 - Creates staff-facing Operations records and supports System Fallback behavior that separates local store-device outages, provider API/auth failures, and kitchen printer status after an order is accepted.
