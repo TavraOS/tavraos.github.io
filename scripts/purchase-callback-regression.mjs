@@ -234,6 +234,8 @@ assert.match(indexHtml, /<script src="script\.js\?v=demo-capabilities-v2" defer>
 
 assert.match(signupHtml, /name="purchaseCheckoutSessionId"[^>]+data-signup-purchase-session/);
 assert.match(signupSource, /purchaseCheckoutSessionId,/);
+assert.match(signupSource, /purchaseKind,/);
+assert.match(signupSource, /print_test/);
 assert.match(signupSource, /pilotCheckoutSessionId: createBusiness && purchaseKind === "pilot"/);
 assert.match(signupSource, /Tavra Core purchase return — \$399\/month/);
 assert.match(signupSource, /Tavra will verify the returned Checkout before applying regular Tavra Core/);
@@ -242,6 +244,8 @@ const signupSubmitSource = sourceSlice(signupSource, "async function submitSignu
 assert.match(signupSubmitSource, /const fulfilledPurchaseKind = normalizePurchaseKind\(body\?\.purchaseKind\);/);
 assert.doesNotMatch(signupSubmitSource, /purchaseProductName\(signupForm\.dataset\.purchaseKind\)/);
 assert.match(portalSource, /purchaseCheckoutSessionId: purchase\.sessionId/);
+assert.match(portalSource, /purchaseKind: purchase\.kind/);
+assert.match(portalSource, /print_test/);
 assert.match(portalSource, /purchase\.kind === "pilot" \? \{ pilotCheckoutSessionId: purchase\.sessionId \}/);
 assert.match(portalSource, /This return indicates Tavra Core at \$399\/month/);
 assert.match(portalSource, /Tavra will verify the Checkout before applying it/);
@@ -258,6 +262,6 @@ assert.doesNotMatch(portalClaimSource, /pendingPurchaseProductName\(purchase\.ki
 assert.doesNotMatch(portalClaimSource, /\$\{productName\}|\$\{productDetail\}/);
 assert.match(portalClaimSource, /const claimedKind = normalizePendingPurchaseKind\(payload\?\.purchaseKind\);/);
 assert.doesNotMatch(portalClaimSource, /normalizePendingPurchaseKind\(payload\?\.purchaseKind\) \|\| purchase\.kind/);
-assert.match(portalHtml, /portal\.js\?v=20260718-core-evaluation-exact-owner-v2/);
+assert.match(portalHtml, /portal\.js\?v=20260729-square-print-test-v1/);
 
 console.log("Website purchase callback regression passed.");

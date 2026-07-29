@@ -526,6 +526,7 @@ function normalizePendingPurchaseKind(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (normalized === "core") return "core";
   if (normalized === "core_evaluation") return "core_evaluation";
+  if (normalized === "print_test" || normalized === "square_print_test") return "print_test";
   if (normalized === "pilot" || normalized === "pilot_program") return "pilot";
   return "";
 }
@@ -588,6 +589,7 @@ function clearPendingPurchase() {
 function pendingPurchaseProductName(kind) {
   const normalizedKind = normalizePendingPurchaseKind(kind);
   if (normalizedKind === "core" || normalizedKind === "core_evaluation") return "Tavra Core";
+  if (normalizedKind === "print_test") return "Tavra Core — Square Live Print Test";
   if (normalizedKind === "pilot") return "Tavra Pilot";
   return "";
 }
@@ -2361,6 +2363,7 @@ async function claimPendingPurchase() {
       method: "POST",
       body: JSON.stringify({
         purchaseCheckoutSessionId: purchase.sessionId,
+        purchaseKind: purchase.kind,
         ...(purchase.kind === "pilot" ? { pilotCheckoutSessionId: purchase.sessionId } : {})
       })
     });
@@ -2374,7 +2377,11 @@ async function claimPendingPurchase() {
         message: `Your paid Tavra purchase is applied to ${payload?.business?.name || businessName}, but Tavra could not confirm the product type in this response. Contact your Tavra salesperson before continuing.`
       };
     }
-    const claimedProductDetail = claimedKind === "core" || claimedKind === "core_evaluation" ? " at $399/month" : "";
+    const claimedProductDetail = claimedKind === "core" || claimedKind === "core_evaluation"
+      ? " at $399/month"
+      : claimedKind === "print_test"
+        ? " for one month with no renewal"
+        : "";
     return {
       claimed: true,
       message: `${claimedProductName}${claimedProductDetail} is now applied to ${payload?.business?.name || businessName}.`
@@ -2384,6 +2391,7 @@ async function claimPendingPurchase() {
     if (
       message === "pilot_checkout_email_mismatch" ||
       message === "pilot_account_email_mismatch" ||
+      message === "print_test_account_email_mismatch" ||
       message === "core_account_email_mismatch" ||
       message === "core_evaluation_account_email_mismatch"
     ) {
@@ -2404,6 +2412,7 @@ async function claimPendingPurchase() {
     }
     if (
       message === "pilot_checkout_stripe_email_mismatch" ||
+      message === "print_test_checkout_stripe_email_mismatch" ||
       message === "core_checkout_stripe_email_mismatch" ||
       message === "core_evaluation_checkout_stripe_email_mismatch"
     ) {
