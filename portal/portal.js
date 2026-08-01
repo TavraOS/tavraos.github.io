@@ -384,7 +384,21 @@ let portalState = {
   foodOrdersLoaded: false,
   foodOrdersLoading: false,
   foodOrdersError: "",
+  foodOrdersContext: null,
+  foodOrdersSection: "current",
   foodOrderFilter: "active",
+  foodOrderHistory: [],
+  foodOrderHistoryNextCursor: null,
+  foodOrderHistoryLoaded: false,
+  foodOrderHistoryLoading: false,
+  foodOrderHistoryLoadingMore: false,
+  foodOrderHistorySearch: "",
+  foodOrderHistoryDateFilter: "last7Days",
+  foodOrderHistoryStatusFilter: "all",
+  foodOrderHistoryCustomFrom: "",
+  foodOrderHistoryCustomTo: "",
+  foodOrderHistoryRefreshTimer: null,
+  foodOrderEndingShift: false,
   expandedFoodOrderIds: new Set(),
   foodOrderUpdatingId: null,
   foodOrdersLiveQuery: {
@@ -661,6 +675,23 @@ function resetBusinessScopedPortalState() {
   portalState.foodOrdersLoaded = false;
   portalState.foodOrdersLoading = false;
   portalState.foodOrdersError = "";
+  portalState.foodOrdersContext = null;
+  portalState.foodOrdersSection = "current";
+  portalState.foodOrderHistory = [];
+  portalState.foodOrderHistoryNextCursor = null;
+  portalState.foodOrderHistoryLoaded = false;
+  portalState.foodOrderHistoryLoading = false;
+  portalState.foodOrderHistoryLoadingMore = false;
+  portalState.foodOrderHistorySearch = "";
+  portalState.foodOrderHistoryDateFilter = "last7Days";
+  portalState.foodOrderHistoryStatusFilter = "all";
+  portalState.foodOrderHistoryCustomFrom = "";
+  portalState.foodOrderHistoryCustomTo = "";
+  if (portalState.foodOrderHistoryRefreshTimer) {
+    window.clearTimeout(portalState.foodOrderHistoryRefreshTimer);
+  }
+  portalState.foodOrderHistoryRefreshTimer = null;
+  portalState.foodOrderEndingShift = false;
   portalState.expandedFoodOrderIds = new Set();
   portalState.foodOrderUpdatingId = null;
 
@@ -984,8 +1015,9 @@ async function refreshPortalFoodOrdersFromLiveQuery() {
     return;
   }
   try {
-    const payload = await apiRequest("/operations/food-orders?limit=100", { method: "GET" });
-    portalState.foodOrders = Array.isArray(payload.orders) ? payload.orders : [];
+    const payload = await fetchAllPortalCurrentFoodOrders();
+    portalState.foodOrders = payload.orders;
+    portalState.foodOrdersContext = payload.context;
     portalState.foodOrdersLoaded = true;
     portalState.foodOrdersError = "";
     if (portalState.section === "foodOrders") {
@@ -1978,14 +2010,124 @@ async function loadPortalFoodOrders() {
   portalState.foodOrdersError = "";
   renderFoodOrdersInbox();
   try {
-    const payload = await apiRequest("/operations/food-orders?limit=100", { method: "GET" });
-    portalState.foodOrders = Array.isArray(payload.orders) ? payload.orders : [];
+    const payload = await fetchAllPortalCurrentFoodOrders();
+    portalState.foodOrders = payload.orders;
+    portalState.foodOrdersContext = payload.context;
     portalState.foodOrdersLoaded = true;
     void startPortalFoodOrdersLiveQuery();
   } catch (error) {
     portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
   } finally {
     portalState.foodOrdersLoading = false;
+    renderFoodOrdersInbox();
+  }
+}
+
+async function fetchPortalFoodOrderPage({
+  view,
+  cursor = "",
+  limit = 200,
+  search = "",
+  fromDay = "",
+  toDay = "",
+  statuses = []
+}) {
+  const query = new URLSearchParams({ view, limit: String(limit) });
+  if (cursor) query.set("cursor", cursor);
+  if (search.trim()) query.set("search", search.trim());
+  if (fromDay) query.set("fromDay", fromDay);
+  if (toDay) query.set("toDay", toDay);
+  if (statuses.length) query.set("statuses", statuses.join(","));
+  return apiRequest(`/operations/food-orders?${query.toString()}`, { method: "GET" });
+}
+
+async function fetchAllPortalCurrentFoodOrders() {
+  const orders = [];
+  const seenIds = new Set();
+  const seenCursors = new Set();
+  let cursor = "";
+  let context = null;
+  do {
+    const page = await fetchPortalFoodOrderPage({ view: "current", cursor, limit: 200 });
+    context = page.context || context;
+    for (const order of Array.isArray(page.orders) ? page.orders : []) {
+      const id = foodOrderId(order);
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        orders.push(order);
+      }
+    }
+    cursor = String(page.nextCursor || "");
+    if (cursor && seenCursors.has(cursor)) {
+      throw new Error("Food Order pagination returned a repeated cursor.");
+    }
+    if (cursor) seenCursors.add(cursor);
+  } while (cursor);
+  if (!context) {
+    throw new Error("Food Order operational context was missing.");
+  }
+  return { orders, context };
+}
+
+async function loadPortalFoodOrderHistory({ reset = true } = {}) {
+  if ((reset && portalState.foodOrderHistoryLoading) || (!reset && portalState.foodOrderHistoryLoadingMore)) {
+    return;
+  }
+  if (!reset && !portalState.foodOrderHistoryNextCursor) {
+    return;
+  }
+  if (reset) {
+    portalState.foodOrderHistoryLoading = true;
+  } else {
+    portalState.foodOrderHistoryLoadingMore = true;
+  }
+  portalState.foodOrdersError = "";
+  renderFoodOrdersInbox();
+  try {
+    const filters = portalFoodOrderHistoryFilters();
+    const page = await fetchPortalFoodOrderPage({
+      view: "history",
+      cursor: reset ? "" : portalState.foodOrderHistoryNextCursor,
+      limit: 50,
+      ...filters
+    });
+    const incoming = Array.isArray(page.orders) ? page.orders : [];
+    if (reset) {
+      portalState.foodOrderHistory = incoming;
+    } else {
+      const seen = new Set(portalState.foodOrderHistory.map(foodOrderId));
+      portalState.foodOrderHistory.push(...incoming.filter((order) => !seen.has(foodOrderId(order)) && seen.add(foodOrderId(order))));
+    }
+    portalState.foodOrderHistoryNextCursor = String(page.nextCursor || "");
+    portalState.foodOrdersContext = page.context || portalState.foodOrdersContext;
+    portalState.foodOrderHistoryLoaded = true;
+  } catch (error) {
+    portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.foodOrderHistoryLoading = false;
+    portalState.foodOrderHistoryLoadingMore = false;
+    renderFoodOrdersInbox();
+  }
+}
+
+async function endPortalFoodOrderShift() {
+  if (portalState.foodOrderEndingShift) return;
+  const confirmed = window.confirm(
+    "End the current shift? Completed and cancelled orders will move to History. Active orders and orders needing attention will remain in Current."
+  );
+  if (!confirmed) return;
+  portalState.foodOrderEndingShift = true;
+  portalState.foodOrdersError = "";
+  renderFoodOrdersInbox();
+  try {
+    const payload = await apiRequest("/operations/food-orders/end-shift", { method: "POST" });
+    portalState.foodOrdersContext = payload.context || portalState.foodOrdersContext;
+    await loadPortalFoodOrders();
+    portalState.foodOrderHistoryLoaded = false;
+  } catch (error) {
+    portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
+  } finally {
+    portalState.foodOrderEndingShift = false;
     renderFoodOrdersInbox();
   }
 }
@@ -1998,16 +2140,13 @@ async function updatePortalFoodOrderStatus(orderId, status) {
   portalState.foodOrdersError = "";
   renderFoodOrdersInbox();
   try {
-    const payload = await apiRequest(`/operations/food-orders/${encodeURIComponent(orderId)}/status`, {
+    await apiRequest(`/operations/food-orders/${encodeURIComponent(orderId)}/status`, {
       method: "PUT",
       body: JSON.stringify({ status })
     });
-    if (payload.order) {
-      portalState.foodOrders = portalState.foodOrders.map((order) => {
-        const currentId = foodOrderId(order);
-        return currentId === orderId ? payload.order : order;
-      });
-    }
+    const payload = await fetchAllPortalCurrentFoodOrders();
+    portalState.foodOrders = payload.orders;
+    portalState.foodOrdersContext = payload.context;
   } catch (error) {
     portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
   } finally {
@@ -3736,12 +3875,14 @@ function renderFoodOrdersInbox() {
     return;
   }
 
+  const showingHistory = portalState.foodOrdersSection === "history";
   const activeFilter = foodOrderFilterForKey(portalState.foodOrderFilter);
   const filteredOrders = filteredFoodOrders(activeFilter.key);
   const statusMessage = portalState.foodOrdersError
     ? `<div class="food-order-status-message error">Food orders failed to load: ${escapeHTML(portalState.foodOrdersError)}</div>`
-    : portalState.foodOrdersLoading && !portalState.foodOrdersLoaded
-      ? `<div class="food-order-status-message">Loading food orders...</div>`
+    : (!showingHistory && portalState.foodOrdersLoading && !portalState.foodOrdersLoaded) ||
+        (showingHistory && portalState.foodOrderHistoryLoading && !portalState.foodOrderHistoryLoaded)
+      ? `<div class="food-order-status-message">Loading ${showingHistory ? "order history" : "food orders"}...</div>`
       : "";
 
   portalContent.innerHTML = `
@@ -3749,29 +3890,97 @@ function renderFoodOrdersInbox() {
       <div class="food-orders-shell">
         <div class="food-orders-top">
           <h1 id="food-orders-title">Food Orders</h1>
-          <button class="food-order-refresh" type="button" data-food-order-refresh ${portalState.foodOrdersLoading ? "disabled" : ""}>
-            <span aria-hidden="true">↻</span>
-            <span>Refresh</span>
-          </button>
-        </div>
-
-        <div class="food-order-metric-grid" aria-label="Food order filters">
-          ${foodOrderFilters.map(renderFoodOrderMetric).join("")}
+          <div class="food-order-top-actions">
+            <button class="food-order-section-toggle" type="button" data-food-order-section-toggle>
+              <span aria-hidden="true">${showingHistory ? "▣" : "◷"}</span>
+              <span>${showingHistory ? "Current" : "History"}</span>
+            </button>
+            <button class="food-order-refresh" type="button" data-food-order-refresh ${portalState.foodOrdersLoading || portalState.foodOrderHistoryLoading ? "disabled" : ""}>
+              <span aria-hidden="true">↻</span>
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         ${statusMessage}
 
-        <div class="food-order-group">
-          <h2>${escapeHTML(activeFilter.title)}</h2>
-          ${filteredOrders.length
-            ? filteredOrders.map((order) => renderFoodOrderCard(order, permission.write)).join("")
-            : `<article class="food-order-empty">${escapeHTML(activeFilter.emptyText)}</article>`
-          }
-        </div>
+        ${showingHistory ? renderFoodOrderHistory() : `
+          <div class="food-order-metric-grid" aria-label="Current food order filters">
+            ${foodOrderFilters.map(renderFoodOrderMetric).join("")}
+          </div>
+          <div class="food-order-current-policy">
+            <p>Completed and cancelled orders move to History after the restaurant’s 4 AM day boundary. Unresolved orders stay in Current.</p>
+            ${permission.write ? `<button type="button" data-food-order-end-shift ${portalState.foodOrderEndingShift ? "disabled" : ""}>${portalState.foodOrderEndingShift ? "Ending…" : "End Shift"}</button>` : ""}
+          </div>
+          <div class="food-order-group">
+            <h2>${escapeHTML(activeFilter.title)}</h2>
+            ${filteredOrders.length
+              ? filteredOrders.map((order) => renderFoodOrderCard(order, permission.write, false)).join("")
+              : `<article class="food-order-empty">${escapeHTML(activeFilter.emptyText)}</article>`
+            }
+          </div>
+        `}
       </div>
     </section>
   `;
   wireFoodOrdersEvents();
+}
+
+function renderFoodOrderHistory() {
+  const groups = portalFoodOrderHistoryGroups();
+  const custom = portalState.foodOrderHistoryDateFilter === "custom";
+  const currentDay = portalState.foodOrdersContext?.operationalDayKey || dateKeyForToday();
+  const customFrom = portalState.foodOrderHistoryCustomFrom || currentDay;
+  const customTo = portalState.foodOrderHistoryCustomTo || currentDay;
+  return `
+    <div class="food-order-history-controls">
+      <label class="food-order-history-search">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" value="${escapeHTML(portalState.foodOrderHistorySearch)}" placeholder="Name, phone, item, order or POS ID" data-food-order-history-search>
+      </label>
+      <div class="food-order-history-filters">
+        <label>
+          <span>Date</span>
+          <select data-food-order-history-date>
+            ${[
+              ["today", "Today"],
+              ["yesterday", "Yesterday"],
+              ["last7Days", "Last 7 Days"],
+              ["last30Days", "Last 30 Days"],
+              ["custom", "Custom"]
+            ].map(([value, label]) => `<option value="${value}" ${portalState.foodOrderHistoryDateFilter === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          <span>Status</span>
+          <select data-food-order-history-status>
+            <option value="all" ${portalState.foodOrderHistoryStatusFilter === "all" ? "selected" : ""}>All</option>
+            <option value="completed" ${portalState.foodOrderHistoryStatusFilter === "completed" ? "selected" : ""}>Completed</option>
+            <option value="cancelled" ${portalState.foodOrderHistoryStatusFilter === "cancelled" ? "selected" : ""}>Cancelled</option>
+          </select>
+        </label>
+      </div>
+      ${custom ? `
+        <div class="food-order-history-custom-range">
+          <label>From <input type="date" value="${escapeHTML(customFrom)}" data-food-order-history-from></label>
+          <label>To <input type="date" value="${escapeHTML(customTo)}" data-food-order-history-to></label>
+        </div>
+      ` : ""}
+    </div>
+    ${groups.length ? groups.map((group) => `
+      <div class="food-order-group history-group">
+        <h2>${escapeHTML(portalFoodOrderHistoryDayLabel(group.dayKey))}</h2>
+        ${group.orders.map((order) => renderFoodOrderCard(order, false, true)).join("")}
+      </div>
+    `).join("") : (!portalState.foodOrderHistoryLoading
+      ? `<article class="food-order-empty">No completed or cancelled orders match these History filters.</article>`
+      : "")}
+    ${portalState.foodOrderHistoryNextCursor ? `
+      <button class="food-order-history-more" type="button" data-food-order-history-more ${portalState.foodOrderHistoryLoadingMore ? "disabled" : ""}>
+        ${portalState.foodOrderHistoryLoadingMore ? "Loading…" : "Load More Orders"}
+      </button>
+    ` : ""}
+  `;
 }
 
 function renderFoodOrderMetric(filter) {
@@ -3790,7 +3999,7 @@ function renderFoodOrderMetric(filter) {
   `;
 }
 
-function renderFoodOrderCard(order, canWrite) {
+function renderFoodOrderCard(order, canWrite, isHistory = false) {
   const orderId = foodOrderId(order);
   const expanded = portalState.expandedFoodOrderIds.has(orderId);
   const display = foodOrderStatusDisplay(order);
@@ -3800,8 +4009,9 @@ function renderFoodOrderCard(order, canWrite) {
       <button class="food-order-card-main" type="button" data-food-order-toggle="${escapeHTML(orderId)}" aria-expanded="${expanded ? "true" : "false"}">
         <div class="food-order-card-head">
           <div>
-            <strong>${escapeHTML(foodOrderSubmittedText(order))}</strong>
+            <strong><span class="food-order-submitted-glyph" aria-hidden="true">◉</span>${escapeHTML(foodOrderSubmittedText(order))}</strong>
             <span>${escapeHTML(foodOrderCustomerLine(order))}</span>
+            ${order.isCarriedOver ? `<span class="food-order-carryover">↪ Carried over from a previous operational day</span>` : ""}
           </div>
           <div class="food-order-card-actions">
             <span class="food-order-badge ${display.kind}">${escapeHTML(display.label)}</span>
@@ -3815,12 +4025,12 @@ function renderFoodOrderCard(order, canWrite) {
         ${foodOrderItemPreview(order) ? `<p class="food-order-preview">${escapeHTML(foodOrderItemPreview(order))}</p>` : ""}
         ${warnings.slice(0, 2).map((warning) => `<p class="food-order-warning">⚠ ${escapeHTML(warning)}</p>`).join("")}
       </button>
-      ${expanded ? renderFoodOrderExpanded(order, canWrite) : ""}
+      ${expanded ? renderFoodOrderExpanded(order, canWrite, isHistory) : ""}
     </article>
   `;
 }
 
-function renderFoodOrderExpanded(order, canWrite) {
+function renderFoodOrderExpanded(order, canWrite, isHistory = false) {
   const items = foodOrderLineItems(order);
   const orderId = foodOrderId(order);
   const actions = foodOrderAvailableActions(order);
@@ -3853,7 +4063,11 @@ function renderFoodOrderExpanded(order, canWrite) {
         ${issue ? renderFoodOrderDetail("Issue", issue) : ""}
       </div>
 
-      ${canWrite && actions.length ? `
+      ${isHistory && order.callLogId && modulePermission("callLogs").read ? `
+        <button class="food-order-call-log-link" type="button" data-food-order-call-log="${escapeHTML(order.callLogId)}">☎ View Associated Call Log</button>
+      ` : ""}
+
+      ${canWrite && !isHistory && actions.length ? `
         <section class="food-order-move-panel" aria-label="Move order">
           <h3>Move order</h3>
           <div class="food-order-action-row">
@@ -3909,7 +4123,21 @@ function renderFoodOrderDetail(title, value) {
 
 function wireFoodOrdersEvents() {
   portalContent.querySelector("[data-food-order-refresh]")?.addEventListener("click", () => {
-    void loadPortalFoodOrders();
+    if (portalState.foodOrdersSection === "history") {
+      void loadPortalFoodOrderHistory({ reset: true });
+    } else {
+      void loadPortalFoodOrders();
+    }
+  });
+  portalContent.querySelector("[data-food-order-section-toggle]")?.addEventListener("click", () => {
+    portalState.foodOrdersSection = portalState.foodOrdersSection === "history" ? "current" : "history";
+    renderFoodOrdersInbox();
+    if (portalState.foodOrdersSection === "history" && !portalState.foodOrderHistoryLoaded) {
+      void loadPortalFoodOrderHistory({ reset: true });
+    }
+  });
+  portalContent.querySelector("[data-food-order-end-shift]")?.addEventListener("click", () => {
+    void endPortalFoodOrderShift();
   });
   portalContent.querySelectorAll("[data-food-order-filter]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -3933,6 +4161,121 @@ function wireFoodOrdersEvents() {
       void updatePortalFoodOrderStatus(button.dataset.foodOrderId || "", button.dataset.foodOrderStatus || "");
     });
   });
+  portalContent.querySelector("[data-food-order-history-more]")?.addEventListener("click", () => {
+    void loadPortalFoodOrderHistory({ reset: false });
+  });
+  portalContent.querySelector("[data-food-order-history-search]")?.addEventListener("input", (event) => {
+    portalState.foodOrderHistorySearch = event.currentTarget.value || "";
+    if (portalState.foodOrderHistoryRefreshTimer) {
+      window.clearTimeout(portalState.foodOrderHistoryRefreshTimer);
+    }
+    portalState.foodOrderHistoryRefreshTimer = window.setTimeout(() => {
+      portalState.foodOrderHistoryRefreshTimer = null;
+      void loadPortalFoodOrderHistory({ reset: true });
+    }, 300);
+  });
+  portalContent.querySelector("[data-food-order-history-date]")?.addEventListener("change", (event) => {
+    portalState.foodOrderHistoryDateFilter = event.currentTarget.value || "last7Days";
+    renderFoodOrdersInbox();
+    void loadPortalFoodOrderHistory({ reset: true });
+  });
+  portalContent.querySelector("[data-food-order-history-status]")?.addEventListener("change", (event) => {
+    portalState.foodOrderHistoryStatusFilter = event.currentTarget.value || "all";
+    void loadPortalFoodOrderHistory({ reset: true });
+  });
+  portalContent.querySelector("[data-food-order-history-from]")?.addEventListener("change", (event) => {
+    portalState.foodOrderHistoryCustomFrom = event.currentTarget.value || "";
+    void loadPortalFoodOrderHistory({ reset: true });
+  });
+  portalContent.querySelector("[data-food-order-history-to]")?.addEventListener("change", (event) => {
+    portalState.foodOrderHistoryCustomTo = event.currentTarget.value || "";
+    void loadPortalFoodOrderHistory({ reset: true });
+  });
+  portalContent.querySelectorAll("[data-food-order-call-log]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const callLogId = button.dataset.foodOrderCallLog || "";
+      if (!callLogId) return;
+      portalState.selectedCallLogId = callLogId;
+      setActiveSection("callLogs");
+      if (!portalState.callLogDetails.has(callLogId)) {
+        void loadPortalCallLogDetail(callLogId);
+      }
+    });
+  });
+}
+
+function portalFoodOrderHistoryFilters() {
+  const currentDay = portalState.foodOrdersContext?.operationalDayKey || dateKeyForToday();
+  let fromDay = currentDay;
+  let toDay = currentDay;
+  switch (portalState.foodOrderHistoryDateFilter) {
+  case "today":
+    break;
+  case "yesterday":
+    fromDay = offsetPortalDayKey(currentDay, -1);
+    toDay = fromDay;
+    break;
+  case "last30Days":
+    fromDay = offsetPortalDayKey(currentDay, -29);
+    break;
+  case "custom": {
+    const first = portalState.foodOrderHistoryCustomFrom || currentDay;
+    const last = portalState.foodOrderHistoryCustomTo || currentDay;
+    fromDay = first <= last ? first : last;
+    toDay = first <= last ? last : first;
+    break;
+  }
+  case "last7Days":
+  default:
+    fromDay = offsetPortalDayKey(currentDay, -6);
+    break;
+  }
+  const statusFilter = portalState.foodOrderHistoryStatusFilter;
+  const statuses = statusFilter === "completed"
+    ? ["completed"]
+    : statusFilter === "cancelled"
+      ? ["cancelled", "canceled"]
+      : [];
+  return {
+    search: portalState.foodOrderHistorySearch,
+    fromDay,
+    toDay,
+    statuses
+  };
+}
+
+function offsetPortalDayKey(dayKey, offset) {
+  const date = new Date(`${dayKey}T12:00:00Z`);
+  if (Number.isNaN(date.getTime())) return dayKey;
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function portalFoodOrderHistoryGroups() {
+  const groups = new Map();
+  for (const order of portalState.foodOrderHistory) {
+    const dayKey = String(order.operationalDayKey || "Earlier Orders");
+    const entries = groups.get(dayKey) || [];
+    entries.push(order);
+    groups.set(dayKey, entries);
+  }
+  return [...groups.entries()]
+    .sort(([left], [right]) => right.localeCompare(left))
+    .map(([dayKey, orders]) => ({
+      dayKey,
+      orders: orders.sort((left, right) => -sortFoodOrders(left, right))
+    }));
+}
+
+function portalFoodOrderHistoryDayLabel(dayKey) {
+  if (dayKey === "Earlier Orders") return dayKey;
+  const currentDay = portalState.foodOrdersContext?.operationalDayKey || dateKeyForToday();
+  if (dayKey === currentDay) return "Today";
+  if (dayKey === offsetPortalDayKey(currentDay, -1)) return "Yesterday";
+  const date = new Date(`${dayKey}T12:00:00Z`);
+  return Number.isNaN(date.getTime())
+    ? dayKey
+    : new Intl.DateTimeFormat(undefined, { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(date);
 }
 
 function foodOrderFilterForKey(key) {
@@ -3964,7 +4307,7 @@ function foodOrderStatusDisplay(order) {
   if (raw === "completed") {
     return { kind: "completed", label: "Completed" };
   }
-  if (raw === "cancelled") {
+  if (raw === "cancelled" || raw === "canceled") {
     return { kind: "cancelled", label: "Cancelled" };
   }
   return { kind: "needsAttention", label: "Needs Attention" };
@@ -3995,8 +4338,22 @@ function foodOrderLineItems(order) {
 }
 
 function foodOrderSubmittedText(order) {
-  const submittedTime = clockTime(order.submittedAt || order.createdAt);
-  return submittedTime ? `Submitted at ${submittedTime}` : "Submitted";
+  const submittedTime = restaurantClockTime(order.submittedAt || order.createdAt, order.operationalTimezone || portalState.foodOrdersContext?.timezone);
+  return submittedTime || "Unknown time";
+}
+
+function restaurantClockTime(value, timezone) {
+  const date = parsePortalDate(value);
+  if (!date) return "";
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: timezone || undefined
+    }).format(date);
+  } catch {
+    return clockTime(value);
+  }
 }
 
 function foodOrderCustomerLine(order) {

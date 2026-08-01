@@ -1758,6 +1758,26 @@ body.portal-food-orders-page .portal-content {
   letter-spacing: -0.02em;
 }
 
+.food-order-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.food-order-section-toggle {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 13px;
+  color: #52e7ef;
+  border: 1px solid rgba(82, 231, 239, 0.24);
+  border-radius: 999px;
+  background: rgba(82, 231, 239, 0.1);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .food-order-refresh {
   min-height: 44px;
   display: inline-flex;
@@ -1773,6 +1793,113 @@ body.portal-food-orders-page .portal-content {
 
 .food-order-refresh:disabled {
   opacity: 0.55;
+}
+
+.food-order-current-policy {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: -2px 2px 14px;
+}
+
+.food-order-current-policy p {
+  flex: 1;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+.food-order-current-policy button {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  color: #ffad78;
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.food-order-current-policy button:disabled {
+  opacity: 0.5;
+}
+
+.food-order-history-controls {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.food-order-history-search {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 13px;
+  color: rgba(255, 255, 255, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.food-order-history-search input {
+  width: 100%;
+  color: #fff;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.food-order-history-search input::placeholder {
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.food-order-history-filters,
+.food-order-history-custom-range {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.food-order-history-filters label,
+.food-order-history-custom-range label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.food-order-history-filters select,
+.food-order-history-custom-range input {
+  min-height: 36px;
+  padding: 0 10px;
+  color: #52e7ef;
+  border: 1px solid rgba(82, 231, 239, 0.2);
+  border-radius: 10px;
+  background: rgba(82, 231, 239, 0.08);
+  font: inherit;
+  font-weight: 800;
+}
+
+.food-order-history-more {
+  width: 100%;
+  min-height: 44px;
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  background: rgba(49, 168, 255, 0.72);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.food-order-history-more:disabled {
+  opacity: 0.56;
 }
 
 .food-order-metric-grid {
@@ -1915,12 +2042,26 @@ body.portal-food-orders-page .portal-content {
   letter-spacing: -0.01em;
 }
 
+.food-order-card-head strong .food-order-submitted-glyph {
+  display: inline;
+  margin: 0 7px 0 0;
+  color: #52e7ef;
+  font-size: 18px;
+  line-height: inherit;
+}
+
 .food-order-card-head span {
   display: block;
   margin-top: 3px;
   color: rgba(255, 255, 255, 0.62);
   font-size: 13px;
   font-weight: 700;
+}
+
+.food-order-card-head .food-order-carryover {
+  color: #ffad78;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .food-order-card-actions {
@@ -2151,6 +2292,16 @@ body.portal-food-orders-page .portal-content {
 
 .food-order-action:disabled {
   opacity: 0.56;
+}
+
+.food-order-call-log-link {
+  justify-self: start;
+  padding: 6px 0;
+  color: #52e7ef;
+  border: 0;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 body.portal-call-logs-page {
