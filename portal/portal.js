@@ -2125,7 +2125,7 @@ async function loadPortalFoodOrderHistory({ reset = true } = {}) {
 }
 
 async function endPortalFoodOrderShift() {
-  if (portalState.foodOrderEndingShift) return;
+  if (portalState.foodOrderEndingShift || !canEndFoodOrderShift()) return;
   const confirmed = window.confirm(
     "End the current shift? Completed and cancelled orders will move to History. Active orders and orders needing attention will remain in Current."
   );
@@ -2636,6 +2636,13 @@ function modulePermission(moduleKey) {
     read: permission?.read === true || permission?.write === true,
     write: permission?.write === true
   };
+}
+
+function canEndFoodOrderShift() {
+  const membership = portalState.membership;
+  return membership?.status === "active"
+    && isFullAccessRole(membership.role)
+    && modulePermission("foodOrders").write;
 }
 
 function renderShell() {
@@ -3877,6 +3884,7 @@ function renderFoodOrdersInbox() {
   pageKicker.textContent = "Operations";
 
   const permission = modulePermission("foodOrders");
+  const canEndShift = canEndFoodOrderShift();
   if (!permission.read) {
     portalContent.innerHTML = `
       <section class="food-orders-page">
@@ -3924,7 +3932,7 @@ function renderFoodOrdersInbox() {
           </div>
           <div class="food-order-current-policy">
             <p>Completed and cancelled orders move to History after the restaurant’s 4 AM day boundary. Unresolved orders stay in Current.</p>
-            ${permission.write ? `<button type="button" data-food-order-end-shift ${portalState.foodOrderEndingShift ? "disabled" : ""}>${portalState.foodOrderEndingShift ? "Ending…" : "End Shift"}</button>` : ""}
+            ${canEndShift ? `<button type="button" data-food-order-end-shift ${portalState.foodOrderEndingShift ? "disabled" : ""}>${portalState.foodOrderEndingShift ? "Ending…" : "End Shift"}</button>` : ""}
           </div>
           <div class="food-order-group">
             <h2>${escapeHTML(activeFilter.title)}</h2>
