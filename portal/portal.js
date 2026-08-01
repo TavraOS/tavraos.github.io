@@ -398,6 +398,7 @@ let portalState = {
   foodOrderHistoryCustomFrom: "",
   foodOrderHistoryCustomTo: "",
   foodOrderHistoryRefreshTimer: null,
+  foodOrderHistoryGeneration: 0,
   foodOrderEndingShift: false,
   expandedFoodOrderIds: new Set(),
   foodOrderUpdatingId: null,
@@ -691,6 +692,7 @@ function resetBusinessScopedPortalState() {
     window.clearTimeout(portalState.foodOrderHistoryRefreshTimer);
   }
   portalState.foodOrderHistoryRefreshTimer = null;
+  portalState.foodOrderHistoryGeneration = 0;
   portalState.foodOrderEndingShift = false;
   portalState.expandedFoodOrderIds = new Set();
   portalState.foodOrderUpdatingId = null;
@@ -2070,13 +2072,17 @@ async function fetchAllPortalCurrentFoodOrders() {
 }
 
 async function loadPortalFoodOrderHistory({ reset = true } = {}) {
-  if ((reset && portalState.foodOrderHistoryLoading) || (!reset && portalState.foodOrderHistoryLoadingMore)) {
+  if (!reset && portalState.foodOrderHistoryLoadingMore) {
     return;
   }
   if (!reset && !portalState.foodOrderHistoryNextCursor) {
     return;
   }
+  const generation = reset
+    ? portalState.foodOrderHistoryGeneration + 1
+    : portalState.foodOrderHistoryGeneration;
   if (reset) {
+    portalState.foodOrderHistoryGeneration = generation;
     portalState.foodOrderHistoryLoading = true;
   } else {
     portalState.foodOrderHistoryLoadingMore = true;
@@ -2091,6 +2097,9 @@ async function loadPortalFoodOrderHistory({ reset = true } = {}) {
       limit: 50,
       ...filters
     });
+    if (generation !== portalState.foodOrderHistoryGeneration) {
+      return;
+    }
     const incoming = Array.isArray(page.orders) ? page.orders : [];
     if (reset) {
       portalState.foodOrderHistory = incoming;
@@ -2102,11 +2111,16 @@ async function loadPortalFoodOrderHistory({ reset = true } = {}) {
     portalState.foodOrdersContext = page.context || portalState.foodOrdersContext;
     portalState.foodOrderHistoryLoaded = true;
   } catch (error) {
+    if (generation !== portalState.foodOrderHistoryGeneration) {
+      return;
+    }
     portalState.foodOrdersError = error instanceof Error ? error.message : String(error);
   } finally {
-    portalState.foodOrderHistoryLoading = false;
-    portalState.foodOrderHistoryLoadingMore = false;
-    renderFoodOrdersInbox();
+    if (generation === portalState.foodOrderHistoryGeneration) {
+      portalState.foodOrderHistoryLoading = false;
+      portalState.foodOrderHistoryLoadingMore = false;
+      renderFoodOrdersInbox();
+    }
   }
 }
 
