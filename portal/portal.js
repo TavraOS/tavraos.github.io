@@ -3800,7 +3800,7 @@ function renderFoodOrderCard(order, canWrite) {
       <button class="food-order-card-main" type="button" data-food-order-toggle="${escapeHTML(orderId)}" aria-expanded="${expanded ? "true" : "false"}">
         <div class="food-order-card-head">
           <div>
-            <strong>${escapeHTML(foodOrderPickupText(order))}</strong>
+            <strong>${escapeHTML(foodOrderSubmittedText(order))}</strong>
             <span>${escapeHTML(foodOrderCustomerLine(order))}</span>
           </div>
           <div class="food-order-card-actions">
@@ -3994,8 +3994,9 @@ function foodOrderLineItems(order) {
   return Array.isArray(order.orderItems) ? order.orderItems : [];
 }
 
-function foodOrderPickupText(order) {
-  return order.submittedAt ? `Pickup ${clockTime(order.submittedAt)}` : "ASAP";
+function foodOrderSubmittedText(order) {
+  const submittedTime = clockTime(order.submittedAt || order.createdAt);
+  return submittedTime ? `Submitted at ${submittedTime}` : "Submitted";
 }
 
 function foodOrderCustomerLine(order) {
