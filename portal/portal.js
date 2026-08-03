@@ -4323,7 +4323,10 @@ function foodOrderStatusDisplay(order) {
   if (!isManualActiveStatus && (printFailed || priceMissing)) {
     return { kind: "needsAttention", label: "Needs Attention" };
   }
-  if (["payment_pending", "payment_tokenized", "confirmed", "submitted", "sent_to_kitchen", "ready"].includes(raw)) {
+  if (["payment_pending", "payment_tokenized"].includes(raw)) {
+    return { kind: "needsAttention", label: "Checkout Stalled" };
+  }
+  if (["confirmed", "submitted", "sent_to_kitchen", "ready"].includes(raw)) {
     return { kind: "active", label: "Active" };
   }
   if (raw === "completed") {
@@ -4336,6 +4339,9 @@ function foodOrderStatusDisplay(order) {
 }
 
 function foodOrderAvailableActions(order) {
+  if (["payment_pending", "payment_tokenized"].includes(String(order.status || ""))) {
+    return [];
+  }
   const kind = foodOrderStatusDisplay(order).kind;
   return [
     { title: "Active", status: "confirmed", kind: "active" },
@@ -4405,6 +4411,10 @@ function foodOrderWarnings(order) {
   switch (order.status) {
   case "draft":
     warnings.push("Caller hung up before confirmation");
+    break;
+  case "payment_pending":
+  case "payment_tokenized":
+    warnings.push("Checkout did not finish");
     break;
   case "payment_failed":
     warnings.push("Payment failed");
