@@ -7535,6 +7535,7 @@ function renderModifierPresentationEditor(item, group, itemName) {
   const options = Array.isArray(group.options) ? group.options : [];
   const presentation = menuKnowledgeDraftForModifierGroup(item, group);
   const effectiveGroup = { ...group, presentation };
+  const sourceName = modifierSourceName(effectiveGroup);
   const displayGroupName = modifierGroupDisplayName(effectiveGroup);
   const optionsSummary = modifierOptionsSummary(effectiveGroup);
   const sampleOption = modifierSampleOption(effectiveGroup);
@@ -7588,7 +7589,7 @@ function renderModifierPresentationEditor(item, group, itemName) {
           autocomplete="off"
           ${portalState.adminSaving ? "disabled" : ""}
         >
-        <p class="menu-modifier-hint">Leave blank to use the Clover modifier group name.</p>
+        <p class="menu-modifier-hint">Leave blank to use the ${escapeHTML(sourceName)} modifier group name.</p>
       </div>
 
       ${options.length ? `
@@ -7597,7 +7598,7 @@ function renderModifierPresentationEditor(item, group, itemName) {
           <div class="menu-modifier-options">
             ${options.map((option) => renderModifierOptionDisplay(itemId, groupId, option, presentation.optionDisplayNames || {})).join("")}
           </div>
-          <p class="menu-modifier-hint">Leave blank to use the Clover modifier name.</p>
+          <p class="menu-modifier-hint">Leave blank to use the ${escapeHTML(sourceName)} modifier name.</p>
         </div>
       ` : ""}
 
@@ -7744,6 +7745,19 @@ function modifierProviderDefaultOptions(group) {
   return options.filter((option) =>
     defaultIds.has(option?.id) || option?.isDefault === true || option?.defaultSelected === true
   );
+}
+
+function modifierSourceName(group) {
+  switch (String(group?.providerRef?.provider || "").trim().toLowerCase()) {
+    case "clover":
+      return "Clover";
+    case "square":
+      return "Square";
+    case "toast":
+      return "Toast";
+    default:
+      return "original menu";
+  }
 }
 
 function modifierVerifiedDefaultOptions(group) {
