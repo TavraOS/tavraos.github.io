@@ -22,6 +22,7 @@ assert.match(page, /<meta name="description" content="[^"]+">/);
 assert.match(page, /<h1[^>]*>[\s\S]*Support Center[\s\S]*<\/h1>/);
 assert.match(page, /<link rel="canonical" href="https:\/\/www\.tavraos\.com\/support\/">/);
 assert.match(page, /application\/ld\+json/);
+assert.match(page, /href="support\.css\?v=2"/);
 assert.ok(page.includes(`href="${deepLink}"`), "The manual launch control must use the canonical deep link.");
 assert.ok(launcher.includes(`const deepLink = "${deepLink}"`), "The automatic launcher must use the canonical deep link.");
 assert.match(launcher, /window\.setTimeout\(launchTavra, 140\)/);
