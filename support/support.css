@@ -216,11 +216,14 @@ h1 {
 
 mark {
   display: inline;
-  padding: 0 0.1em;
+  padding: 0 0.02em;
   color: var(--ink);
-  background: var(--yellow);
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+  background: transparent;
+  text-decoration-line: underline;
+  text-decoration-color: var(--yellow);
+  text-decoration-thickness: 0.13em;
+  text-underline-offset: 0.07em;
+  text-decoration-skip-ink: none;
 }
 
 .support-copy {
