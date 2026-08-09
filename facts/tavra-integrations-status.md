@@ -1,5 +1,14 @@
 # Tavra Integrations Status
 
+**Last reconciled:** August 8, 2026
+
+Current v1 posture:
+
+- Square is the only intended v1 POS. It is `Partial`: production Square/test-Stripe checkout evidence exists, but live-money connected-merchant settlement and physical printer/KDS output are not production-accepted.
+- Clover is approval-dependent. The developer account is in review; separate app approval, production credentials, and real-merchant acceptance still follow.
+- Toast is approval-dependent. Tavra's integration-partner application was submitted approximately July 18, 2026, with no response as of August 8; authoritative tax and real-restaurant acceptance also remain incomplete.
+- Do not describe live restaurant phone payments or kitchen printing as generally available until a merchant has passed Tavra's controlled live-payment, POS-reconciliation, recovery, and exactly-once physical-output acceptance.
+
 Public Tavra pages must be careful with integration wording.
 
 Use these terms precisely:
