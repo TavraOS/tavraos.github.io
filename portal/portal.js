@@ -8331,7 +8331,8 @@ function renderHandoffRoutesModule(routes) {
           `
             ${renderEditableToggleRow("Enabled", `handoff-${route.id}-enabled`, route.enabled === true)}
             ${renderEditableInputRow("Phone number", `handoff-${route.id}-phoneNumber`, route.phoneNumber || "", { type: "tel", placeholder: "+15551234567" })}
-            ${renderEditableTextareaRow("Description", `handoff-${route.id}-description`, route.description || "", { rows: 3 })}
+            ${renderEditableTextareaRow("When should Tavra use this route?", `handoff-${route.id}-description`, route.description || "", { rows: 3, placeholder: "For example: complaints, billing questions, urgent issues" })}
+            <p class="ios-footnote">Describe caller requests that should be directed here. Tavra uses these words as additional routing cues.</p>
             ${renderEditableSelectRow("Timeout", `handoff-${route.id}-timeoutSeconds`, String(route.timeoutSeconds || 15), handoffTimeoutOptions)}
             ${renderEditableSelectRow("Fallback", `handoff-${route.id}-fallback`, route.fallback || "take_message", handoffFallbackOptions)}
             ${renderEditableSelectRow(route.id === "manager" ? "Manager live calls" : "Live calls", `handoff-${route.id}-liveTransferPolicy`, route.liveTransferPolicy || "all_matches", handoffLiveTransferPolicyOptions)}
